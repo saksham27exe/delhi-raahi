@@ -112,6 +112,25 @@ class CrowdService:
             return "MEDIUM"
         return "LOW"
 
+    def predict_all(self, d: date, bucket: int) -> dict[str, np.ndarray]:
+        """Vectorised `predict` for every segment at once (same formulas): DPD (NaN = UNKNOWN),
+        fallback level and supporting tickets. Used for network maps / hotspots."""
+        dt = self.daytype(d)
+        h = self.hist[:, dt, bucket].astype(float)
+        deps = self.deps[:, bucket].astype(float)
+        r = self.seg_route_idx
+        has = r >= 0
+        s, _ = self.forecasts.slot_for(d)
+        p = np.where(has, self.forecasts.pred[np.clip(r, 0, None), s, bucket], np.nan)
+        hr = np.where(has, self.route_hist[np.clip(r, 0, None), dt, bucket], np.nan)
+        k = RATIO_SHRINK_K
+        L = np.where(has, h * (p + k) / (hr + k), h)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            v = np.where(deps > 0, L / deps, np.nan)
+        support = self.support[:, dt, band_index_of_hour(bucket * self.bucket_minutes // 60)]
+        return {"value": v, "fallback_level": np.where(np.isnan(v), 5, np.where(has, 1, 3)),
+                "support": support, "departures": deps}
+
     def predict(self, segment_id: str, d: date, bucket: int) -> SegmentPrediction:
         i = self.seg_index.get(segment_id)
         route_id = str(self.seg_route[i]) if i is not None else segment_id.split(":")[0]

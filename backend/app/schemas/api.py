@@ -45,3 +45,20 @@ class Health(BaseModel):
     load_seconds: float
     model_version: str | None
     data_window: list[str] | None
+
+
+class LegRef(BaseModel):
+    route_id: str
+    board_stop_id: str
+    alight_stop_id: str
+
+
+class FareQuoteRequest(BaseModel):
+    legs: list[LegRef] = Field(..., min_length=1, max_length=3)
+    passengers: int = Field(1, ge=1, le=6)
+    women_free: int = Field(0, ge=0, le=6)
+    bus_types: list[Literal["ac", "non_ac"] | None] | None = None
+
+
+class TicketVerifyRequest(BaseModel):
+    qr_payload: str = Field(..., max_length=4000)

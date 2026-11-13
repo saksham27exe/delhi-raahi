@@ -142,12 +142,31 @@ Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ no
 - Tests: 58 passing (+8: slabs/discount, unknown & profiled bus type, server-side quote, bad requests,
   mixed fleet, sign/verify/expiry/tamper/foreign key, fares on journeys).
 
-## Phase 8 — API ⬜ (partly written)  ← NEXT
-- Routers: health, journeys (written), live (vehicles/arrivals), fares, tickets (demo), crowding
-  (route/segment/forecast/hotspots/map), demand, analytics, stops/routes, `main.py`.
-- Responses carry en + hi summary strings where shown to users. Pytest + TestClient.
+## Phase 8 — API ✅
+Run: `cd backend && ../.venv/Scripts/python -m uvicorn app.main:app --port 8000` → docs at `/docs`.
+Startup loads everything once (~6 s) and starts the GTFS-RT poller if `TS_API_KEY` is set.
 
-## Phase 9 — PWA frontend ⬜
+| Area | Endpoints |
+|---|---|
+| meta | `GET /api/v1/health` (components, load errors, model version) |
+| stops & routes | `GET /stops/search?q=`, `/stops/nearby?lat&lon`, `/stops/{id}`, `/routes/search?q=717`, `/routes/{id}` |
+| journeys | `POST /journeys/search`, `POST /journeys/advisor` |
+| live | `GET /live/status`, `/live/vehicles?route_id&bbox`, `/live/arrivals/{stop_id}` |
+| fares & demo tickets | `GET /fares/rules`, `POST /fares/quote`, `POST /tickets/book`, `POST /tickets/verify` |
+| crowding | `GET /crowd/route/{id}?date` (through the day), `?time=HH:MM` (stop by stop), `/crowd/segment/{id}`, `/crowd/hotspots?time` |
+| insights | `GET /insights/model` (model evaluations, fare validation, data quality, limitations) |
+
+- User-facing answers carry `summary: {en, hi}` (journeys, arrivals, fare quote, crowd) — one sentence each,
+  reusable by the later voice assistant (`services/summaries.py`).
+- Every crowd response states the metric, its definition and `forecast_basis`.
+- Hotspots use a vectorised `CrowdService.predict_all` (84 k segments in ~80 ms), restricted to
+  MEDIUM+ evidence; a test checks it equals the single-segment prediction.
+- Real-data latency (warm connection): health 39 ms, stop search 37 ms, hotspots 79 ms, route day profile
+  130 ms, journey search ~1.1 s. **Advisor ~7.8 s** (7 full searches) → frontend loads it on demand;
+  optimise later if needed.
+- Tests: 65 passing (+7 API tests via TestClient on the synthetic network + crowd model).
+
+## Phase 9 — PWA frontend ⬜  ← NEXT
 React + TS + Vite + Tailwind + Leaflet + Recharts + i18next (en/hi) + PWA manifest/service worker.
 Bottom-tab app:
 1. **Plan** — search (stop / map / my location), crowd-labelled options, journey detail with per-section
