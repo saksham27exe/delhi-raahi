@@ -106,13 +106,24 @@ Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ no
 - Tests: 44 passing (+7: direct, transfer with walk, no service / wrong direction / bad stop / bad mode,
   crowd at crossing time, preference changes ranking, stop search, advisor).
 
-## Phase 6 — Live bus tracking ⬜  ← NEXT
-- Backend poller for GTFS-RT VehiclePositions (key in `.env`), in-memory latest positions.
-- Match vehicles to route/trip (feed carries GTFS route_id/trip_id), estimate delay vs schedule,
-  next-arrival estimate per stop (labelled "estimated from live position").
-- Graceful fallback to scheduled times when the feed is down.
+## Phase 6 — Live bus tracking ✅
+- `services/live_service.py`: background poller (30 s, key only in a request header) → in-memory tracker.
+  Started by `state.start_live()`; without a key the app runs on timetables.
+- Real feed (13 Nov, ~23:50): ~1,000 buses, all fresh positions. **route_id matches static GTFS (~94 %);
+  trip_id does NOT** (runtime ids like `1597_23_48_8177`), and there is no stop_id or occupancy.
+- Matching: route → snap position onto each pattern's stop polyline (median 77 m off-route) → scheduled
+  trip with start within 30 min of `trip.start_time` whose schedule is closest at that position.
+  Matches with |delay| > 60 min are rejected as wrong. ~37 % of buses matched to a trip; delay median −1.6 min,
+  P10/P90 −28/+18 min (late-night snapshot; re-check in daytime).
+- Arrivals board per stop: tracked buses = scheduled time + live delay (`live_estimate`); untracked but moving
+  buses = typical running time (`live_estimate_typical_running_time`); everything else `scheduled`.
+  Stale (>10 min) positions, >300 m off-route, parked unmatched buses and terminal stops are excluded.
+  Feed down → timetable with a note. ~6 ms per stop.
+- Feed speed is m/s (checked against displacement between two polls).
+- Tests: 50 passing (+6: parse, snap & delay, live + timetable merge without duplicates, unusable vehicles,
+  outage fallback & poller survives errors, terminal stop).
 
-## Phase 7 — Fare engine + demo booking ⬜
+## Phase 7 — Fare engine + demo booking ⬜  ← NEXT
 - Fare from GTFS `fare_stage` (AC / non-AC), validated against ticket amounts in the ONDC data.
 - Demo booking: select journey → fare → confirm → QR ticket in on-device wallet; always watermarked DEMO.
 

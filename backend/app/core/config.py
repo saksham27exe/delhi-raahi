@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     crowdwise_data_dir: Path = REPO_ROOT / "data"
     crowdwise_models_dir: Path = REPO_ROOT / "models"
     crowdwise_bucket_minutes: int = 30
+    live_enabled: bool = True          # poll GTFS-RT when an API key is present
+    live_poll_seconds: float = 30.0
     crowdwise_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ---- derived paths -------------------------------------------------

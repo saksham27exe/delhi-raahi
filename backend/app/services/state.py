@@ -23,6 +23,8 @@ class AppState:
     network: object | None = None
     crowd: object | None = None
     journeys: object | None = None
+    live: object | None = None        # LiveTracker
+    live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
     model_report: dict | None = None
@@ -86,9 +88,24 @@ def load_state(settings: Settings | None = None) -> AppState:
     if st.network is not None:
         from app.services.journey_service import JourneyService
         st.journeys = JourneyService(st.network, st.crowd)
+        from app.services.live_service import LiveTracker
+        st.live = LiveTracker(st.network)
     st.load_seconds = round(time.time() - t0, 1)
     log.info("state loaded in %ss; errors: %s", st.load_seconds, st.load_errors or "none")
     return st
+
+
+def start_live(st: AppState) -> bool:
+    """Start the GTFS-RT poller (called by the API on startup). Without a key the app runs on timetables."""
+    s = st.settings
+    if st.live is None or not s.live_enabled or not s.ts_api_key:
+        if not s.ts_api_key:
+            st.load_errors["live_feed"] = "TS_API_KEY not set in .env: live bus positions disabled, timetable only."
+        return False
+    from app.services.live_service import LivePoller, transport_stack_fetcher
+    st.live_poller = LivePoller(st.live, transport_stack_fetcher(s.ts_api_base, s.ts_api_key), s.live_poll_seconds)
+    st.live_poller.start()
+    return True
 
 
 def bucket_of(hhmm: str, bucket_minutes: int) -> int:
