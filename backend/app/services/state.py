@@ -24,6 +24,8 @@ class AppState:
     crowd: object | None = None
     journeys: object | None = None
     live: object | None = None        # LiveTracker
+    fares: object | None = None       # FareService
+    tickets: object | None = None     # TicketService (demo)
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
@@ -86,8 +88,14 @@ def load_state(settings: Settings | None = None) -> AppState:
     except Exception as e:  # noqa: BLE001
         st.load_errors["crowd_model"] = f"{type(e).__name__}: {e}. Run scripts/train_model.py."
     if st.network is not None:
+        from app.fare_engine.fares import FareService
         from app.services.journey_service import JourneyService
-        st.journeys = JourneyService(st.network, st.crowd)
+        from app.services.ticket_service import TicketService
+        st.fares = FareService(st.network, P)
+        if not st.fares.profile:
+            st.load_errors["fare_profile"] = "route_fare_profile.parquet missing: bus type unknown. Run scripts/validate_fares.py."
+        st.tickets = TicketService(st.fares, s.demo_ticket_secret)
+        st.journeys = JourneyService(st.network, st.crowd, st.fares)
         from app.services.live_service import LiveTracker
         st.live = LiveTracker(st.network)
     st.load_seconds = round(time.time() - t0, 1)

@@ -1,0 +1,39 @@
+{
+  "method": "slab fare on straight-line stop-to-stop distance x 0.9 (digital) vs amount paid per passenger",
+  "all_resolved_tickets": {
+    "tickets": 2238435,
+    "exact_match": 0.8196,
+    "within_one_slab": 0.9942,
+    "mean_abs_error_inr": 0.845,
+    "mean_error_inr": 0.056
+  },
+  "standard_fare_tickets": {
+    "tickets": 2223852,
+    "exact_match": 0.825,
+    "within_one_slab": 0.999,
+    "mean_abs_error_inr": 0.792,
+    "mean_error_inr": 0.114
+  },
+  "non_ac": {
+    "tickets": 465519,
+    "exact_match": 0.8734,
+    "within_one_slab": 0.9994,
+    "mean_abs_error_inr": 0.572,
+    "mean_error_inr": 0.125
+  },
+  "ac": {
+    "tickets": 1758333,
+    "exact_match": 0.8121,
+    "within_one_slab": 0.9989,
+    "mean_abs_error_inr": 0.851,
+    "mean_error_inr": 0.111
+  },
+  "nonstandard_fare_share": 0.0065,
+  "note": "Non-standard amounts come from interstate routes (e.g. 8, 33, 34, 392, 443) with higher slabs; most remaining misses are rides close to a slab boundary (road distance > straight line).",
+  "routes_profiled": 2242,
+  "bus_type_counts": {
+    "ac": 1722,
+    "non_ac": 379,
+    "mixed": 141
+  }
+}

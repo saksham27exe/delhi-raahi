@@ -1,0 +1,15 @@
+{
+  "_doc": "Delhi city bus (DTC / cluster) distance slabs. Fares in INR per passenger per bus. Validated against Oct 2026 ONDC e-tickets: see models/metrics/fare_validation.json. Edit here, not in code.",
+  "currency": "INR",
+  "distance_basis": "sum of straight-line distances between consecutive stops of the bus's stop pattern",
+  "non_ac": {"slabs_km": [4, 10], "fares": [5, 10, 15]},
+  "ac": {"slabs_km": [4, 8, 12], "fares": [10, 15, 20, 25]},
+  "digital_discount_pct": 10,
+  "_digital_doc": "Every e-ticket in the October data is exactly 90% of the slab fare (4.5 / 9 / 13.5 / 18 / 22.5).",
+  "bus_type_from_ticket_share": {"ac_if_at_least": 0.8, "non_ac_if_at_most": 0.2},
+  "nonstandard_route_if_standard_share_below": 0.9,
+  "concessions": [
+    {"id": "women_free", "en": "Free travel for women on DTC and cluster buses (pink ticket / Saheli card). Check the current eligibility rules before travelling.",
+     "hi": "डीटीसी और क्लस्टर बसों में महिलाओं के लिए मुफ़्त यात्रा (पिंक टिकट / सहेली कार्ड)। यात्रा से पहले मौजूदा पात्रता नियम देख लें।"}
+  ]
+}

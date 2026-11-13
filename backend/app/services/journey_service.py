@@ -39,8 +39,9 @@ def hhmm(sec: float) -> str:
 
 
 class JourneyService:
-    def __init__(self, net: Network, crowd: CrowdService | None):
+    def __init__(self, net: Network, crowd: CrowdService | None, fares=None):
         self.net = net
+        self.fares = fares  # FareService | None
         self.search_engine = JourneySearch(net)
         self.crowd = crowd
         st = net.stops.copy()
@@ -219,7 +220,8 @@ class JourneyService:
                          "alight_stop_id": p.stops[leg.alight_pos], "alight_stop": self.net.stop_name(p.stops[leg.alight_pos]),
                          "departure": hhmm(leg.dep_s), "arrival": hhmm(leg.arr_s),
                          "in_vehicle_minutes": round((leg.arr_s - leg.dep_s) / 60, 1),
-                         "stops": leg.alight_pos - leg.board_pos, "segments": segs})
+                         "stops": leg.alight_pos - leg.board_pos, "segments": segs,
+                         "fare": self.fares.leg_fare(leg.pattern_idx, leg.board_pos, leg.alight_pos) if self.fares else None})
         mean_ci = known_ci_t / known_t if known_t > 0 else None
         total = max(ivt, 1e-6)
         if evid_time["INSUFFICIENT"] / total > 0.5:
@@ -240,6 +242,7 @@ class JourneyService:
             "transfer_stops": [{"alight": self.net.stop_name(a), "board": self.net.stop_name(b)} for a, b in c.transfer_stops],
             "evidence_quality": evidence, "high_demand_segments": int(high),
             "evidence_time_share": {k: round(v / total, 3) for k, v in evid_time.items()},
+            "fare": self.fares.journey_fare([l["fare"] for l in legs]) if self.fares else None,
         }
         key = "|".join(l["route"] for l in legs)
         return ScoredJourney(key=key, duration_min=c.duration_s / 60, exposure=exposure, transfers=c.transfers,
@@ -260,7 +263,7 @@ class JourneyService:
             "high_demand_segments": p["high_demand_segments"], "evidence_quality": p["evidence_quality"],
             "evidence_time_share": p["evidence_time_share"], "walk": {"origin_min": p["walk_origin_min"],
             "transfer_min": p["walk_transfer_min"], "destination_min": p["walk_dest_min"]},
-            "transfer_stops": p["transfer_stops"], "explanation": j.explanation, "legs": p["legs"],
+            "transfer_stops": p["transfer_stops"], "explanation": j.explanation, "legs": p["legs"], "fare": p["fare"],
         }
 
 

@@ -123,11 +123,26 @@ Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ no
 - Tests: 50 passing (+6: parse, snap & delay, live + timetable merge without duplicates, unusable vehicles,
   outage fallback & poller survives errors, terminal stop).
 
-## Phase 7 — Fare engine + demo booking ⬜  ← NEXT
-- Fare from GTFS `fare_stage` (AC / non-AC), validated against ticket amounts in the ONDC data.
-- Demo booking: select journey → fare → confirm → QR ticket in on-device wallet; always watermarked DEMO.
+## Phase 7 — Fare engine + demo booking ✅
+- Ticket data: every e-ticket is exactly 90 % of a DTC slab fare (non-AC 4.5/9/13.5, AC 9/13.5/18/22.5)
+  → 10 % digital discount. GTFS `fare_stage` is mostly 0 and `stop_dist` empty → fares use distance.
+- `fare_engine/fare_rules.json` (editable): non-AC ₹5/10/15 (≤4 / ≤10 / >10 km), AC ₹10/15/20/25
+  (≤4 / ≤8 / ≤12 / >12 km), distance = straight line between consecutive stops along the bus's pattern.
+- **Validation** (`scripts/validate_fares.py` → `metrics/fare_validation.json`, 2.24 M resolved tickets):
+  exact rupee match 82 % (non-AC 87 %, AC 81 %), within one slab 99.4 %, mean error +₹0.06.
+  Misses are near slab boundaries; 0.65 % non-standard amounts = interstate routes (8, 33, 34, 392, 443…),
+  flagged per route with a note.
+- Bus type per route from AC e-ticket share (`route_fare_profile.parquet`): 1,722 AC, 379 non-AC,
+  141 mixed. Unknown/mixed → both fares shown (range); booking prices mixed fleets at AC unless chosen.
+- Journeys now carry per-leg and total fares (one ticket per bus).
+- `services/ticket_service.py` (demo): quote → book → verify. Server recomputes fares (client prices
+  ignored); women-free passengers priced 0 (concession text en/hi, "check current rules");
+  ticket = HMAC-signed QR payload (`DEMO-…`, valid 120 min), stateless, kept in the on-device wallet;
+  watermark en/hi "DEMO TICKET — not valid for travel, no payment taken".
+- Tests: 58 passing (+8: slabs/discount, unknown & profiled bus type, server-side quote, bad requests,
+  mixed fleet, sign/verify/expiry/tamper/foreign key, fares on journeys).
 
-## Phase 8 — API ⬜ (partly written)
+## Phase 8 — API ⬜ (partly written)  ← NEXT
 - Routers: health, journeys (written), live (vehicles/arrivals), fares, tickets (demo), crowding
   (route/segment/forecast/hotspots/map), demand, analytics, stops/routes, `main.py`.
 - Responses carry en + hi summary strings where shown to users. Pytest + TestClient.
