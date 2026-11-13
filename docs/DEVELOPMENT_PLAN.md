@@ -166,18 +166,34 @@ Startup loads everything once (~6 s) and starts the GTFS-RT poller if `TS_API_KE
   optimise later if needed.
 - Tests: 65 passing (+7 API tests via TestClient on the synthetic network + crowd model).
 
-## Phase 9 — PWA frontend ⬜  ← NEXT
-React + TS + Vite + Tailwind + Leaflet + Recharts + i18next (en/hi) + PWA manifest/service worker.
-Bottom-tab app:
-1. **Plan** — search (stop / map / my location), crowd-labelled options, journey detail with per-section
-   crowd, "Track bus" and "Get ticket" actions, departure advisor.
-2. **Live** — nearby stops and live buses on a map, arrivals with crowd level.
-3. **Tickets** — demo ticket wallet (QR).
-4. **Insights** — crowd map, route demand charts, model & data transparency.
-5. **Profile** — saved places, recent trips, language, theme, accessibility.
-Mobile-first, light/dark, loading/empty/error states, screen-reader tested.
+## Phase 9 — PWA frontend ✅ (first version)
+Run: backend `uvicorn app.main:app --port 8000`, then `cd frontend && npm run dev` → http://localhost:5173
+(`API_PROXY=http://127.0.0.1:8010 npm run dev` if the backend runs on another port).
 
-## Phase 10 — Submission ⬜
+- React 18 + TS + Vite 5 + react-router + i18next + react-leaflet (OpenStreetMap) + qrcode; plain CSS with
+  design tokens instead of Tailwind, small SVG chart instead of Recharts (lean bundle: 144 kB gzip JS).
+- PWA: manifest + service worker (vite-plugin-pwa); stops/routes/fare rules/insights cached
+  stale-while-revalidate, map tiles cache-first; live data and journeys never served from cache.
+- Tabs: **Plan** (stop combobox + my location, now/date-time, fastest/balanced/least-crowded, journey cards
+  with crowd strip, labels, fare; departure advisor on demand) → **Journey** (summary, crowd-coloured map,
+  per-leg timeline with per-segment crowd, Track bus, Get demo ticket) · **Live** (stop search / nearby,
+  arrivals with live/timetable basis and delay, buses on map, 30 s refresh paused when hidden, route filter)
+  · **Tickets** (on-device wallet, DEMO watermark + banner, QR, verify, delete) · **Insights** (route
+  through-the-day chart, hotspot map by time, model vs baseline numbers, fare accuracy, limitations) ·
+  **Profile** (language, theme, larger text, high contrast, saved places, clear recent, about/privacy).
+- Booking dialog: passengers / women-free steppers, AC/non-AC choice for mixed fleets, server quote.
+- English + Hindi for every UI string (top-bar toggle + Profile); test enforces identical keys/placeholders.
+- Accessibility: skip link, landmarks, focus moved to page heading on navigation, ARIA combobox for stop
+  search, aria-pressed toggles, live regions for results/arrivals, colour never the only signal (text
+  badges, map tooltips + lists, chart has a screen-reader table), 44 px targets, reduced motion,
+  safe-area insets, storage failures never break the app.
+- Tests: `npm test` 5 (i18n parity, Delhi time, storage incl. blocked storage); `npm run build` type-checks.
+- **Not yet verified in a real browser by me** (no browser tool this session): needs a manual pass on phone
+  + desktop, a screen reader pass (TalkBack/NVDA), and Lighthouse PWA/a11y.
+- Known gaps: backend notes, ranking explanations and advisor reasons are English only; stop names are
+  English (GTFS has no Hindi names).
+
+## Phase 10 — Submission ⬜  ← NEXT
 README, `docs/technical_note.md` (methodology, assumptions, limitations), demo script + video,
 reproducible setup (`requirements.txt`, `docker-compose.yml`), final test run, git history clean.
 
