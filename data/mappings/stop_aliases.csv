@@ -1,0 +1,7 @@
+# Reviewed aliases: ticket stop name -> GTFS stop name (or one '/'-part of it).
+# Only abbreviations / alternate names that the generic matcher cannot resolve. Applied per route.
+ticket_name,gtfs_name
+S.J. Hospital,Safdurjung Hospital
+S J Hospital,Safdurjung Hospital
+Safdarjung Hospital,Safdurjung Hospital
+P.S. Pahar Gunj,Police Station Paharganj

@@ -1,0 +1,12 @@
+{
+  "_doc": "Weights of the normalised cost J = w_time*T + w_crowd*E + w_transfer*X + w_walk*W. Each component is min-max normalised across the candidate set of one search (0 = best candidate, 1 = worst). Edit here, not in code.",
+  "modes": {
+    "fastest":       {"w_time": 1.0, "w_crowd": 0.15, "w_transfer": 0.25, "w_walk": 0.15},
+    "balanced":      {"w_time": 0.5, "w_crowd": 0.5,  "w_transfer": 0.25, "w_walk": 0.15},
+    "least_crowded": {"w_time": 0.2, "w_crowd": 1.0,  "w_transfer": 0.15, "w_walk": 0.1}
+  },
+  "least_crowded_max_duration_ratio": 1.6,
+  "unknown_crowd_index_imputation": 0.75,
+  "_unknown_doc": "Segments with no defensible prediction are scored at the network 75th percentile (conservative) so missing data never looks like an empty bus.",
+  "max_results": 6
+}

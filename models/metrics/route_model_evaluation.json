@@ -1,0 +1,349 @@
+{
+  "meta": {
+    "model_version": "route-demand-v1",
+    "model_type": "LightGBM (tweedie) with locally adaptive split-conformal 80% intervals",
+    "target": "observed e-ticket passengers per route-direction per time bucket",
+    "bucket_minutes": 30,
+    "horizon_days": 7,
+    "features": [
+      "lag7",
+      "lag14",
+      "lag21",
+      "lag28",
+      "lag7_is_holiday",
+      "sdow_mean",
+      "sdow_std",
+      "lag7_prev_b",
+      "lag7_next_b",
+      "daytype_mean_b",
+      "daytype_mean_b_prev",
+      "daytype_mean_b_next",
+      "daytype_mean_day",
+      "all_mean_b",
+      "route_mean_day",
+      "route_bucket_share",
+      "n_hist_days",
+      "dow",
+      "is_weekend",
+      "is_holiday",
+      "bucket",
+      "hour_sin",
+      "hour_cos"
+    ],
+    "training_period": [
+      "2026-10-08",
+      "2026-10-24"
+    ],
+    "validation_period": [
+      "2026-10-22",
+      "2026-10-24"
+    ],
+    "test_period": [
+      "2026-10-25",
+      "2026-10-31"
+    ],
+    "dataset_version": "ondc_eticket_2026_10",
+    "n_routes": 1731,
+    "boosting_rounds": 189,
+    "params": {
+      "objective": "tweedie",
+      "tweedie_variance_power": 1.3,
+      "learning_rate": 0.05,
+      "num_leaves": 63,
+      "min_data_in_leaf": 200,
+      "feature_fraction": 0.85,
+      "bagging_fraction": 0.8,
+      "bagging_freq": 1,
+      "lambda_l2": 1.0,
+      "verbose": -1,
+      "seed": 42,
+      "num_threads": 0
+    },
+    "selected_on_validation": "lightgbm",
+    "demand_class_thresholds": [
+      0.0,
+      2.0,
+      7.0
+    ],
+    "created_at": "2026-11-13T22:57:38",
+    "train_seconds": 249.7
+  },
+  "validation": {
+    "naive_last_week": {
+      "all_buckets": {
+        "mae": 0.8036,
+        "rmse": 2.1364,
+        "wape": 0.6887,
+        "n": 249264,
+        "total_actual": 290825.0,
+        "total_predicted": 285646.0
+      },
+      "service_hours": {
+        "mae": 1.0609,
+        "rmse": 2.4613,
+        "wape": 0.6855,
+        "n": 186948,
+        "total_actual": 289339.0,
+        "total_predicted": 284217.0
+      },
+      "macro_f1_demand_class": 0.667
+    },
+    "same_weekday_avg": {
+      "all_buckets": {
+        "mae": 0.7135,
+        "rmse": 1.8149,
+        "wape": 0.6115,
+        "n": 249264,
+        "total_actual": 290825.0,
+        "total_predicted": 287441.3
+      },
+      "service_hours": {
+        "mae": 0.9416,
+        "rmse": 2.0912,
+        "wape": 0.6084,
+        "n": 186948,
+        "total_actual": 289339.0,
+        "total_predicted": 286117.2
+      },
+      "macro_f1_demand_class": 0.699
+    },
+    "daytype_seasonal_avg": {
+      "all_buckets": {
+        "mae": 0.6646,
+        "rmse": 1.6495,
+        "wape": 0.5696,
+        "n": 249264,
+        "total_actual": 290825.0,
+        "total_predicted": 284286.9
+      },
+      "service_hours": {
+        "mae": 0.8768,
+        "rmse": 1.9005,
+        "wape": 0.5665,
+        "n": 186948,
+        "total_actual": 289339.0,
+        "total_predicted": 282980.8
+      },
+      "macro_f1_demand_class": 0.7151
+    },
+    "random_forest": {
+      "all_buckets": {
+        "mae": 0.6518,
+        "rmse": 1.607,
+        "wape": 0.5587,
+        "n": 249264,
+        "total_actual": 290825.0,
+        "total_predicted": 270296.6
+      },
+      "service_hours": {
+        "mae": 0.8587,
+        "rmse": 1.8516,
+        "wape": 0.5548,
+        "n": 186948,
+        "total_actual": 289339.0,
+        "total_predicted": 268772.3
+      },
+      "macro_f1_demand_class": 0.7095
+    },
+    "lightgbm": {
+      "all_buckets": {
+        "mae": 0.6482,
+        "rmse": 1.611,
+        "wape": 0.5556,
+        "n": 249264,
+        "total_actual": 290825.0,
+        "total_predicted": 267233.9
+      },
+      "service_hours": {
+        "mae": 0.8545,
+        "rmse": 1.8563,
+        "wape": 0.5521,
+        "n": 186948,
+        "total_actual": 289339.0,
+        "total_predicted": 265837.0
+      },
+      "macro_f1_demand_class": 0.7065
+    }
+  },
+  "test": {
+    "naive_last_week": {
+      "all_buckets": {
+        "mae": 0.8101,
+        "rmse": 2.2474,
+        "wape": 0.7155,
+        "n": 581616,
+        "total_actual": 658474.0,
+        "total_predicted": 567301.0
+      },
+      "service_hours": {
+        "mae": 1.0692,
+        "rmse": 2.5894,
+        "wape": 0.7121,
+        "n": 436212,
+        "total_actual": 654950.0,
+        "total_predicted": 563931.0
+      },
+      "macro_f1_demand_class": 0.6446
+    },
+    "same_weekday_avg": {
+      "all_buckets": {
+        "mae": 0.7011,
+        "rmse": 1.8075,
+        "wape": 0.6193,
+        "n": 581616,
+        "total_actual": 658474.0,
+        "total_predicted": 634270.6
+      },
+      "service_hours": {
+        "mae": 0.9249,
+        "rmse": 2.0822,
+        "wape": 0.616,
+        "n": 436212,
+        "total_actual": 654950.0,
+        "total_predicted": 631160.9
+      },
+      "macro_f1_demand_class": 0.6958
+    },
+    "daytype_seasonal_avg": {
+      "all_buckets": {
+        "mae": 0.6563,
+        "rmse": 1.6483,
+        "wape": 0.5797,
+        "n": 581616,
+        "total_actual": 658474.0,
+        "total_predicted": 636622.5
+      },
+      "service_hours": {
+        "mae": 0.8652,
+        "rmse": 1.8984,
+        "wape": 0.5763,
+        "n": 436212,
+        "total_actual": 654950.0,
+        "total_predicted": 633524.8
+      },
+      "macro_f1_demand_class": 0.7124
+    },
+    "random_forest": {
+      "all_buckets": {
+        "mae": 0.6579,
+        "rmse": 1.624,
+        "wape": 0.5811,
+        "n": 581616,
+        "total_actual": 658474.0,
+        "total_predicted": 631040.2
+      },
+      "service_hours": {
+        "mae": 0.866,
+        "rmse": 1.8706,
+        "wape": 0.5768,
+        "n": 436212,
+        "total_actual": 654950.0,
+        "total_predicted": 627215.5
+      },
+      "macro_f1_demand_class": 0.7126
+    },
+    "lightgbm": {
+      "all_buckets": {
+        "mae": 0.66,
+        "rmse": 1.6231,
+        "wape": 0.583,
+        "n": 581616,
+        "total_actual": 658474.0,
+        "total_predicted": 650218.9
+      },
+      "service_hours": {
+        "mae": 0.8693,
+        "rmse": 1.8696,
+        "wape": 0.5789,
+        "n": 436212,
+        "total_actual": 654950.0,
+        "total_predicted": 646508.3
+      },
+      "macro_f1_demand_class": 0.7174
+    }
+  },
+  "interval_coverage_test": {
+    "nominal": 0.8,
+    "all_buckets": 0.7946,
+    "service_hours": 0.7302,
+    "conformal_q": 0.5848,
+    "mean_width_service_hours": 1.366
+  },
+  "noise_analysis": {
+    "poisson_noise_floor_mae_service_hours": 0.6473,
+    "lightgbm_mae_service_hours": 0.8693,
+    "mean_actual_per_bucket": 1.501,
+    "coarser_aggregation_test": {
+      "route_hour": {
+        "lightgbm_wape": 0.4492,
+        "seasonal_avg_wape": 0.4462,
+        "n": 218106
+      },
+      "route_day": {
+        "lightgbm_wape": 0.1625,
+        "seasonal_avg_wape": 0.1664,
+        "n": 12117
+      },
+      "network_bucket": {
+        "lightgbm_wape": 0.0853,
+        "seasonal_avg_wape": 0.0877,
+        "n": 252
+      }
+    }
+  },
+  "rolling_backtest": [
+    {
+      "test_date": "2026-10-22",
+      "lightgbm_mae": 0.8779,
+      "baseline_same_weekday_mae": 0.9588,
+      "lightgbm_wape": 0.5397,
+      "baseline_same_weekday_wape": 0.5894
+    },
+    {
+      "test_date": "2026-10-25",
+      "lightgbm_mae": 0.6314,
+      "baseline_same_weekday_mae": 0.642,
+      "lightgbm_wape": 0.701,
+      "baseline_same_weekday_wape": 0.7128
+    },
+    {
+      "test_date": "2026-10-28",
+      "lightgbm_mae": 0.9017,
+      "baseline_same_weekday_mae": 0.9647,
+      "lightgbm_wape": 0.5262,
+      "baseline_same_weekday_wape": 0.563
+    },
+    {
+      "test_date": "2026-10-31",
+      "lightgbm_mae": 0.8314,
+      "baseline_same_weekday_mae": 0.8568,
+      "lightgbm_wape": 0.5755,
+      "baseline_same_weekday_wape": 0.5931
+    }
+  ],
+  "feature_importance_gain": {
+    "lag7": 7310.5,
+    "lag14": 38581.8,
+    "lag21": 4996.7,
+    "lag28": 0.0,
+    "lag7_is_holiday": 3731.7,
+    "sdow_mean": 15259.4,
+    "sdow_std": 22827.0,
+    "lag7_prev_b": 46164.2,
+    "lag7_next_b": 41610.7,
+    "daytype_mean_b": 5770847.2,
+    "daytype_mean_b_prev": 1013289.8,
+    "daytype_mean_b_next": 743547.6,
+    "daytype_mean_day": 182781.9,
+    "all_mean_b": 26054099.7,
+    "route_mean_day": 133550.1,
+    "route_bucket_share": 199259.0,
+    "n_hist_days": 272684.2,
+    "dow": 81185.8,
+    "is_weekend": 3302.7,
+    "is_holiday": 12052.2,
+    "bucket": 860256.1,
+    "hour_sin": 70069.8,
+    "hour_cos": 41195.5
+  }
+}

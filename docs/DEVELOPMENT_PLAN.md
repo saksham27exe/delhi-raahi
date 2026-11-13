@@ -1,0 +1,128 @@
+# DelhiRaahi — Development Plan
+
+**DelhiRaahi** (working name) is a complete Delhi travel app — bus first, metro later — whose
+differentiator is crowd intelligence (Transport Stack Hackathon 2026, Problem 2).
+Phase 1 deadline: **24 Nov 2026, 23:59 IST** (submission: repo + README, technical note, demo video).
+Rule: each phase ends with something that **runs and is tested** before the next phase starts.
+
+## Product decisions (agreed 13 Nov 2026)
+| Topic | Decision |
+|---|---|
+| Platform | Installable mobile-first **PWA** (React). Capacitor wrap for stores later if needed. |
+| Scope v1 | Bus only: plan route · check crowd · live bus tracking (GTFS-RT) · fare · demo booking + ticket wallet. |
+| Crowd | Shown on every screen (results, journey detail, live bus, stop arrivals), not a separate silo. |
+| Booking | **Demo flow**, every ticket marked "Demo ticket — not valid for travel, no payment". Real ONDC booking = later goal (ask organisers about a sandbox). |
+| Accounts | None in v1; saved places, recent trips and tickets stored on device. |
+| Languages | **English + Hindi from day 1** (i18n framework, all UI strings translated); more languages later. |
+| Accessibility | WCAG-minded from day 1 (semantic HTML, ARIA, screen-reader labels, large touch targets, no colour-only crowd cues) — the base for the voice feature. |
+| Multimodal | Metro etc. later; router and data model kept mode-agnostic so it is an extension, not a rewrite. |
+| Bonus (later) | **Voice assistant for blind / low-vision users**: ask in Hindi or English for bus info, next arrival, crowd and ticket price; spoken answers. |
+
+### Design consequences of the bonus feature (build now, cheaply)
+- Every user-facing answer exists as a **structured API response** (route, next bus, fare, crowd) so a voice
+  layer can call the same endpoints the screens use.
+- Backend returns **human-readable summary strings in en + hi** next to numbers (e.g. crowd explanation).
+- Stop-name search tolerant to spelling/transliteration (fuzzy matching already in place); Hindi stop names
+  need a transliteration table (GTFS names are English only).
+- Voice stack options (decide in that phase): browser Web Speech API (hi-IN / en-IN STT+TTS, free) +
+  rule-based intents, or an LLM intent layer for free-form questions.
+
+Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ not started
+
+---
+
+## Phase 0 — Foundations ✅
+- Repo layout, `.gitignore`, `.env.example`, config (`backend/app/core/config.py`), Python venv.
+- Data acquired:
+  - `data/raw/October-Delhi.csv` — ONDC e-tickets, 2,559,899 rows (SHA256 verified).
+  - `data/gtfs/` — Delhi Buses static GTFS v1-2: 2,554 routes, 6,812 stops, 65,322 trips.
+  - `data/raw/shared_mobility_gtfs/` — e-rickshaw GTFS-Flex (Phase 2 idea, not used yet).
+  - Transport Stack API key works for GTFS-RT (`scripts/fetch_gtfs.py --rt`); static GTFS is browser-download only.
+- Decisions:
+  - **DuckDB + Parquet instead of PostgreSQL** — read-only analytical data, zero setup for judges.
+  - **Own bus-only router instead of `transport-stack/journey-planner`** — that repo is Django/multimodal and
+    needs private data files + depot feeds not supplied; studied and not forked (Apache-2.0).
+
+## Phase 1 — Ticket data audit & demand panel ✅
+- `data_pipeline/ingestion/ticketing_loader.py` → `tickets_clean.parquet` (13 s). Raw values kept, rows flagged not dropped.
+- Findings: 0 bad timestamps, 0 exact duplicates, 108 same-origin/destination, ~51% missing vehicle number,
+  route column encodes direction (`8UP`/`8DOWN`), fares are stage-based, holidays 2 Oct & 20 Oct visible.
+- `demand_engine/route_demand.py` → route-direction × day × 30-min panel (1,731 routes, 99.8% of tickets).
+
+## Phase 2 — Route demand forecasting ✅ (re-validate after interval change)
+- `ml_engine/features.py` (leakage-safe, 7-day horizon), `train.py`, `metrics.py`, `forecast.py`.
+- Split: train 8–21 Oct · validation 22–24 · test 25–31; rolling-origin backtest.
+- Test (service hours): LightGBM MAE 0.869 vs seasonal avg 0.865 vs same-weekday 0.925 — tie with best baseline;
+  Poisson noise floor 0.647; route-day WAPE 16%, network WAPE 8.5%. Reported honestly.
+- Intervals: switched to locally adaptive split-conformal (80%). **TODO:** read new coverage from
+  `models/metrics/route_model_evaluation.json`.
+
+## Phase 3 — GTFS + mapping + segment demand ✅
+- `python scripts/run_pipeline.py --skip-tickets` → all tables + `data_quality.json` in ~2.3 min.
+- Route mapping: 2,257 / 2,259 ticket routes exact (99.98% of tickets).
+- Stop mapping (route-constrained ladder): exact → fuzzy → space-insensitive → '/'-name parts →
+  word-subset (unique or co-located ≤600 m) → same name elsewhere ≤400 m → 4 reviewed aliases
+  (`data/mappings/stop_aliases.csv`). Tickets usable for segment analysis: 56.8% → **87.4%**.
+- OD outcomes: 2,238,435 resolved · 312,805 stop unmapped (long tail, 2k names) · 6,957 reverse order.
+- **Validation:** fare-vs-ride-length correlation is 0.57–0.64 for every match method (exact: 0.615),
+  same stops per fare band → looser matches are as reliable as exact ones (`fare_consistency_ac_tickets`).
+- Segment demand + supply: 83,772 segments, 76,876 with demand; 717AUP spot check physically plausible
+  (load builds to Saket, drops at Saket Metro; 69 scheduled departures/day).
+- Tests: 28 passing (`backend/tests`): normaliser, route/stop ladder, OD resolver incl. loops,
+  ticket loader (IST, no imputation, schema), end-to-end pipeline with hand-computed segment counts.
+- Bug found by tests & fixed: invalid tickets could leak into segment flow (filter on od_status).
+- Known gaps: remaining 12% unmapped stop names (abbreviations); improve via alias list later.
+
+## Phase 4 — Segment crowd model & calibration 🟡
+1. `python scripts/train_model.py --skip-train` → forecasts + `segment_calibration.py`.
+2. Check category thresholds, evidence thresholds, fallback usage, segment test-week WAPE / macro-F1 vs baseline.
+3. Tests: no leakage (shares use 1–24 Oct only), intervals ordered, non-negative, UNKNOWN never treated as LOW.
+
+**Exit:** `CrowdService.predict()` returns sane values for real segments; `segment_evaluation.json` exists.
+
+## Phase 5 — Journey planner & crowd-aware ranking 🟡
+1. Load network; time a query (target < 2 s). Test direct, one-transfer, no-service, invalid stop.
+2. Verify per-segment crowd is evaluated at the bus's crossing time (2nd leg uses its own departure time).
+3. Ranker: fastest / balanced / least-crowded change ordering; Pareto keeps meaningful alternatives.
+4. Departure advisor.
+
+**Exit:** a real Kashmere Gate → Connaught Place search returns ranked, explained journeys.
+
+## Phase 6 — Live bus tracking ⬜
+- Backend poller for GTFS-RT VehiclePositions (key in `.env`), in-memory latest positions.
+- Match vehicles to route/trip (feed carries GTFS route_id/trip_id), estimate delay vs schedule,
+  next-arrival estimate per stop (labelled "estimated from live position").
+- Graceful fallback to scheduled times when the feed is down.
+
+## Phase 7 — Fare engine + demo booking ⬜
+- Fare from GTFS `fare_stage` (AC / non-AC), validated against ticket amounts in the ONDC data.
+- Demo booking: select journey → fare → confirm → QR ticket in on-device wallet; always watermarked DEMO.
+
+## Phase 8 — API ⬜ (partly written)
+- Routers: health, journeys (written), live (vehicles/arrivals), fares, tickets (demo), crowding
+  (route/segment/forecast/hotspots/map), demand, analytics, stops/routes, `main.py`.
+- Responses carry en + hi summary strings where shown to users. Pytest + TestClient.
+
+## Phase 9 — PWA frontend ⬜
+React + TS + Vite + Tailwind + Leaflet + Recharts + i18next (en/hi) + PWA manifest/service worker.
+Bottom-tab app:
+1. **Plan** — search (stop / map / my location), crowd-labelled options, journey detail with per-section
+   crowd, "Track bus" and "Get ticket" actions, departure advisor.
+2. **Live** — nearby stops and live buses on a map, arrivals with crowd level.
+3. **Tickets** — demo ticket wallet (QR).
+4. **Insights** — crowd map, route demand charts, model & data transparency.
+5. **Profile** — saved places, recent trips, language, theme, accessibility.
+Mobile-first, light/dark, loading/empty/error states, screen-reader tested.
+
+## Phase 10 — Submission ⬜
+README, `docs/technical_note.md` (methodology, assumptions, limitations), demo script + video,
+reproducible setup (`requirements.txt`, `docker-compose.yml`), final test run, git history clean.
+
+---
+
+### After 24 Nov (hackathon Phase 2 and beyond)
+- **Voice assistant for blind / low-vision users** (bonus feature, en + hi).
+- Metro (Delhi Metro static GTFS is on Transport Stack) → multimodal journeys; more languages.
+- Real ticketing via ONDC sandbox; accounts.
+- GPS history (Oct SQLite) to validate supply & ticket timestamp semantics; vehicle-level occupancy;
+  anomaly detection; operator dashboard; e-rickshaw last-mile legs.
