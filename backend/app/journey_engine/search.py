@@ -113,7 +113,7 @@ class JourneySearch:
                     if r is None or np.isnan(p.arr[r, pd_]):
                         continue
                     leg = Leg(k, r, po, pd_, float(p.dep[r, po]), float(p.arr[r, pd_]))
-                    keep(("D", k), Candidate([leg], wo, 0.0, dest_walk[sd], t0, o, sd))
+                    keep(("D", p.route_id), Candidate([leg], wo, 0.0, dest_walk[sd], t0, o, sd))
 
         if max_transfers >= 1:
             self._one_transfer(origins, dest_walk, d, t0, keep)
@@ -160,4 +160,4 @@ class JourneySearch:
                             l1 = Leg(k1, r1, po, x_pos, float(p1.dep[r1, po]), float(a1))
                             l2 = Leg(k2, r2, m, pd_, float(p2.dep[r2, m]), float(p2.arr[r2, pd_]))
                             c = Candidate([l1, l2], wo, walk, wd, t0, o, p2.stops[pd_], [(x, xb)])
-                            keep(("T", k1, k2), c)
+                            keep(("T", p1.route_id, p2.route_id), c)  # one option per route pair

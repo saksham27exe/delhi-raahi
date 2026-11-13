@@ -94,7 +94,29 @@ class Network:
         return str(self.stops.at[stop_id, "stop_name"]) if stop_id in self.stops.index else stop_id
 
 
-def load_network(processed_dir: Path) -> Network:
+def load_network(processed_dir: Path, use_cache: bool = True) -> Network:
+    """Build the network, or load it from a pickle cache invalidated by GTFS parquet changes."""
+    import pickle
+    P = processed_dir
+    cache = P / "network_cache.pkl"
+    sources = [P / f"gtfs_{n}.parquet" for n in ("stops", "routes", "trips", "stop_times", "patterns")]
+    stamp = [round(p.stat().st_mtime) for p in sources if p.exists()]
+    if use_cache and cache.exists():
+        try:
+            with cache.open("rb") as f:
+                cached_stamp, net = pickle.load(f)
+            if cached_stamp == stamp:
+                return net
+        except Exception as e:  # noqa: BLE001 - a stale/corrupt cache is simply rebuilt
+            log.warning("network cache unreadable (%s); rebuilding", e)
+    net = _build_network(P)
+    if use_cache:
+        with cache.open("wb") as f:
+            pickle.dump((stamp, net), f, protocol=pickle.HIGHEST_PROTOCOL)
+    return net
+
+
+def _build_network(processed_dir: Path) -> Network:
     P = processed_dir
     stops = pd.read_parquet(P / "gtfs_stops.parquet").dropna(subset=["stop_lat", "stop_lon"])
     stops = stops.drop_duplicates("stop_id").set_index("stop_id", drop=False)
@@ -111,21 +133,31 @@ def load_network(processed_dir: Path) -> Network:
     seq_by_pattern = pat_stops.sort_values(["pattern_id", "seq"]).groupby("pattern_id")["stop_id"].apply(list)
     route_by_pattern = pat_stops.groupby("pattern_id")["route_id"].first()
 
-    for pid, g in st.groupby("pattern_id", sort=False):
+    svc_by_trip = dict(zip(trips["trip_id"], trips["service_id"]))
+    st = st.sort_values(["pattern_id", "trip_id", "pos"]).reset_index(drop=True)
+    pid_arr = st["pattern_id"].to_numpy()
+    bounds = np.flatnonzero(np.r_[True, pid_arr[1:] != pid_arr[:-1], True])
+    trip_col, pos_col = st["trip_id"].to_numpy(), st["pos"].to_numpy()
+    arr_col, dep_col = st["arrival_s"].to_numpy(), st["departure_s"].to_numpy()
+
+    for a, b in zip(bounds[:-1], bounds[1:]):
+        pid = pid_arr[a]
         stops_seq = seq_by_pattern.get(pid)
         if stops_seq is None or len(stops_seq) < 2:
             continue
         n = len(stops_seq)
-        g = g[g["pos"] < n]
-        trip_order = g[g["pos"] == 0].sort_values("departure_s")["trip_id"].to_numpy()
-        tidx = pd.Index(trip_order)
-        rows = tidx.get_indexer(g["trip_id"])
-        ok = rows >= 0
+        sl = slice(a, b)
+        tids, pos = trip_col[sl], pos_col[sl]
+        first = pos == 0
+        order = np.argsort(dep_col[sl][first], kind="stable")
+        trip_order = tids[first][order]
+        rows = pd.Index(trip_order).get_indexer(tids)
+        ok = (rows >= 0) & (pos < n)
         arr = np.full((len(trip_order), n), np.nan)
         dep = np.full((len(trip_order), n), np.nan)
-        arr[rows[ok], g["pos"].to_numpy()[ok]] = g["arrival_s"].to_numpy()[ok]
-        dep[rows[ok], g["pos"].to_numpy()[ok]] = g["departure_s"].to_numpy()[ok]
-        svc = trips.set_index("trip_id").loc[trip_order, "service_id"].to_numpy() if len(trip_order) else np.array([])
+        arr[rows[ok], pos[ok]] = arr_col[sl][ok]
+        dep[rows[ok], pos[ok]] = dep_col[sl][ok]
+        svc = np.array([svc_by_trip[t] for t in trip_order])
         k = len(patterns)
         patterns.append(Pattern(pid, str(route_by_pattern[pid]), list(stops_seq), trip_order, svc, arr, dep,
                                 shape_by_pattern.get(pid) if len(shape_by_pattern) else None))

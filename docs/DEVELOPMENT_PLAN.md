@@ -91,15 +91,22 @@ Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ no
 - **Limitation (document):** ONDC uptake differs by route, so cross-route comparisons are partly
   confounded by uptake; per-route uptake calibration (GPS/ETM) is a Phase-2 item.
 
-## Phase 5 — Journey planner & crowd-aware ranking 🟡  ← NEXT
-1. Load network; time a query (target < 2 s). Test direct, one-transfer, no-service, invalid stop.
-2. Verify per-segment crowd is evaluated at the bus's crossing time (2nd leg uses its own departure time).
-3. Ranker: fastest / balanced / least-crowded change ordering; Pareto keeps meaningful alternatives.
-4. Departure advisor.
+## Phase 5 — Journey planner & crowd-aware ranking ✅
+- Network: vectorised build 7.3 s, pickle cache 0.3 s. Journey service ready ~6 s after start (incl. crowd arrays).
+- Search: direct + one transfer (footpaths ≤ 300 m). One option kept per route / route pair; options slower
+  than 1.6 × fastest + 5 min are pruned before crowd scoring (max 60 scored). Real queries
+  (Kashmere Gate → Connaught Place / Nehru Place / Anand Vihar, Fri 08:30): **0.6–1.3 s**.
+- Crowd is looked up per segment at the scheduled time that bus crosses it (2nd leg uses its own times).
+- Modes re-order results: e.g. to Anand Vihar, fastest = 214→357A (47 min, CI 0.29), balanced = 347→D-006
+  (49 min, −52 % exposure), least-crowded = 0261→236 (56 min, CI 0.01).
+- Stop search: WRatio + share of query words found (typo-tolerant) + prefix + routes-served tiebreak.
+  Known gap: area names with no matching stop name (e.g. "Connaught Place" → Regal/Janpath) need a
+  landmark alias table (Phase 8/9).
+- Departure advisor: −30…+60 min; ~7 s for 7 offsets (each a full plan) — acceptable, cache later if needed.
+- Tests: 44 passing (+7: direct, transfer with walk, no service / wrong direction / bad stop / bad mode,
+  crowd at crossing time, preference changes ranking, stop search, advisor).
 
-**Exit:** a real Kashmere Gate → Connaught Place search returns ranked, explained journeys.
-
-## Phase 6 — Live bus tracking ⬜
+## Phase 6 — Live bus tracking ⬜  ← NEXT
 - Backend poller for GTFS-RT VehiclePositions (key in `.env`), in-memory latest positions.
 - Match vehicles to route/trip (feed carries GTFS route_id/trip_id), estimate delay vs schedule,
   next-arrival estimate per stop (labelled "estimated from live position").

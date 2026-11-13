@@ -20,6 +20,9 @@ ACCESS_RADIUS_M = 600
 DETOUR = 1.3
 
 
+MAX_SCORED_CANDIDATES = 60
+
+
 class PlaceError(ValueError):
     pass
 
@@ -52,14 +55,18 @@ class JourneyService:
         if not qn:
             return []
         names = self._names["norm"].tolist()
-        hits = process.extract(qn, names, scorer=fuzz.WRatio, limit=limit * 3)
+        hits = process.extract(qn, names, scorer=fuzz.WRatio, limit=max(60, limit * 6))
+        qtok = qn.split()
         out = []
         for name, sc, i in hits:
             r = self._names.iloc[i]
-            prefix = name.startswith(qn)
+            ntok = name.replace("(", " ").replace(")", " ").split()
+            # share of query words found in the stop name (typo-tolerant per word)
+            cover = sum(max((fuzz.ratio(t, w) for w in ntok), default=0) >= 85 for t in qtok) / len(qtok)
+            routes = self._routes_at(r["stop_ids"])
+            score = 0.5 * sc + 50 * cover + (8 if name.startswith(qn) else 0) + min(6.0, np.log1p(routes))
             out.append({"name": r["name"], "stop_ids": r["stop_ids"], "lat": round(r["lat"], 6),
-                        "lon": round(r["lon"], 6), "score": round(sc + (10 if prefix else 0), 1),
-                        "routes_served": self._routes_at(r["stop_ids"])})
+                        "lon": round(r["lon"], 6), "score": round(float(score), 1), "routes_served": routes})
         out.sort(key=lambda x: -x["score"])
         return out[:limit]
 
@@ -113,7 +120,7 @@ class JourneyService:
         dd, d_info = self.resolve(destination)
         d = when.date()
         t0 = when.hour * 3600 + when.minute * 60 + when.second
-        cands = self.search_engine.search(o, dd, d, t0, max_transfers)
+        cands = prune_candidates(self.search_engine.search(o, dd, d, t0, max_transfers))
         scored = [self._score(c, d) for c in cands]
         ranked = rank(scored, preference)
         notes = []
@@ -148,7 +155,7 @@ class JourneyService:
             if not js:
                 rows.append({"offset_min": off, "departure": t.isoformat(), "available": False})
                 continue
-            best = next((j for j in js if preference.replace("least_crowded", "least_crowded") in j["labels"]), js[0])
+            best = js[0]  # already ranked for the requested preference
             rows.append({"offset_min": off, "departure": t.isoformat(), "available": True,
                          "board_time": best["departure"], "arrival": best["arrival"],
                          "duration_min": best["duration_minutes"], "crowd_level": best["crowd_level"],
@@ -255,6 +262,19 @@ class JourneyService:
             "transfer_min": p["walk_transfer_min"], "destination_min": p["walk_dest_min"]},
             "transfer_stops": p["transfer_stops"], "explanation": j.explanation, "legs": p["legs"],
         }
+
+
+def prune_candidates(cands: list[Candidate], max_keep: int = MAX_SCORED_CANDIDATES) -> list[Candidate]:
+    """Drop options too slow to ever be recommended before the (costlier) crowd scoring.
+    The least-crowded mode accepts at most `least_crowded_max_duration_ratio` x the fastest duration."""
+    if not cands:
+        return cands
+    fastest = min(c.duration_s for c in cands)
+    limit = fastest * CONFIG["least_crowded_max_duration_ratio"] + 5 * 60
+    ok = [c for c in cands if c.duration_s <= limit]
+    direct = sorted((c for c in ok if c.transfers == 0), key=lambda c: c.duration_s)
+    rest = sorted((c for c in ok if c.transfers > 0), key=lambda c: c.duration_s)
+    return direct + rest[:max(0, max_keep - len(direct))]
 
 
 def _pred_public(pred) -> dict | None:
