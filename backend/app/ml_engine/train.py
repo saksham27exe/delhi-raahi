@@ -37,9 +37,33 @@ LGB_PARAMS = dict(
 INTERVAL = (0.1, 0.9)  # nominal 80% prediction interval
 
 
-def conformal_interval(p: np.ndarray, q: float) -> tuple[np.ndarray, np.ndarray]:
-    """Interval p -/+ q*sqrt(p+1), clipped at zero. q comes from validation conformity scores."""
-    half = q * np.sqrt(np.asarray(p) + 1)
+CONFORMAL_BIN_EDGES = [0.0, 0.25, 1.0, 3.0, 8.0, 20.0]  # predicted passengers per bucket
+
+
+def calibrate_conformal(p_val: np.ndarray, y_val: np.ndarray, coverage: float) -> list[float]:
+    """Mondrian split-conformal: one quantile of |y-p|/sqrt(p+1) per predicted-size bin, so busy
+    periods are calibrated on busy periods (not on the many near-zero night buckets)."""
+    score = np.abs(y_val - p_val) / np.sqrt(p_val + 1)
+    bins = np.searchsorted(CONFORMAL_BIN_EDGES, p_val, side="right") - 1
+    qs = []
+    for b in range(len(CONFORMAL_BIN_EDGES)):
+        s = score[bins == b]
+        if len(s) == 0:
+            qs.append(qs[-1] if qs else float(np.quantile(score, coverage)))
+            continue
+        level = min(1.0, np.ceil((len(s) + 1) * coverage) / len(s))
+        qs.append(float(np.quantile(s, level)))
+    return qs
+
+
+def conformal_interval(p: np.ndarray, q: list[float] | float) -> tuple[np.ndarray, np.ndarray]:
+    """Interval p -/+ q[bin(p)]*sqrt(p+1), clipped at zero."""
+    p = np.asarray(p, dtype=float)
+    if np.isscalar(q):
+        qv = np.full_like(p, q)
+    else:
+        qv = np.asarray(q)[np.searchsorted(CONFORMAL_BIN_EDGES, p, side="right") - 1]
+    half = qv * np.sqrt(p + 1)
     return np.clip(p - half, 0, None), p + half
 
 
@@ -123,10 +147,8 @@ def train(panel: DemandPanel, out_dir: Path, metrics_dir: Path) -> dict:
     # Locally adaptive split-conformal interval: score = |y - p| / sqrt(p + 1), calibrated on
     # validation predictions of the train-only model (count noise grows ~ sqrt(mean)).
     p_val = np.clip(booster.predict(va[FEATURES], num_iteration=best_iter), 0, None)
-    conformity = np.abs(va["y"].values - p_val) / np.sqrt(p_val + 1)
     nominal = INTERVAL[1] - INTERVAL[0]
-    n_cal = len(conformity)
-    cqr_q = float(np.quantile(conformity, min(1.0, np.ceil((n_cal + 1) * nominal) / n_cal)))
+    cqr_q = calibrate_conformal(p_val, va["y"].values, nominal)
 
     # ---- untouched test ----------------------------------------------------------
     p_te = np.clip(final.predict(te[FEATURES]), 0, None)
@@ -138,7 +160,14 @@ def train(panel: DemandPanel, out_dir: Path, metrics_dir: Path) -> dict:
         "nominal": nominal,
         "all_buckets": round(M.interval_coverage(te["y"].values, lo_te, hi_te), 4),
         "service_hours": round(M.interval_coverage(te["y"].values[svc_te], lo_te[svc_te], hi_te[svc_te]), 4),
-        "conformal_q": round(cqr_q, 4),
+        "conformal_q_by_bin": [round(x, 4) for x in cqr_q],
+        "conformal_bin_edges": CONFORMAL_BIN_EDGES,
+        "by_predicted_size": [
+            {"bin_from": lo_e, "rows": int(m.sum()),
+             "coverage": round(M.interval_coverage(te["y"].values[m], lo_te[m], hi_te[m]), 4) if m.any() else None}
+            for lo_e, m in ((e, (np.searchsorted(CONFORMAL_BIN_EDGES, p_te, side="right") - 1) == i)
+                            for i, e in enumerate(CONFORMAL_BIN_EDGES))
+        ],
         "mean_width_service_hours": round(float(np.mean(hi_te[svc_te] - lo_te[svc_te])), 3),
     }
 

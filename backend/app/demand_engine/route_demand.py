@@ -82,8 +82,8 @@ def route_profile(panel: DemandPanel, route_key: str) -> pd.DataFrame:
     dts = pd.to_datetime(panel.dates)
     hol = np.array([d.date() in HOLIDAYS for d in dts])
     out = {}
-    for name, mask in {"weekday": (dts.dayofweek < 5) & ~hol, "saturday": dts.dayofweek == 5,
-                       "sunday_holiday": (dts.dayofweek == 6) | hol}.items():
+    for name, mask in {"weekday": (dts.day_of_week < 5) & ~hol, "saturday": dts.day_of_week == 5,
+                       "sunday_holiday": (dts.day_of_week == 6) | hol}.items():
         out[name] = panel.y[i, mask].mean(axis=0)
     df = pd.DataFrame(out)
     df.insert(0, "bucket", np.arange(panel.buckets_per_day))

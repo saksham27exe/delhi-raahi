@@ -1,0 +1,75 @@
+{
+  "calibration_period": [
+    "2026-10-01",
+    "2026-10-24"
+  ],
+  "test_period": [
+    "2026-10-25",
+    "2026-10-31"
+  ],
+  "metric": "expected e-ticket passengers crossing a segment per bucket (segment demand) and per scheduled departure (DPD)",
+  "rows_evaluated": 4112631,
+  "rows_insufficient_evidence": 0,
+  "fallback_usage": {
+    "1": 3863601,
+    "3": 249030
+  },
+  "model": {
+    "mae": 0.4229,
+    "rmse": 0.9622,
+    "wape": 0.7173,
+    "n": 4112631,
+    "total_actual": 2424633.5999999996,
+    "total_predicted": 2293610.4
+  },
+  "historical_average_baseline": {
+    "mae": 0.4183,
+    "rmse": 0.9564,
+    "wape": 0.7095,
+    "n": 4112631,
+    "total_actual": 2424633.5999999996,
+    "total_predicted": 2244766.7
+  },
+  "category_macro_f1": {
+    "model": 0.5812,
+    "historical_average": 0.5839
+  },
+  "accuracy_by_support": [
+    {
+      "support_bin": "[0, 10)",
+      "rows": 2159652,
+      "model_wape": 1.4094,
+      "hist_avg_wape": 1.4033
+    },
+    {
+      "support_bin": "[10, 30)",
+      "rows": 854490,
+      "model_wape": 1.1131,
+      "hist_avg_wape": 1.1007
+    },
+    {
+      "support_bin": "[30, 100)",
+      "rows": 685381,
+      "model_wape": 0.7717,
+      "hist_avg_wape": 0.762
+    },
+    {
+      "support_bin": "[100, 300)",
+      "rows": 311229,
+      "model_wape": 0.5007,
+      "hist_avg_wape": 0.4949
+    },
+    {
+      "support_bin": "[300, 1000)",
+      "rows": 94540,
+      "model_wape": 0.3101,
+      "hist_avg_wape": 0.305
+    },
+    {
+      "support_bin": "[1000, 1000000000)",
+      "rows": 7339,
+      "model_wape": 0.2124,
+      "hist_avg_wape": 0.2115
+    }
+  ]
+}

@@ -73,14 +73,25 @@ Status legend: ✅ done · 🟡 code written, not yet run on real data · ⬜ no
 - Bug found by tests & fixed: invalid tickets could leak into segment flow (filter on od_status).
 - Known gaps: remaining 12% unmapped stop names (abbreviations); improve via alias list later.
 
-## Phase 4 — Segment crowd model & calibration 🟡
-1. `python scripts/train_model.py --skip-train` → forecasts + `segment_calibration.py`.
-2. Check category thresholds, evidence thresholds, fallback usage, segment test-week WAPE / macro-F1 vs baseline.
-3. Tests: no leakage (shares use 1–24 Oct only), intervals ordered, non-negative, UNKNOWN never treated as LOW.
+## Phase 4 — Segment crowd model & calibration ✅
+- Route intervals: Mondrian split-conformal by predicted size → test coverage 77–82% in every size bin
+  (nominal 80%); single global calibration had under-covered busy hours (73%).
+- Segment method changed after evaluation: share-spreading (first design) was **worse** than a segment's
+  own history (WAPE 0.90 vs 0.71, F1 0.36 vs 0.52; partly a 19% matched-ticket bias). Replaced by
+  hierarchical adjustment `segment history × (route forecast + k)/(route history + k)`, k = 2 fixed a priori.
+- Test week (25–31 Oct, 4.1M segment-buckets): WAPE 0.717 vs history 0.710; macro-F1 0.581 vs 0.584 —
+  **ties the strong baseline**, unbiased; ML adds route-level holiday/trend adjustment. Accuracy scales with
+  evidence: WAPE 0.31 at ≥300 supporting tickets, 0.21 at ≥1000 → evidence HIGH ≥300, MEDIUM ≥100.
+- Crowd categories: passenger-weighted p50/p80/p95 of historical demand per scheduled departure
+  (1.25 / 3.23 / 7.36) — the crowding a typical rider experiences. Unweighted cut-offs made busy routes
+  VERY_HIGH all day. Sanity: 717AUP Fri 08:30 VERY_HIGH, Sun HIGH, Fri 13:30 MODERATE, 21:30 LOW.
+- Crowd service loads precomputed arrays (`crowd_arrays.npz`) in 1.4 s; ~85 µs per prediction.
+- Tests: 37 passing (metrics, interval coverage incl. busy periods, leakage, weekday mapping, fallbacks,
+  UNKNOWN never LOW, post-calibration data ignored, weighted quantile).
+- **Limitation (document):** ONDC uptake differs by route, so cross-route comparisons are partly
+  confounded by uptake; per-route uptake calibration (GPS/ETM) is a Phase-2 item.
 
-**Exit:** `CrowdService.predict()` returns sane values for real segments; `segment_evaluation.json` exists.
-
-## Phase 5 — Journey planner & crowd-aware ranking 🟡
+## Phase 5 — Journey planner & crowd-aware ranking 🟡  ← NEXT
 1. Load network; time a query (target < 2 s). Test direct, one-transfer, no-service, invalid stop.
 2. Verify per-segment crowd is evaluated at the bus's crossing time (2nd leg uses its own departure time).
 3. Ranker: fastest / balanced / least-crowded change ordering; Pareto keeps meaningful alternatives.

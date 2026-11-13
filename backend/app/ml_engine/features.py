@@ -27,7 +27,7 @@ def day_types(dates: np.ndarray) -> np.ndarray:
     """0 = working weekday, 1 = Saturday, 2 = Sunday or holiday."""
     d = pd.to_datetime(dates)
     hol = np.array([x.date() in HOLIDAYS for x in d])
-    return np.where((d.dayofweek == 6) | hol, 2, np.where(d.dayofweek == 5, 1, 0))
+    return np.where((d.day_of_week == 6) | hol, 2, np.where(d.day_of_week == 5, 1, 0))
 
 
 def _nanmean(a: np.ndarray, axis: int) -> np.ndarray:
@@ -90,7 +90,7 @@ def features_for_day(panel: DemandPanel, t: int, target_date: np.datetime64 | No
         "daytype_mean_day": np.repeat(dt_mean_day[:, None], B, 1),
         "all_mean_b": all_mean_b, "route_mean_day": np.repeat(route_mean_day[:, None], B, 1),
         "route_bucket_share": share, "n_hist_days": np.full((R, B), hist_end + 1),
-        "dow": np.full((R, B), tdate.dayofweek), "is_weekend": np.full((R, B), int(tdate.dayofweek >= 5)),
+        "dow": np.full((R, B), tdate.day_of_week), "is_weekend": np.full((R, B), int(tdate.day_of_week >= 5)),
         "is_holiday": np.full((R, B), int(tdate.date() in HOLIDAYS)),
         "bucket": np.repeat(b[None, :], R, 0),
         "hour_sin": np.repeat(np.sin(2 * np.pi * hour / 24)[None, :], R, 0),
@@ -121,6 +121,6 @@ def future_day_index(panel: DemandPanel, target_date: np.datetime64) -> int:
         return max(delta, 0)
     last = panel.dates[-1]
     for k in range(1, 8):
-        if pd.Timestamp(last + np.timedelta64(k, "D")).dayofweek == pd.Timestamp(target_date).dayofweek:
+        if pd.Timestamp(last + np.timedelta64(k, "D")).day_of_week == pd.Timestamp(target_date).day_of_week:
             return T - 1 + k
     raise AssertionError("unreachable")

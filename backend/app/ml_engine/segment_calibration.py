@@ -73,6 +73,79 @@ def _period_dpd(con, d0: str, d1: str, bucket_minutes: int) -> pd.DataFrame:
     return df
 
 
+RATIO_SHRINK_K = 2.0  # passengers; fixed a priori (not tuned on the test week)
+
+
+def weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
+    """Quantile of `values` where each value counts `weights` times (inverse weighted CDF)."""
+    m = weights > 0
+    v, w = values[m], weights[m]
+    order = np.argsort(v)
+    v, cw = v[order], np.cumsum(w[order])
+    return float(v[min(np.searchsorted(cw, q * cw[-1]), len(v) - 1)])
+
+
+def build_crowd_arrays(processed_dir: Path, hist: pd.DataFrame, fc: RouteForecasts) -> Path:
+    """Dense per-segment arrays for the crowd service (loaded in seconds by the API)."""
+    P = processed_dir
+    B = fc.pred.shape[2]
+    seg = pd.read_parquet(P / "segments.parquet", columns=["segment_id", "route_id"]).drop_duplicates("segment_id")
+    idx = pd.Index(seg["segment_id"])
+    n = len(idx)
+    rm = pd.read_parquet(P / "route_mapping.parquet")
+    rm = rm[rm["mapping_method"].isin(["exact_short_name", "exact_long_name", "alias"])]
+    key_by_route = dict(zip(rm["gtfs_route_id"], rm["route_key"]))
+    route_idx = np.array([fc.route_index.get(key_by_route.get(r), -1) for r in seg["route_id"]], np.int32)
+
+    deps = np.zeros((n, B), np.int16)
+    sup = pd.read_parquet(P / "segment_supply.parquet")
+    i = idx.get_indexer(sup["segment_id"])
+    ok = i >= 0
+    deps[i[ok], sup["bucket"].to_numpy()[ok]] = np.minimum(sup["departures"].to_numpy()[ok], 32767)
+
+    h = np.full((n, 3, B), np.nan, np.float32)
+    i = idx.get_indexer(hist["segment_id"])
+    ok = i >= 0
+    h[i[ok], hist["daytype"].to_numpy()[ok], hist["bucket"].to_numpy()[ok]] = hist["seg_demand"].to_numpy()[ok]
+
+    bands = [n_ for _, _, n_ in TIME_BANDS]
+    sb = pd.read_parquet(P / "segment_band_daily.parquet", columns=["segment_id", "daytype", "band", "support", "service_date"])
+    sb = sb[(pd.to_datetime(sb["service_date"]) >= pd.Timestamp(CAL_FROM)) & (pd.to_datetime(sb["service_date"]) <= pd.Timestamp(CAL_TO))]
+    sb = sb.groupby(["segment_id", "daytype", "band"], as_index=False)["support"].sum()
+    support = np.zeros((n, 3, len(bands)), np.int32)
+    i = idx.get_indexer(sb["segment_id"])
+    ok = i >= 0
+    support[i[ok], sb["daytype"].to_numpy()[ok], sb["band"].map(bands.index).to_numpy()[ok]] = sb["support"].to_numpy()[ok]
+
+    out = P / "crowd_arrays.npz"
+    np.savez_compressed(out, segment_ids=idx.to_numpy().astype(str), seg_route=seg["route_id"].to_numpy().astype(str),
+                        route_idx=route_idx, deps=deps, hist=h, support=support)
+    return out
+
+
+def route_ratio(route_fc: np.ndarray, route_hist: np.ndarray, k: float = RATIO_SHRINK_K) -> np.ndarray:
+    """Model's expected route-level deviation from history, shrunk towards 1 when volumes are small."""
+    return (np.nan_to_num(route_fc) + k) / (np.nan_to_num(route_hist) + k)
+
+
+def build_route_history(processed_dir: Path, fc: RouteForecasts) -> np.ndarray:
+    """Mean observed route passengers per (route, daytype, bucket) over CAL_FROM..CAL_TO, in forecast route order."""
+    from app.demand_engine.route_demand import DemandPanel
+    panel = DemandPanel.load(processed_dir / "route_panel.npz")
+    days = pd.to_datetime(panel.dates)
+    in_cal = (days >= CAL_FROM) & (days <= CAL_TO)
+    dts = np.array([_daytype(d.date()) for d in days])
+    H = np.zeros((len(fc.routes), 3, panel.buckets_per_day))
+    pos = {r: i for i, r in enumerate(panel.routes)}
+    order = np.array([pos.get(r, -1) for r in fc.routes])
+    for dt in (0, 1, 2):
+        m = in_cal & (dts == dt)
+        if m.any():
+            h = panel.y[:, m, :].mean(axis=1)
+            H[order >= 0, dt, :] = h[order[order >= 0]]
+    return H
+
+
 def calibrate_and_evaluate(processed_dir: Path, artifacts_dir: Path, metrics_dir: Path) -> dict:
     P = processed_dir
     con = duckdb.connect()
@@ -84,12 +157,16 @@ def calibrate_and_evaluate(processed_dir: Path, artifacts_dir: Path, metrics_dir
     # ---- calibration on 1-24 Oct --------------------------------------------------------
     hist = _period_dpd(con, CAL_FROM, CAL_TO, bm)
     hist_path = P / "segment_hist_dpd.parquet"
-    hist[["segment_id", "daytype", "bucket", "dpd", "departures"]].to_parquet(hist_path, index=False)
+    hist[["segment_id", "daytype", "bucket", "seg_demand", "dpd", "departures"]].to_parquet(hist_path, index=False)
     svc = hist[hist["service_hours"]]
-    thresholds = [float(np.quantile(svc["dpd"], q)) for q in (0.5, 0.8, 0.95)]
-    knots = [float(x) for x in np.quantile(svc["dpd"], np.linspace(0, 1, 101))]
+    # passenger-weighted: categories describe the crowding a typical rider experiences,
+    # not a typical (often empty) segment-time slot
+    w = svc["seg_demand"].to_numpy()
+    thresholds = [float(weighted_quantile(svc["dpd"].to_numpy(), w, q)) for q in (0.5, 0.8, 0.95)]
+    knots = [float(weighted_quantile(svc["dpd"].to_numpy(), w, q)) for q in np.linspace(0, 1, 101)]
     for i in range(1, len(knots)):  # strictly increasing for interpolation
         knots[i] = max(knots[i], knots[i - 1] + 1e-9)
+    build_crowd_arrays(P, hist, fc)
 
     # ---- test-week evaluation (25-31 Oct) -------------------------------------------------
     obs = _period_dpd(con, TEST_FROM, TEST_TO, bm)
@@ -113,18 +190,24 @@ def calibrate_and_evaluate(processed_dir: Path, artifacts_dir: Path, metrics_dir
         slots = [fc.slot_for(d.date())[0] for d in test_days if _daytype(d.date()) == dt]
         if slots:
             fmean[:, dt, :] = fc.pred[:, slots, :].mean(axis=1)
+    # route history H[r, daytype, bucket] over the calibration window (same basis as the forecast)
+    route_hist = build_route_history(P, fc)
+    np.savez_compressed(P / "route_history.npz", routes=fc.routes, hist=route_hist)
     ridx = obs["route_key"].map(fc.route_index)
     has_f = ridx.notna()
-    obs["route_fc"] = np.nan
-    obs.loc[has_f, "route_fc"] = fmean[ridx[has_f].astype(int), obs.loc[has_f, "daytype"].astype(int), obs.loc[has_f, "bucket"].astype(int)]
-    lvl1 = has_f & (obs["support"] >= 20) & obs["share"].notna()
-    lvl2 = has_f & ~lvl1 & obs["route_avg_share"].notna()
-    obs["level"] = np.where(lvl1, 1, np.where(lvl2, 2, 5))
-    obs["pred_demand"] = np.where(lvl1, obs["route_fc"] * obs["share"], np.where(lvl2, obs["route_fc"] * obs["route_avg_share"], np.nan))
+    obs["route_fc"], obs["route_hist"] = np.nan, np.nan
+    ix = (ridx[has_f].astype(int), obs.loc[has_f, "daytype"].astype(int), obs.loc[has_f, "bucket"].astype(int))
+    obs.loc[has_f, "route_fc"] = fmean[ix]
+    obs.loc[has_f, "route_hist"] = route_hist[ix]
     obs = obs.merge(hist[["segment_id", "daytype", "bucket", "seg_demand"]].rename(columns={"seg_demand": "hist_demand"}),
                     on=["segment_id", "daytype", "bucket"], how="left")
+    has_h = obs["hist_demand"].notna()
+    # level 1: segment history scaled by the model's route-level deviation; level 3: history only
+    obs["level"] = np.where(has_f & has_h, 1, np.where(has_h, 3, 5))
+    ratio = route_ratio(obs["route_fc"].to_numpy(), obs["route_hist"].to_numpy())
+    obs["pred_demand"] = np.where(obs["level"] == 1, obs["hist_demand"] * ratio,
+                                  np.where(obs["level"] == 3, obs["hist_demand"], np.nan))
     ev = obs[obs["level"] < 5].copy()
-    ev["hist_demand"] = ev["hist_demand"].fillna(0)
     y, p, b = ev["seg_demand"].to_numpy(), ev["pred_demand"].to_numpy(), ev["hist_demand"].to_numpy()
     y_cls = M.classify(ev["dpd"].to_numpy(), thresholds)
     p_cls = M.classify(p / ev["departures"].to_numpy(), thresholds)
@@ -153,8 +236,9 @@ def calibrate_and_evaluate(processed_dir: Path, artifacts_dir: Path, metrics_dir
         "category_macro_f1": {"model": round(M.macro_f1(y_cls, p_cls), 4), "historical_average": round(M.macro_f1(y_cls, b_cls), 4)},
         "accuracy_by_support": by_support,
     }
-    cal = {"category_thresholds": thresholds, "category_names": ["LOW", "MODERATE", "HIGH", "VERY_HIGH"],
-           "category_basis": "network percentiles p50/p80/p95 of historical DPD (service hours, 1-24 Oct)",
+    cal = {"calibration_period": [CAL_FROM, CAL_TO], "ratio_shrink_k": RATIO_SHRINK_K,
+           "category_thresholds": thresholds, "category_names": ["LOW", "MODERATE", "HIGH", "VERY_HIGH"],
+           "category_basis": "passenger-weighted percentiles p50/p80/p95 of historical DPD (service hours, 1-24 Oct): the crowding a typical rider experiences",
            "dpd_cdf_knots": knots, "evidence_support_thresholds": ev_cut,
            "historical_dpd_path": str(hist_path)}
     artifacts_dir.mkdir(parents=True, exist_ok=True)

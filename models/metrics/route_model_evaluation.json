@@ -65,8 +65,8 @@
       2.0,
       7.0
     ],
-    "created_at": "2026-11-13T22:57:38",
-    "train_seconds": 249.7
+    "created_at": "2026-11-13T23:28:59",
+    "train_seconds": 244.9
   },
   "validation": {
     "naive_last_week": {
@@ -264,10 +264,57 @@
   },
   "interval_coverage_test": {
     "nominal": 0.8,
-    "all_buckets": 0.7946,
-    "service_hours": 0.7302,
-    "conformal_q": 0.5848,
-    "mean_width_service_hours": 1.366
+    "all_buckets": 0.8068,
+    "service_hours": 0.7509,
+    "conformal_q_by_bin": [
+      0.0903,
+      0.6363,
+      1.2001,
+      1.6141,
+      1.8403,
+      2.0235
+    ],
+    "conformal_bin_edges": [
+      0.0,
+      0.25,
+      1.0,
+      3.0,
+      8.0,
+      20.0
+    ],
+    "by_predicted_size": [
+      {
+        "bin_from": 0.0,
+        "rows": 347266,
+        "coverage": 0.8038
+      },
+      {
+        "bin_from": 0.25,
+        "rows": 105743,
+        "coverage": 0.8171
+      },
+      {
+        "bin_from": 1.0,
+        "rows": 72888,
+        "coverage": 0.8133
+      },
+      {
+        "bin_from": 3.0,
+        "rows": 37709,
+        "coverage": 0.8033
+      },
+      {
+        "bin_from": 8.0,
+        "rows": 14855,
+        "coverage": 0.7886
+      },
+      {
+        "bin_from": 20.0,
+        "rows": 3155,
+        "coverage": 0.7686
+      }
+    ],
+    "mean_width_service_hours": 2.265
   },
   "noise_analysis": {
     "poisson_noise_floor_mae_service_hours": 0.6473,

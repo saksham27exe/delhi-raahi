@@ -25,7 +25,7 @@ from app.ml_engine.train import conformal_interval
 def build_forecasts(panel: DemandPanel, artifacts: Path, out_path: Path) -> dict:
     meta = json.loads((artifacts / "route_model_meta.json").read_text())
     point = lgb.Booster(model_file=str(artifacts / "route_lgbm.txt"))
-    q = float(meta["conformal_q"])
+    q = meta["conformal_q"]  # one value per predicted-size bin (Mondrian conformal)
     T = len(panel.dates)
     slots = list(range(HORIZON_DAYS, T)) + list(range(T, T + 7))
     slot_dates = [panel.dates[0] + np.timedelta64(t, "D") for t in slots]
@@ -53,7 +53,7 @@ class RouteForecasts:
         self.pred, self.lo, self.hi = z["pred"], z["lo"], z["hi"]
         self.window_end = self.slot_dates[self.in_window][-1] if self.in_window.any() else None
         virt = np.where(~self.in_window)[0]
-        self._virtual_by_dow = {pd.Timestamp(self.slot_dates[i]).dayofweek: i for i in virt}
+        self._virtual_by_dow = {pd.Timestamp(self.slot_dates[i]).day_of_week: i for i in virt}
         self._slot_by_date = {str(self.slot_dates[i]): i for i in np.where(self.in_window)[0]}
 
     def slot_for(self, d) -> tuple[int, str]:
@@ -61,7 +61,7 @@ class RouteForecasts:
         key = str(np.datetime64(d, "D"))
         if key in self._slot_by_date:
             return self._slot_by_date[key], "one_week_ahead_forecast"
-        return self._virtual_by_dow[pd.Timestamp(d).dayofweek], "recurring_weekday_forecast"
+        return self._virtual_by_dow[pd.Timestamp(d).day_of_week], "recurring_weekday_forecast"
 
     def get(self, route_key: str, d, bucket: int) -> tuple[float, float, float] | None:
         i = self.route_index.get(route_key)
