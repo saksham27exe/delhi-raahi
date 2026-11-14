@@ -85,7 +85,7 @@ class TicketService:
                 "total": round(total, 2), "demo": True, "watermark": WATERMARK}
 
     def book(self, legs: list[dict], passengers: int = 1, women_free: int = 0,
-             bus_types: list[str | None] | None = None, now: datetime | None = None) -> dict:
+             bus_types: list[str | None] | None = None, now: datetime | None = None, holder: str | None = None) -> dict:
         q = self.quote(legs, passengers, women_free, bus_types)
         now = (now or datetime.now(IST)).astimezone(IST)
         body = {"v": 1, "demo": True, "ticket_id": "DEMO-" + uuid.uuid4().hex[:10].upper(),
@@ -94,8 +94,24 @@ class TicketService:
                 "passengers": passengers, "women_free": women_free, "total": q["total"], "currency": "INR",
                 "legs": [{k: l[k] for k in ("route", "route_id", "board_stop_id", "board_stop", "alight_stop_id",
                                             "alight_stop", "bus_type", "leg_total")} for l in q["legs"]]}
+        if holder:
+            body["holder"] = holder      # masked phone: a forwarded QR still shows whose ticket it is
         return {**body, "qr_payload": self._sign(body), "watermark": WATERMARK, "payment": "none (demo)",
                 "fare_breakdown": q["legs"]}
+
+    def issue_pass(self, kind: str, bus_type: str, holder: str, now: datetime | None = None) -> dict:
+        """DEMO bus pass, signed like a ticket. Price comes from the server catalogue only."""
+        from app.services import passes
+        if kind not in passes.CATALOG or bus_type not in ("ac", "non_ac"):
+            raise BookingError("Unknown pass type.")
+        c = passes.CATALOG[kind]
+        now = (now or datetime.now(IST)).astimezone(IST)
+        body = {"v": 1, "demo": True, "type": "pass", "pass_id": "PASS-" + uuid.uuid4().hex[:10].upper(),
+                "kind": kind, "bus_type": bus_type, "price": c["price"][bus_type], "currency": "INR",
+                "price_verified": c["verified"], "holder": holder,
+                "issued_at": now.isoformat(timespec="seconds"),
+                "valid_until": passes.validity(kind, now).isoformat(timespec="seconds")}
+        return {**body, "qr_payload": self._sign(body), "watermark": WATERMARK, "payment": "demo wallet (no real money)"}
 
     def _sign(self, body: dict) -> str:
         raw = json.dumps(body, separators=(",", ":"), ensure_ascii=False, sort_keys=True).encode()

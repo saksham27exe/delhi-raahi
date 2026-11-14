@@ -26,6 +26,7 @@ class AppState:
     live: object | None = None        # LiveTracker
     fares: object | None = None       # FareService
     tickets: object | None = None     # TicketService (demo)
+    accounts: object | None = None    # AccountStore (users, demo wallet, tickets, passes)
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
@@ -87,6 +88,14 @@ def load_state(settings: Settings | None = None) -> AppState:
         st.crowd = CrowdService(P, s.artifacts_dir)
     except Exception as e:  # noqa: BLE001
         st.load_errors["crowd_model"] = f"{type(e).__name__}: {e}. Run scripts/train_model.py."
+    # One persistent secret signs tickets, passes and login tokens (env var wins; else a git-ignored file).
+    from app.services.accounts import AccountStore, load_or_create_secret
+    acc_dir = s.crowdwise_data_dir / "accounts"
+    secret = s.demo_ticket_secret or load_or_create_secret(acc_dir / "server_secret.txt")
+    try:
+        st.accounts = AccountStore(acc_dir / "accounts.db", secret)
+    except Exception as e:  # noqa: BLE001
+        st.load_errors["accounts"] = f"{type(e).__name__}: {e}"
     if st.network is not None:
         from app.fare_engine.fares import FareService
         from app.services.journey_service import JourneyService
@@ -94,7 +103,7 @@ def load_state(settings: Settings | None = None) -> AppState:
         st.fares = FareService(st.network, P)
         if not st.fares.profile:
             st.load_errors["fare_profile"] = "route_fare_profile.parquet missing: bus type unknown. Run scripts/validate_fares.py."
-        st.tickets = TicketService(st.fares, s.demo_ticket_secret)
+        st.tickets = TicketService(st.fares, secret)
         st.journeys = JourneyService(st.network, st.crowd, st.fares)
         from app.services.live_service import LiveTracker
         st.live = LiveTracker(st.network)

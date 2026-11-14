@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_state
-from app.api.routes import crowd, insights, journey, stops, tickets
+from app.api.routes import account, crowd, insights, journey, stops, tickets
 from app.api.routes import live as live_routes
 from app.core.config import get_settings
 from app.services.state import AppState, _json, load_state, start_live
@@ -37,15 +37,15 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
                   description="Delhi bus travel: journeys ranked by time and expected crowding, live buses, "
                               "fares and DEMO tickets. Crowding is a relative index from e-ticket data, not occupancy.")
     origins = [o.strip() for o in get_settings().crowdwise_cors_origins.split(",") if o.strip()]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"])
-    for r in (journey, stops, live_routes, tickets, crowd, insights):
+    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
+    for r in (journey, stops, live_routes, tickets, account, crowd, insights):
         app.include_router(r.router)
 
     @app.get("/api/v1/health", tags=["meta"])
     def health(st: AppState = Depends(get_state)) -> dict:
         comps = {"gtfs_network": st.network is not None, "crowd_model": st.crowd is not None,
                  "fares": st.fares is not None and bool(getattr(st.fares, "profile", None)),
-                 "demo_tickets": st.tickets is not None,
+                 "demo_tickets": st.tickets is not None, "accounts": st.accounts is not None,
                  "live_feed": bool(st.live is not None and st.live.status()["live"])}
         meta = _json(st.settings.artifacts_dir / "route_model_meta.json") or {}
         core = comps["gtfs_network"] and comps["crowd_model"]

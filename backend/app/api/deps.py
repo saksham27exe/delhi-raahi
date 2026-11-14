@@ -4,11 +4,32 @@ from datetime import date
 
 from fastapi import HTTPException, Request
 
+from app.services.accounts import User
+
 from app.services.state import AppState
 
 
 def get_state(request: Request) -> AppState:
     return request.app.state.cw
+
+
+def current_user(request: Request) -> User | None:
+    """User from `Authorization: Bearer <token>`, or None for guests."""
+    st: AppState = request.app.state.cw
+    h = request.headers.get("authorization", "")
+    if st.accounts is None or not h.lower().startswith("bearer "):
+        return None
+    return st.accounts.user_for_token(h[7:])
+
+
+def require_user(request: Request) -> User:
+    st: AppState = request.app.state.cw
+    if st.accounts is None:
+        raise HTTPException(503, detail="Accounts are not available on this server.")
+    u = current_user(request)
+    if u is None:
+        raise HTTPException(401, detail="Please log in to continue.", headers={"WWW-Authenticate": "Bearer"})
+    return u
 
 
 def require_gtfs(st: AppState) -> None:

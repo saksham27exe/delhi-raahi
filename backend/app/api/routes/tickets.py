@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_state, require_gtfs
+from app.api.deps import get_state, require_gtfs, require_user
 from app.fare_engine.fares import RULES
 from app.schemas.api import FareQuoteRequest, TicketVerifyRequest
 from app.services import summaries
 from app.services.state import AppState, _json
+from app.services.accounts import AccountError, User, mask_phone
 from app.services.ticket_service import BookingError
 
 router = APIRouter(prefix="/api/v1", tags=["fares & demo tickets"])
@@ -34,16 +35,28 @@ def quote(req: FareQuoteRequest, st: AppState = Depends(get_state)) -> dict:
 
 
 @router.post("/tickets/book")
-def book(req: FareQuoteRequest, st: AppState = Depends(get_state)) -> dict:
-    """DEMO booking: no payment, not valid for travel. The ticket is returned to be stored on the device."""
+def book(req: FareQuoteRequest, st: AppState = Depends(get_state), u: User = Depends(require_user)) -> dict:
+    """DEMO booking for a logged-in user, paid from the DEMO wallet (no real money); not valid for travel.
+    The ticket carries the holder's masked phone and is stored on the account."""
     require_gtfs(st)
     try:
-        return st.tickets.book(**_args(req))
+        price = st.tickets.quote(**_args(req))["total"]
+        return st.accounts.purchase(u.id, "ticket", price,
+                                    lambda: st.tickets.book(**_args(req), holder=mask_phone(u.phone)))
     except BookingError as e:
         raise HTTPException(422, detail=str(e)) from None
+    except AccountError as e:
+        raise HTTPException(e.status, detail=str(e)) from None
 
 
 @router.post("/tickets/verify")
 def verify(req: TicketVerifyRequest, st: AppState = Depends(get_state)) -> dict:
     require_gtfs(st)
-    return st.tickets.verify(req.qr_payload)
+    v = st.tickets.verify(req.qr_payload)
+    if v.get("valid_signature") and st.accounts is not None:
+        body = v["ticket"]
+        item_id = body.get("ticket_id") or body.get("pass_id")
+        # Signed but not held by any account (e.g. the account was deleted): do not accept.
+        if not st.accounts.item_on_record(item_id):
+            v["status"] = "not_on_record"
+    return v

@@ -7,6 +7,7 @@ from app.fare_engine.fares import FareService
 from app.main import create_app
 from app.services.journey_service import JourneyService
 from app.services.live_service import LiveTracker
+from app.services.accounts import AccountStore
 from app.services.state import AppState
 from app.services.ticket_service import TicketService
 from tests.test_journey import net  # noqa: F401  (fixture)
@@ -17,7 +18,8 @@ from tests.test_ml import crowd  # noqa: F401  (fixture)
 def client(net, crowd, tmp_path):  # noqa: F811
     fares = FareService(net, tmp_path)
     st = AppState(settings=get_settings(), network=net, crowd=crowd, fares=fares,
-                  tickets=TicketService(fares, "k"), journeys=JourneyService(net, crowd, fares), live=LiveTracker(net))
+                  tickets=TicketService(fares, "k"), journeys=JourneyService(net, crowd, fares), live=LiveTracker(net),
+                  accounts=AccountStore(":memory:", "k"))
     with TestClient(create_app(st, live=False)) as c:
         yield c
 
@@ -74,13 +76,20 @@ def test_fares_and_demo_tickets(client):
     req = {"legs": [{"route_id": "1", "board_stop_id": "A", "alight_stop_id": "C"}], "passengers": 2}
     q = client.post("/api/v1/fares/quote", json=req).json()
     assert q["demo"] and q["total"] == 2 * 9.0 and "₹18" in q["summary"]["en"]      # unknown type -> AC price
-    t = client.post("/api/v1/tickets/book", json=req).json()
+    assert client.post("/api/v1/tickets/book", json=req).status_code == 401          # guests cannot book
+    tok = client.post("/api/v1/auth/register", json={"phone": "9876543210", "password": "bus12345", "name": "Asha"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    assert client.post("/api/v1/tickets/book", json=req, headers=h).status_code == 402  # empty demo wallet
+    client.post("/api/v1/wallet/topup", json={"amount": 100}, headers=h)
+    t = client.post("/api/v1/tickets/book", json=req, headers=h).json()
     assert t["ticket_id"].startswith("DEMO-") and "not valid for travel" in t["watermark"]["en"]
+    assert t["holder"] == "XXXXXX3210"
+    assert client.get("/api/v1/wallet", headers=h).json()["balance"] == 82.0
     v = client.post("/api/v1/tickets/verify", json={"qr_payload": t["qr_payload"]}).json()
     assert v["status"] == "active_demo"
     wrong = {"legs": [{"route_id": "1", "board_stop_id": "C", "alight_stop_id": "A"}]}
     assert client.post("/api/v1/fares/quote", json=wrong).status_code == 422
-    assert client.post("/api/v1/tickets/book", json={"legs": []}).status_code == 422
+    assert client.post("/api/v1/tickets/book", json={"legs": []}, headers=h).status_code == 422
     rules = client.get("/api/v1/fares/rules").json()
     assert rules["rules"]["digital_discount_pct"] == 10
 
