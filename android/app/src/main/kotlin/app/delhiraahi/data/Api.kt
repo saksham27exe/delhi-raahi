@@ -6,7 +6,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.JsonObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -50,6 +53,21 @@ object Api {
                 json.decodeFromString<T>(body)
             }
         }
+
+    private suspend inline fun <reified T> post(path: String, body: JsonObject, timeoutMs: Long = 45_000): T =
+        withContext(Dispatchers.IO) {
+            val url = "$base/api/v1$path".toHttpUrlOrNull() ?: throw ApiException(0, "bad server address")
+            val req = Request.Builder().url(url).post(body.toString().toRequestBody("application/json".toMediaType())).build()
+            val call = client.newBuilder().readTimeout(timeoutMs, TimeUnit.MILLISECONDS).build().newCall(req)
+            val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
+            response.use {
+                val text = it.body?.string().orEmpty()
+                if (!it.isSuccessful) throw ApiException(it.code, text.take(300))
+                json.decodeFromString<T>(text)
+            }
+        }
+
+    suspend fun journeys(body: JsonObject): JourneyResult = post("/journeys/search", body)
 
     suspend fun health(): Health = get("/health")
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =

@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -26,6 +27,8 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Icon
 import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.annotations.PolylineOptions
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -44,6 +47,9 @@ private const val STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-
 
 /** Connaught Place: shown until we know where the user is. */
 val DELHI_CENTER = LatLng(28.6315, 77.2167)
+
+/** A route line: bus legs in crowd colours, walks as thin grey. */
+data class MapLine(val points: List<Pair<Double, Double>>, val color: Int, val widthDp: Float = 5f)
 
 data class MapPin(val id: String, val lat: Double, val lon: Double, val title: String, val kind: Kind = Kind.STOP) {
     enum class Kind { STOP, BUS, FROM, TO }
@@ -87,6 +93,8 @@ fun BusMap(
     dark: Boolean,
     bottomPadding: Dp,
     showMyLocation: Boolean,
+    lines: List<MapLine> = emptyList(),
+    fitKey: Any? = null,
     onPinClick: ((MapPin) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
@@ -151,15 +159,30 @@ fun BusMap(
         map?.setPadding(0, 0, 0, with(density) { bottomPadding.roundToPx() })
     }
 
-    // Pins
-    LaunchedEffect(map, style, pins) {
+    // Lines + pins (annotations are cleared and redrawn together)
+    LaunchedEffect(map, style, pins, lines) {
         val m = map ?: return@LaunchedEffect
         if (style == null) return@LaunchedEffect
         m.clear()
+        lines.forEach { l ->
+            if (l.points.size >= 2) m.addPolyline(PolylineOptions().addAll(l.points.map { LatLng(it.first, it.second) }).color(l.color).width(l.widthDp))
+        }
         val byMarker = pins.associateBy { pin ->
             m.addMarker(MarkerOptions().position(LatLng(pin.lat, pin.lon)).title(pin.title).icon(icons.getValue(pin.kind))).id
         }
         m.setOnMarkerClickListener { mk -> byMarker[mk.id]?.let { onPinClick?.invoke(it) }; false }
+    }
+
+    // Fit the camera to everything drawn whenever fitKey changes (e.g. another trip selected).
+    LaunchedEffect(map, fitKey) {
+        val m = map ?: return@LaunchedEffect
+        if (fitKey == null) return@LaunchedEffect
+        val pts = lines.flatMap { it.points } + pins.map { it.lat to it.lon }
+        if (pts.size < 2) return@LaunchedEffect
+        val bounds = LatLngBounds.Builder().includes(pts.map { LatLng(it.first, it.second) }).build()
+        val pad = with(density) { 48.dp.roundToPx() }
+        val sheet = with(density) { bottomPadding.roundToPx() }
+        runCatching { m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad, sheet + pad), 600) }
     }
 
     // Blue "you are here" dot (MapLibre location component), only with permission.

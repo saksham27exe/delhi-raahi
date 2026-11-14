@@ -151,6 +151,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 fun MapSheet(
     peek: Float = 0.46f, full: Float = 0.88f,
     header: @Composable ColumnScope.() -> Unit,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val t = LocalExtra.current
@@ -184,7 +185,13 @@ fun MapSheet(
                     header()
                 }
                 Column(Modifier.weight(1f).fillMaxWidth(), content = content)
+                // Leave room so the last item can scroll above the pinned footer.
+                if (footer != null) Box(Modifier.height(96.dp))
             }
         }
+        if (footer != null) Surface(
+            Modifier.align(Alignment.BottomCenter).widthIn(max = MaxWidth).fillMaxWidth(),
+            color = t.card, shadowElevation = 8.dp,
+        ) { footer() }
     }
 }

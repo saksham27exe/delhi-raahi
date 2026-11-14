@@ -85,7 +85,7 @@ private sealed interface Nearby {
 
 /** Same structure as the Expo Home: full map, floating language pill + locate, draggable sheet. */
 @Composable
-fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
+fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit, onWhereTo: () -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -152,7 +152,7 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
                 Text(s.greeting, style = MaterialTheme.typography.headlineSmall, color = t.text, modifier = Modifier.semantics { heading() })
                 Row(
                     Modifier.padding(top = Space.md).fillMaxWidth().height(56.dp).clip(RoundedCornerShape(Radius.md)).background(t.surface)
-                        .clickable(role = Role.Button, onClickLabel = s.whereTo, onClick = soon).padding(start = Space.lg, end = Space.sm),
+                        .clickable(role = Role.Button, onClickLabel = s.whereTo, onClick = onWhereTo).padding(start = Space.lg, end = Space.sm),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
                 ) {
                     Icon(Icons.Outlined.Search, contentDescription = null, tint = t.text, modifier = Modifier.size(22.dp))

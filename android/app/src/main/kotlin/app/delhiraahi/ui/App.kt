@@ -40,6 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
+import app.delhiraahi.data.TripViewModel
+import app.delhiraahi.ui.trip.JourneyScreen
+import app.delhiraahi.ui.trip.ResultsScreen
+import app.delhiraahi.ui.trip.SearchScreen
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.delhiraahi.data.Settings
@@ -70,6 +77,8 @@ fun App(settings: Settings, store: SettingsStore) {
     val scope = rememberCoroutineScope()
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
+    val trip: TripViewModel = viewModel()
+    val showTabs = current == null || tabs.any { it.route == current }
     val go: (String) -> Unit = { route ->
         nav.navigate(route) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -81,12 +90,24 @@ fun App(settings: Settings, store: SettingsStore) {
     Column(Modifier.fillMaxSize().background(t.bg)) {
         NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
             composable("home") {
-                HomeScreen(lang = settings.lang, onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } }, onAddPlace = { go("account") })
+                HomeScreen(lang = settings.lang, onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } }, onAddPlace = { go("account") }, onWhereTo = { nav.navigate("search") })
             }
             composable("live") { LiveScreen() }
             composable("tickets") { TicketsScreen() }
             composable("account") { AccountScreen(settings = settings, store = store) }
+            composable("search") {
+                SearchScreen(trip, onBack = { nav.popBackStack() }, onDone = {
+                    nav.navigate("results") { popUpTo("search") { inclusive = true } }
+                })
+            }
+            composable("results") {
+                ResultsScreen(trip, onBack = { nav.popBackStack() }, onOpen = { i -> nav.navigate("journey/$i") })
+            }
+            composable("journey/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType })) { e ->
+                JourneyScreen(trip, e.arguments?.getInt("idx") ?: 0, settings.lang, onBack = { nav.popBackStack() })
+            }
         }
+        if (showTabs) {
         HorizontalDivider(thickness = 0.5.dp, color = t.border)
         Row(Modifier.fillMaxWidth().background(t.card).windowInsetsPadding(WindowInsets.navigationBars).height(64.dp)) {
             tabs.forEach { tab ->
@@ -101,6 +122,7 @@ fun App(settings: Settings, store: SettingsStore) {
                         fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
                 }
             }
+        }
         }
     }
 }

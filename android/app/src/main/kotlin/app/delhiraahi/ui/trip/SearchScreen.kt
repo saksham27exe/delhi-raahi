@@ -1,0 +1,195 @@
+package app.delhiraahi.ui.trip
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.delhiraahi.data.Api
+import app.delhiraahi.data.DeviceLocation
+import app.delhiraahi.data.PickedPlace
+import app.delhiraahi.data.StopHit
+import app.delhiraahi.data.TripViewModel
+import app.delhiraahi.i18n.LocalStrings
+import app.delhiraahi.ui.common.ListRow
+import app.delhiraahi.ui.theme.LocalExtra
+import app.delhiraahi.ui.theme.MaxWidth
+import app.delhiraahi.ui.theme.Radius
+import app.delhiraahi.ui.theme.Space
+import kotlinx.coroutines.delay
+
+private enum class Field { FROM, TO }
+
+/** From/To on a dot-and-square rail, like ride apps. When both are set we go to trip options. */
+@Composable
+fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
+    val s = LocalStrings.current
+    val t = LocalExtra.current
+    val ctx = LocalContext.current
+    var field by remember { mutableStateOf(if (trip.to != null && trip.from == null) Field.FROM else Field.TO) }
+    var fromText by remember { mutableStateOf(trip.from?.label.orEmpty()) }
+    var toText by remember { mutableStateOf(trip.to?.label.orEmpty()) }
+    var hits by remember { mutableStateOf<List<StopHit>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    var here by remember { mutableStateOf<PickedPlace?>(null) }
+    val fromFocus = remember { FocusRequester() }
+    val toFocus = remember { FocusRequester() }
+
+    // Default origin = current location (if allowed).
+    LaunchedEffect(Unit) {
+        if (field == Field.TO) toFocus.requestFocus() else fromFocus.requestFocus()
+        val loc = DeviceLocation.current(ctx) ?: return@LaunchedEffect
+        here = PickedPlace.here(s.currentLocation, loc.latitude, loc.longitude)
+        if (trip.from == null) { trip.from = here; fromText = s.currentLocation }
+    }
+
+    val query = (if (field == Field.FROM) fromText else toText).trim()
+    val picked = if (field == Field.FROM) trip.from else trip.to
+    LaunchedEffect(query, field) {
+        if (query.length < 2 || picked?.label == query) { hits = emptyList(); searching = false; return@LaunchedEffect }
+        searching = true
+        delay(220)
+        hits = runCatching { Api.searchStops(query).results }.getOrDefault(emptyList())
+        searching = false
+    }
+
+    fun choose(p: PickedPlace) {
+        if (field == Field.FROM) { trip.from = p; fromText = p.label } else { trip.to = p; toText = p.label }
+        hits = emptyList()
+        when {
+            trip.from != null && trip.to != null -> { trip.search(); onDone() }
+            trip.from == null -> { field = Field.FROM; fromFocus.requestFocus() }
+            else -> { field = Field.TO; toFocus.requestFocus() }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(t.bg).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        Column(Modifier.fillMaxWidth().widthIn(max = MaxWidth).align(Alignment.CenterHorizontally).padding(horizontal = Space.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = s.back, tint = t.text) }
+                Text(s.toPh, style = MaterialTheme.typography.titleMedium, color = t.text)
+            }
+            Row(Modifier.padding(horizontal = Space.sm, vertical = Space.sm), verticalAlignment = Alignment.CenterVertically) {
+                // rail: dot – line – square
+                Column(Modifier.width(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(t.text))
+                    Box(Modifier.width(2.dp).height(40.dp).background(t.surface2))
+                    Box(Modifier.size(10.dp).background(t.text))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    PlaceField(fromText, s.fromPh, s.from, fromFocus, field == Field.FROM,
+                        onFocus = { field = Field.FROM },
+                        onChange = { fromText = it; trip.from = null },
+                        onClear = { fromText = ""; trip.from = null; fromFocus.requestFocus() })
+                    PlaceField(toText, s.toPh, s.to, toFocus, field == Field.TO,
+                        onFocus = { field = Field.TO },
+                        onChange = { toText = it; trip.to = null },
+                        onClear = { toText = ""; trip.to = null; toFocus.requestFocus() })
+                }
+                IconButton(onClick = {
+                    val f = trip.from; trip.from = trip.to; trip.to = f
+                    val ft = fromText; fromText = toText; toText = ft
+                    if (trip.from != null && trip.to != null) { trip.search(); onDone() }
+                }) { Icon(Icons.Outlined.SwapVert, contentDescription = s.swap, tint = t.text) }
+            }
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(t.border))
+
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = Space.sm)) {
+                if (field == Field.FROM && here != null && query.length < 2) item {
+                    ListRow(Icons.Outlined.MyLocation, s.currentLocation, onClick = { choose(here!!) })
+                }
+                if (query.length in 1..1) item { Text(s.typeMore, color = t.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Space.lg)) }
+                if (searching && hits.isEmpty()) item {
+                    Row(Modifier.padding(Space.lg)) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = t.text) }
+                }
+                if (!searching && query.length >= 2 && hits.isEmpty() && picked?.label != query) item {
+                    Text(s.noMatch, color = t.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Space.lg))
+                }
+                items(hits, key = { it.name }) { h ->
+                    ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
+                }
+                item { Spacer(Modifier.height(Space.xxl)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceField(
+    value: String, placeholder: String, label: String, focus: FocusRequester, active: Boolean,
+    onFocus: () -> Unit, onChange: (String) -> Unit, onClear: () -> Unit,
+) {
+    val t = LocalExtra.current
+    Row(
+        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md))
+            .background(if (active) t.surface2 else t.surface).padding(start = Space.md, end = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) Text(placeholder, color = t.muted, style = MaterialTheme.typography.bodyLarge)
+            BasicTextField(
+                value = value, onValueChange = onChange, singleLine = true,
+                textStyle = TextStyle(color = t.text, fontSize = 16.sp),
+                cursorBrush = SolidColor(t.text),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                    .onFocusChanged { if (it.isFocused) onFocus() }
+                    .semantics { contentDescription = label },
+            )
+        }
+        if (value.isNotEmpty() && active) IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Outlined.Close, contentDescription = null, tint = t.muted, modifier = Modifier.size(18.dp))
+        }
+    }
+}
