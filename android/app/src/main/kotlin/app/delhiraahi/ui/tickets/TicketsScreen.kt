@@ -1,5 +1,12 @@
 package app.delhiraahi.ui.tickets
 
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -116,31 +123,45 @@ fun TicketsScreen(session: SessionViewModel, lang: Lang, onOpen: (String) -> Uni
     }
 }
 
+/** A paper ticket stub: details on the left, a perforation, the fare on a torn-off stub on the right. */
 @Composable
 private fun TicketCard(tk: DemoTicket, lang: Lang, onClick: () -> Unit) {
-    val s = LocalStrings.current
     val t = LocalExtra.current
     val expired = tk.isExpired()
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).border(1.dp, t.border, RoundedCornerShape(Radius.lg))
-            .background(t.card).clickable(role = Role.Button, onClick = onClick).padding(Space.lg)
-            .semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(Space.sm),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StatusPill(expired)
-            Box(Modifier.weight(1f))
-            Text(money(tk.total), style = MaterialTheme.typography.titleMedium, color = t.text)
-        }
-        tk.legs.forEach { l ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                RoutePill(l.route, small = true)
-                Text("${l.board_stop} → ${l.alight_stop}", style = MaterialTheme.typography.bodyMedium, color = t.text, maxLines = 1, modifier = Modifier.weight(1f))
+    val stubW = 92.dp
+    val stubBg = if (expired) t.surface2 else t.primary
+    val stubFg = if (expired) t.muted else t.onPrimary
+    Row(
+        Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(Radius.md)).background(t.card)
+            .clickable(role = Role.Button, onClick = onClick)
+            .drawWithContent {
+                drawContent()
+                // notches + perforation where the stub tears off
+                val x = size.width - stubW.toPx()
+                val r = 9.dp.toPx()
+                drawCircle(t.bg, r, Offset(x, 0f))
+                drawCircle(t.bg, r, Offset(x, size.height))
+                drawLine(t.bg, Offset(x, r + 4.dp.toPx()), Offset(x, size.height - r - 4.dp.toPx()), strokeWidth = 2.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())))
             }
+            .semantics(mergeDescendants = true) {},
+    ) {
+        Column(Modifier.weight(1f).padding(Space.lg), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+            StatusPill(expired)
+            tk.legs.forEach { l ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    RoutePill(l.route, small = true)
+                    Text("${l.board_stop} → ${l.alight_stop}", style = MaterialTheme.typography.bodyMedium, color = t.text, maxLines = 2, modifier = Modifier.weight(1f))
+                }
+            }
+            Text("${tk.ticket_id} · ${formatDelhi(tk.issued_at, lang)}", style = MaterialTheme.typography.labelSmall, color = t.muted)
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${tk.ticket_id} · ${formatDelhi(tk.issued_at, lang)}", style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.weight(1f))
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = t.muted, modifier = Modifier.size(18.dp))
+        Column(
+            Modifier.width(stubW).fillMaxHeight().background(stubBg).padding(Space.sm),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
+            Text(money(tk.total), style = MaterialTheme.typography.titleLarge, color = stubFg, fontWeight = FontWeight.Bold)
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = stubFg, modifier = Modifier.size(18.dp))
         }
     }
 }

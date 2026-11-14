@@ -65,9 +65,12 @@ import app.delhiraahi.ui.common.routeName
 import app.delhiraahi.ui.theme.LocalExtra
 import app.delhiraahi.ui.theme.Radius
 import app.delhiraahi.ui.theme.Space
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.delay
 
-private const val PEEK = 0.42f
 private const val MIN_ZOOM = 11.5
 
 /** Live buses for the visible map area (refreshed every 30 s), stop search and nearby stops. */
@@ -119,20 +122,15 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
             nearby.map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name) }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        BusMap(
-            Modifier.fillMaxSize(), map, pins, t.dark, (screenH * PEEK).dp, showMyLocation = me != null,
-            onPinClick = { p -> if (p.id.startsWith("s")) onOpenStop(p.id.drop(1)) },
-            onCameraIdle = { b, z -> bbox = b; zoom = z },
-        )
-        Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = Space.lg, vertical = Space.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(shape = RoundedCornerShape(50), color = t.card, shadowElevation = 4.dp, modifier = Modifier.height(44.dp)) {
-                Row(Modifier.padding(horizontal = 14.dp).semantics { liveRegion = LiveRegionMode.Polite },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).background(if (live == true && !failed) t.low.line else t.unknown.line))
+    val mapH = (screenH * 0.40f).dp
+    Column(Modifier.fillMaxSize().background(t.bg).windowInsetsPadding(WindowInsets.statusBars)) {
+        // Title + live status
+        Row(Modifier.fillMaxWidth().padding(start = Space.xl, end = Space.md, top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(s.tabLive, style = MaterialTheme.typography.headlineLarge, color = t.text, modifier = Modifier.semantics { heading() })
+                Row(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(if (live == true && !failed) t.low.line else t.unknown.line))
                     Text(
                         when {
                             failed -> s.errNetwork.substringBefore('.')
@@ -141,41 +139,49 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                             live == true -> "${s.liveOn} · ${s.busesShown(vehicles.size)}"
                             else -> s.liveOff
                         },
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = t.text,
+                        style = MaterialTheme.typography.bodyMedium, color = t.muted,
                     )
                 }
             }
-            Box(Modifier.weight(1f))
-            FloatingIconButton(Icons.Outlined.MyLocation, s.locate) { me?.let { map.moveTo(it.first, it.second, 14.0) } }
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { me?.let { map.moveTo(it.first, it.second, 14.0) } }
+                    .semantics { contentDescription = s.locate },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = t.text) }
         }
 
-        MapSheet(
-            peek = PEEK, full = 0.88f,
-            header = {
-                Row(
-                    Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(t.surface).padding(horizontal = Space.md),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                ) {
-                    Icon(Icons.Outlined.Search, contentDescription = null, tint = t.text, modifier = Modifier.size(20.dp))
-                    Box(Modifier.weight(1f)) {
-                        if (q.isEmpty()) Text(s.searchStop, color = t.muted, style = MaterialTheme.typography.bodyLarge)
-                        BasicTextField(q, { q = it }, singleLine = true, textStyle = TextStyle(color = t.text, fontSize = 16.sp),
-                            cursorBrush = SolidColor(t.text), modifier = Modifier.fillMaxWidth().semantics { contentDescription = s.searchStop })
-                    }
-                }
-            },
-        ) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = Space.xl)) {
-                if (hits.isNotEmpty()) hits.forEach { h ->
-                    ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), chevron = true) { onOpenStop(h.stop_ids.first()) }
-                } else {
-                    Text(s.nearbyStops, style = MaterialTheme.typography.titleMedium, color = t.text,
-                        modifier = Modifier.padding(top = Space.sm, bottom = Space.xs).semantics { heading() })
-                    if (me == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
-                    else if (nearby.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
-                    nearby.forEach { st ->
-                        ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { onOpenStop(st.stop_id) }
-                    }
+        // The map is a card on the page, not the page.
+        Box(Modifier.padding(horizontal = Space.lg, vertical = Space.md).fillMaxWidth().height(mapH)
+            .clip(RoundedCornerShape(Radius.lg)).border(1.dp, t.border, RoundedCornerShape(Radius.lg))) {
+            BusMap(
+                Modifier.fillMaxSize(), map, pins, t.dark, 0.dp, showMyLocation = me != null,
+                onPinClick = { p -> if (p.id.startsWith("s")) onOpenStop(p.id.drop(1)) },
+                onCameraIdle = { b, z -> bbox = b; zoom = z },
+            )
+        }
+
+        // Stop search, underlined like the trip sentence
+        Row(Modifier.padding(horizontal = Space.xl).fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            Icon(Icons.Outlined.Search, contentDescription = null, tint = t.muted, modifier = Modifier.size(22.dp))
+            Box(Modifier.weight(1f)) {
+                if (q.isEmpty()) Text(s.searchStop, color = t.muted, style = MaterialTheme.typography.titleMedium)
+                BasicTextField(q, { q = it }, singleLine = true, textStyle = MaterialTheme.typography.titleMedium.copy(color = t.text),
+                    cursorBrush = SolidColor(t.primary), modifier = Modifier.fillMaxWidth().semantics { contentDescription = s.searchStop })
+            }
+        }
+        Box(Modifier.padding(horizontal = Space.xl).fillMaxWidth().height(1.5.dp).background(if (q.isEmpty()) t.border else t.primary))
+
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.xl).padding(bottom = Space.xl)) {
+            if (hits.isNotEmpty()) hits.forEach { h ->
+                ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), chevron = true) { onOpenStop(h.stop_ids.first()) }
+            } else {
+                Text(s.nearbyStops.uppercase(), style = MaterialTheme.typography.labelMedium, color = t.muted,
+                    modifier = Modifier.padding(top = Space.lg, bottom = Space.xs).semantics { heading() })
+                if (me == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                else if (nearby.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                nearby.forEach { st ->
+                    ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { onOpenStop(st.stop_id) }
                 }
             }
         }

@@ -1,5 +1,9 @@
 package app.delhiraahi.voice
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -115,19 +119,20 @@ fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (In
                         }
                         return@itemsIndexed
                     }
-                    Box(Modifier.fillMaxWidth(), contentAlignment = if (line.user) Alignment.CenterEnd else Alignment.CenterStart) {
-                        Text(
-                            line.text,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = t.text,
-                            modifier = Modifier.widthIn(max = 560.dp).clip(RoundedCornerShape(Radius.lg))
-                                .background(if (line.user) t.surface2 else t.card).padding(Space.md)
-                                .semantics { contentDescription = (if (line.user) vs.you else vs.assistant) + ": " + line.text },
-                        )
+                    // A transcript, not chat bubbles: what you said in large type, the reply beside a sandstone rule.
+                    if (line.user) Column(Modifier.fillMaxWidth().padding(top = Space.md)
+                        .semantics(mergeDescendants = true) { contentDescription = vs.you + ": " + line.text }) {
+                        Text(vs.you.uppercase(), style = MaterialTheme.typography.labelSmall, color = t.muted)
+                        Text("\u201C${line.text}\u201D", style = MaterialTheme.typography.headlineSmall, color = t.text)
+                    } else Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)
+                        .semantics(mergeDescendants = true) { contentDescription = vs.assistant + ": " + line.text }) {
+                        Box(Modifier.width(3.dp).fillMaxHeight().background(t.primary))
+                        Text(line.text, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal), color = t.text,
+                            modifier = Modifier.padding(start = Space.md, top = 2.dp, bottom = 2.dp))
                     }
                 }
             }
-            if (session.partial.isNotEmpty()) Text(session.partial, style = MaterialTheme.typography.titleMedium, color = t.muted,
+            if (session.partial.isNotEmpty()) Text(session.partial, style = MaterialTheme.typography.headlineSmall, color = t.muted,
                 modifier = Modifier.fillMaxWidth().padding(vertical = Space.sm))
             Text(vs.dataNote, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
             if (micDenied) Text(vs.micNeeded, color = t.veryHigh.fg, modifier = Modifier.padding(vertical = Space.sm))
@@ -145,6 +150,10 @@ fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (In
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = t.text,
             )
             val listening = session.status == VoiceStatus.LISTENING
+            // A slow breathing ring while the mic is open.
+            val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "mic").animateFloat(
+                0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900),
+                    androidx.compose.animation.core.RepeatMode.Reverse), label = "pulse")
             val label = when {
                 !running -> vs.tapToTalk
                 session.status == VoiceStatus.SPEAKING -> vs.tapToInterrupt
@@ -158,12 +167,12 @@ fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (In
                     else askMic.launch(Manifest.permission.RECORD_AUDIO)
                 },
                 shape = CircleShape,
-                color = if (listening) t.low.line else t.text,
-                modifier = Modifier.size(120.dp).border(if (listening) 6.dp else 0.dp, t.low.bg, CircleShape)
+                color = t.primary,
+                modifier = Modifier.size(120.dp).border(if (listening) (4 + 8 * pulse).dp else 0.dp, t.primary.copy(alpha = 0.25f), CircleShape)
                     .semantics { contentDescription = label },
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Mic, contentDescription = null, tint = t.bg, modifier = Modifier.size(56.dp))
+                    Icon(Icons.Outlined.Mic, contentDescription = null, tint = t.onPrimary, modifier = Modifier.size(56.dp))
                 }
             }
             if (running) Surface(

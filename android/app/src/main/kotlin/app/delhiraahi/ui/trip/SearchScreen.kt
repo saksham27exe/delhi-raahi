@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -127,19 +128,14 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = s.back, tint = t.text) }
                 Text(s.toPh, style = MaterialTheme.typography.titleMedium, color = t.text)
             }
-            Row(Modifier.padding(horizontal = Space.sm, vertical = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                // rail: dot – line – square
-                Column(Modifier.width(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).background(t.text))
-                    Box(Modifier.width(2.dp).height(40.dp).background(t.surface2))
-                    Box(Modifier.size(10.dp).background(t.text))
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    PlaceField(fromText, s.fromPh, s.from, fromFocus, field == Field.FROM,
+            // The same sentence as Home: "From ____ to ____"
+            Row(Modifier.padding(start = Space.lg, end = Space.sm, top = Space.sm, bottom = Space.md), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.md)) {
+                    PlaceField(fromText, s.fromPh, s.from, fromFocus, field == Field.FROM, s.sFromPre, s.sFromPost,
                         onFocus = { field = Field.FROM },
                         onChange = { fromText = it; trip.from = null },
                         onClear = { fromText = ""; trip.from = null; fromFocus.requestFocus() })
-                    PlaceField(toText, s.toPh, s.to, toFocus, field == Field.TO,
+                    PlaceField(toText, s.toPh, s.to, toFocus, field == Field.TO, s.sToPre, s.sToPost,
                         onFocus = { field = Field.TO },
                         onChange = { toText = it; trip.to = null },
                         onClear = { toText = ""; trip.to = null; toFocus.requestFocus() })
@@ -150,7 +146,6 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
                     if (trip.from != null && trip.to != null) { trip.search(); onDone() }
                 }) { Icon(Icons.Outlined.SwapVert, contentDescription = s.swap, tint = t.text) }
             }
-            Box(Modifier.fillMaxWidth().height(0.5.dp).background(t.border))
 
             LazyColumn(Modifier.fillMaxSize().padding(horizontal = Space.sm)) {
                 if (field == Field.FROM && here != null && query.length < 2) item {
@@ -198,20 +193,22 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun PlaceField(
     value: String, placeholder: String, label: String, focus: FocusRequester, active: Boolean,
+    pre: String, post: String,
     onFocus: () -> Unit, onChange: (String) -> Unit, onClear: () -> Unit,
 ) {
     val t = LocalExtra.current
-    Row(
-        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md))
-            .background(if (active) t.surface2 else t.surface).padding(start = Space.md, end = Space.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val big = MaterialTheme.typography.headlineSmall
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+    if (pre.isNotEmpty()) Text(pre, style = big.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Normal), color = t.muted,
+        modifier = Modifier.width(56.dp).padding(bottom = 8.dp))
+    Column(Modifier.weight(1f)) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
-            if (value.isEmpty()) Text(placeholder, color = t.muted, style = MaterialTheme.typography.bodyLarge)
+            if (value.isEmpty()) Text(placeholder, color = if (active) t.primary else t.muted, style = big)
             BasicTextField(
                 value = value, onValueChange = onChange, singleLine = true,
-                textStyle = TextStyle(color = t.text, fontSize = 16.sp),
-                cursorBrush = SolidColor(t.text),
+                textStyle = big.copy(color = t.text),
+                cursorBrush = SolidColor(t.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(),
                 modifier = Modifier.fillMaxWidth().focusRequester(focus)
@@ -219,8 +216,13 @@ private fun PlaceField(
                     .semantics { contentDescription = label },
             )
         }
-        if (value.isNotEmpty() && active) IconButton(onClick = onClear, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.Close, contentDescription = null, tint = t.muted, modifier = Modifier.size(18.dp))
+        if (value.isNotEmpty() && active) IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Outlined.Close, contentDescription = null, tint = t.muted, modifier = Modifier.size(20.dp))
         }
+    }
+    Box(Modifier.fillMaxWidth().height(if (active) 2.5.dp else 1.5.dp).background(if (active) t.primary else t.border))
+    }
+    if (post.isNotEmpty()) Text(post, style = big.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Normal), color = t.muted,
+        modifier = Modifier.padding(bottom = 8.dp))
     }
 }
