@@ -235,10 +235,12 @@ fun BusMap(
         val pts = lines.flatMap { it.points } + pins.map { it.lat to it.lon }
         if (pts.size < 2) return@LaunchedEffect
         val bounds = LatLngBounds.Builder().includes(pts.map { LatLng(it.first, it.second) }).build()
-        val pad = with(density) { 48.dp.roundToPx() }
+        // A small inline sketch (no sheet over it) needs much tighter margins than the full-screen map.
+        val pad = with(density) { (if (fullScreen) 48.dp else 22.dp).roundToPx() }
+        val top = if (fullScreen) pad * 2 else pad
         val sheet = with(density) { bottomPad.roundToPx() }
         val side = with(density) { leftPad.roundToPx() }
-        runCatching { m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, side + pad, pad * 2, pad, sheet + pad), 600) }
+        runCatching { m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, side + pad, top, pad, sheet + pad), 600) }
     }
 
     // Blue "you are here" dot (MapLibre location component), only with permission.

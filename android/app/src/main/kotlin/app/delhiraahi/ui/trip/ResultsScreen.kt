@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -69,8 +71,6 @@ import app.delhiraahi.ui.theme.Radius
 import app.delhiraahi.ui.theme.Space
 import androidx.compose.runtime.remember
 
-private const val PEEK = 0.55f
-
 fun leaveLabel(s: Strings, l: LeaveAt): String = when (l) {
     LeaveAt.Now -> s.leaveNow
     is LeaveAt.InMinutes -> s.leaveIn(l.min)
@@ -82,7 +82,6 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
     val s = LocalStrings.current
     val t = LocalExtra.current
     val map = remember { MapController() }
-    val screenH = LocalConfiguration.current.screenHeightDp
     val journeys = trip.journeys
     val walking = trip.kind == TripKind.WALK
     val sel = if (walking) null else journeys.getOrNull(trip.selected)
@@ -102,138 +101,102 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        BusMap(
-            modifier = Modifier.fillMaxSize(), controller = map, dark = t.dark, pins = pins, lines = lines,
-            bottomPadding = (screenH * PEEK).dp, showMyLocation = false, fitKey = if (walking) "walk" else sel?.journey_id,
-        )
-        Row(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(Space.lg)) {
-            FloatingIconButton(Icons.AutoMirrored.Outlined.ArrowBack, s.back, onClick = onBack)
-        }
-
-        MapSheet(
-            peek = PEEK, full = 0.9f,
-            footer = sel?.let { j ->
-                {
-                    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(Space.lg)) {
-                        PrimaryButton(s.choose(j.legs.joinToString(" + ") { routeName(it.route) })) { onOpen(trip.selected) }
-                    }
-                }
-            },
-            header = {
-                Text(
-                    "${trip.from?.label ?: ""} → ${trip.to?.label ?: ""}", style = MaterialTheme.typography.titleMedium, color = t.text,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() },
-                )
-                Spacer(Modifier.height(Space.sm))
-                Segmented(
-                    listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded),
-                    trip.preference, { trip.preference = it; trip.search() }, s.preference,
-                )
-                // Direct / with change / walk
-                if (trip.result is Load.Ok && (journeys.isNotEmpty() || walkOpt != null)) Row(
-                    Modifier.padding(top = Space.sm).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm),
-                ) {
-                    fun pick(k: TripKind) { trip.kind = k; trip.shown(k).firstOrNull()?.let { trip.selected = it } }
-                    Chip("${s.filterAll} ${journeys.size}", selected = trip.kind == TripKind.ALL) { pick(TripKind.ALL) }
-                    Chip("${s.filterDirect} ${trip.shown(TripKind.DIRECT).size}", selected = trip.kind == TripKind.DIRECT) { pick(TripKind.DIRECT) }
-                    Chip("${s.filterChange} ${trip.shown(TripKind.CHANGE).size}", selected = trip.kind == TripKind.CHANGE) { pick(TripKind.CHANGE) }
-                    if (walkOpt != null) Chip("${s.filterWalk} ${s.minutes(walkOpt.minutes.mins())}", Icons.AutoMirrored.Outlined.DirectionsWalk,
-                        selected = walking) { pick(TripKind.WALK) }
-                }
-                Row(Modifier.padding(top = Space.sm).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    LeaveAt.options.forEach { o ->
-                        Chip(leaveLabel(s, o), if (o == LeaveAt.Now) Icons.Outlined.Schedule else null, selected = trip.leaveAt == o) {
-                            trip.leaveAt = o; trip.search()
-                        }
-                    }
-                }
-            },
+    Column(Modifier.fillMaxSize().background(t.bg)) {
+        // The sentence you asked: From … to …, leaving …
+        Row(
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(start = Space.sm, end = Space.lg, top = Space.sm),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = Space.lg),
-                verticalArrangement = Arrangement.spacedBy(Space.sm)) {
-                when (val r = trip.result) {
-                    Load.Idle, Load.Loading -> Row(Modifier.padding(vertical = Space.xl), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = t.text)
-                        Text(s.searching, color = t.muted)
-                    }
-                    is Load.Failed -> Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(t.veryHigh.bg).padding(Space.lg),
-                        verticalArrangement = Arrangement.spacedBy(Space.sm),
-                    ) {
-                        val e = r.error
-                        val noStop = e is ApiException && e.reason == "no_stop_nearby"
-                        Text(when {
-                            e is ApiException && e.status == 0 -> s.errNetwork
-                            noStop -> s.noStopNear(trip.radiusM)
-                            else -> e.message ?: s.errNetwork
-                        }, color = t.veryHigh.fg)
-                        if (noStop && trip.radiusM < 1500)
-                            Text(s.widerSearch, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(1500) }.padding(vertical = Space.sm))
-                        else
-                            Text(s.retry, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(trip.radiusM) }.padding(vertical = Space.sm))
-                    }
-                    is Load.Ok -> if (r.value.journeys.isEmpty()) Column(Modifier.padding(vertical = Space.xl), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                        Text(s.noTrips, style = MaterialTheme.typography.titleMedium, color = t.text)
-                        Text(s.noTripsHint, color = t.muted)
-                    } else if (walking) walkOpt?.let { w ->
-                        Column(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).border(2.dp, t.text, RoundedCornerShape(Radius.lg))
-                                .padding(Space.lg).semantics(mergeDescendants = true) {},
-                            verticalArrangement = Arrangement.spacedBy(Space.xs),
-                        ) {
-                            Text(s.walkWhole, style = MaterialTheme.typography.titleMedium, color = t.text)
-                            Text(s.walkDetail(w.minutes.mins(), w.distance_m.toInt(), w.basis != "osm_road"), color = t.muted)
-                        }
-                    } else {
-                        val idx = trip.shown()
-                        if (idx.isEmpty()) Text(s.noneOfKind, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))
-                        idx.forEach { i -> JourneyCard(journeys[i], selected = i == trip.selected) { trip.selected = i } }
+            Box(
+                Modifier.size(48.dp).clip(RoundedCornerShape(50)).clickable(role = Role.Button, onClick = onBack)
+                    .semantics { contentDescription = s.back },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, tint = t.text) }
+            Column(Modifier.weight(1f).padding(start = Space.xs).semantics(mergeDescendants = true) { heading() }) {
+                Text(trip.from?.label.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("→ ${trip.to?.label.orEmpty()}", style = MaterialTheme.typography.headlineSmall, color = t.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Column(
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(top = Space.md, bottom = Space.lg),
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
+        ) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                LeaveAt.options.forEach { o ->
+                    Chip(leaveLabel(s, o), if (o == LeaveAt.Now) Icons.Outlined.Schedule else null, selected = trip.leaveAt == o) {
+                        trip.leaveAt = o; trip.search()
                     }
                 }
-                Text(s.crowdNote, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
             }
-        }
-    }
-}
+            Segmented(
+                listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded),
+                trip.preference, { trip.preference = it; trip.search() }, s.preference,
+            )
+            val pick: (TripKind) -> Unit = { k -> trip.kind = k; trip.shown(k).firstOrNull()?.let { trip.selected = it } }
+            if (trip.result is Load.Ok && (journeys.isNotEmpty() || walkOpt != null)) Row(
+                Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            ) {
+                Chip("${s.filterAll} ${journeys.size}", selected = trip.kind == TripKind.ALL) { pick(TripKind.ALL) }
+                Chip("${s.filterDirect} ${trip.shown(TripKind.DIRECT).size}", selected = trip.kind == TripKind.DIRECT) { pick(TripKind.DIRECT) }
+                Chip("${s.filterChange} ${trip.shown(TripKind.CHANGE).size}", selected = trip.kind == TripKind.CHANGE) { pick(TripKind.CHANGE) }
+                if (walkOpt != null) Chip("${s.filterWalk} ${s.minutes(walkOpt.minutes.mins())}", Icons.AutoMirrored.Outlined.DirectionsWalk,
+                    selected = walking) { pick(TripKind.WALK) }
+            }
 
-@Composable
-private fun JourneyCard(j: Journey, selected: Boolean, onClick: () -> Unit) {
-    val s = LocalStrings.current
-    val t = LocalExtra.current
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg))
-            .border(if (selected) 2.dp else 1.dp, if (selected) t.text else t.border, RoundedCornerShape(Radius.lg))
-            .clickable(role = Role.RadioButton, onClick = onClick).padding(Space.lg),
-        verticalArrangement = Arrangement.spacedBy(Space.sm),
-    ) {
-        if (j.labels.isNotEmpty()) Text(
-            j.labels.joinToString(" · ") { s.label(it) }, style = MaterialTheme.typography.labelMedium, color = t.accent, fontWeight = FontWeight.Bold,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("${j.departure} – ${j.arrival}", style = MaterialTheme.typography.titleMedium, color = t.text)
-                Text(
-                    listOfNotNull(
-                        s.minutes(j.duration_minutes.mins()),
-                        if (j.transfers == 0) s.direct else s.changes(j.transfers),
-                        j.walk_minutes.mins().takeIf { it >= 1 }?.let { s.walkMin(it) },
-                    ).joinToString(" · "),
-                    style = MaterialTheme.typography.bodyMedium, color = t.muted,
+            // A small sketch of the selected route, not a full-screen map.
+            if (lines.isNotEmpty()) Box(
+                Modifier.padding(top = Space.xs).fillMaxWidth().height(170.dp).clip(RoundedCornerShape(Radius.lg)).border(1.dp, t.border, RoundedCornerShape(Radius.lg)),
+            ) {
+                BusMap(
+                    modifier = Modifier.fillMaxSize(), controller = map, dark = t.dark, pins = pins, lines = lines,
+                    bottomPadding = 0.dp, showMyLocation = false, fitKey = if (walking) "walk" else sel?.journey_id,
                 )
             }
-            fareText(j)?.let { Text(it, style = MaterialTheme.typography.titleMedium, color = t.text) }
+
+            when (val r = trip.result) {
+                Load.Idle, Load.Loading -> Row(Modifier.padding(vertical = Space.xl), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = t.primary)
+                    Text(s.searching, color = t.muted)
+                }
+                is Load.Failed -> Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(t.veryHigh.bg).padding(Space.lg),
+                    verticalArrangement = Arrangement.spacedBy(Space.sm),
+                ) {
+                    val e = r.error
+                    val noStop = e is ApiException && e.reason == "no_stop_nearby"
+                    Text(when {
+                        e is ApiException && e.status == 0 -> s.errNetwork
+                        noStop -> s.noStopNear(trip.radiusM)
+                        else -> e.message ?: s.errNetwork
+                    }, color = t.veryHigh.fg)
+                    if (noStop && trip.radiusM < 1500)
+                        Text(s.widerSearch, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(1500) }.padding(vertical = Space.sm))
+                    else
+                        Text(s.retry, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(trip.radiusM) }.padding(vertical = Space.sm))
+                }
+                is Load.Ok -> if (r.value.journeys.isEmpty() && walkOpt == null) Column(Modifier.padding(vertical = Space.xl), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    Text(s.noTrips, style = MaterialTheme.typography.titleMedium, color = t.text)
+                    Text(s.noTripsHint, color = t.muted)
+                } else {
+                    val idx = if (walking) emptyList() else trip.shown()
+                    if (!walking && idx.isEmpty()) Text(s.noneOfKind, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))
+                    Spacer(Modifier.height(Space.xs))
+                    TimeRibbons(
+                        journeys = journeys, shown = idx, selected = trip.selected, onSelect = { trip.selected = it },
+                        walk = walkOpt, walkSelected = walking, showWalk = trip.kind == TripKind.ALL || walking,
+                        onWalk = { pick(TripKind.WALK) },
+                    )
+                }
+            }
+            Text(s.crowdNote, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { LegChain(j) }
-            CrowdBadge(j.crowd_level, short = true)
+        sel?.let { j ->
+            Box(Modifier.fillMaxWidth().background(t.bg).windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = Space.lg, vertical = Space.md)) {
+                PrimaryButton(s.choose(j.legs.joinToString(" + ") { routeName(it.route) })) { onOpen(trip.selected) }
+            }
         }
-        j.connections.forEach { c ->
-            Text(s.changeDetail(c.board, c.walk_min.mins(), c.wait_min.mins()), style = MaterialTheme.typography.bodyMedium, color = t.muted)
-        }
-        CrowdStrip(j)
     }
 }
 

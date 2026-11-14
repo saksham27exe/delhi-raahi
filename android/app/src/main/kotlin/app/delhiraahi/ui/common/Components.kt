@@ -110,9 +110,9 @@ fun ListRow(
 @Composable
 fun Chip(label: String, icon: ImageVector? = null, selected: Boolean = false, onClick: () -> Unit) {
     val t = LocalExtra.current
-    val fg = if (selected) t.onPrimary else t.text
+    val fg = if (selected) t.bg else t.text
     Row(
-        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(50)).background(if (selected) t.primary else t.surface)
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(50)).background(if (selected) t.text else t.surface)
             .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp)
             .then(if (selected) Modifier.semantics { this.selected = true } else Modifier),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),

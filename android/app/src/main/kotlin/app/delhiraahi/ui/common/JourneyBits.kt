@@ -66,12 +66,12 @@ fun CrowdBadge(cat: String, short: Boolean = false) {
     }
 }
 
-/** Black route number pill (white in dark mode). */
+/** Ink route-number chip (paper-coloured text). */
 @Composable
 fun RoutePill(route: String, small: Boolean = false) {
     val t = LocalExtra.current
-    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(t.primary).padding(horizontal = if (small) 6.dp else 8.dp, vertical = if (small) 1.dp else 2.dp)) {
-        Text(routeName(route), color = t.onPrimary, style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(t.text).padding(horizontal = if (small) 6.dp else 8.dp, vertical = if (small) 1.dp else 2.dp)) {
+        Text(routeName(route), color = t.bg, style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
     }
 }
 

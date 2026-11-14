@@ -30,6 +30,7 @@ interface Strings {
     fun label(key: String): String
     val direct: String; fun changes(n: Int): String; fun choose(routes: String): String
     val filterAll: String; val filterDirect: String; val filterChange: String; val filterWalk: String
+    val legendWalk: String; val legendWait: String; val legendRide: String; fun leaveAtT(time: String): String
     val walkWhole: String; fun walkDetail(min: Int, m: Int, approx: Boolean): String; fun changeDetail(stop: String, walk: Int, wait: Int): String
     val noneOfKind: String
     val noTrips: String; val noTripsHint: String; fun walkMin(m: Int): String; fun minutes(m: Int): String
@@ -114,6 +115,8 @@ object En : Strings {
     override fun choose(routes: String) = "Choose $routes"
     override val noTrips = "No bus trip found"; override val noTripsHint = "Try another time or a nearby stop. We search direct buses and trips with up to two changes."
     override val filterAll = "All"; override val filterDirect = "Direct"; override val filterChange = "With change"; override val filterWalk = "Walk"
+    override val legendWalk = "Walk"; override val legendWait = "Wait"; override val legendRide = "Bus, by crowding"
+    override fun leaveAtT(time: String) = "Leave $time"
     override val walkWhole = "Walk the whole way"
     override fun walkDetail(min: Int, m: Int, approx: Boolean) = "$min min · ${if (m >= 1000) "%.1f km".format(m / 1000.0) else "$m m"}" + if (approx) " (approx.)" else " along roads"
     override fun changeDetail(stop: String, walk: Int, wait: Int) =
@@ -243,6 +246,8 @@ object Hi : Strings {
     override fun choose(routes: String) = "$routes चुनें"
     override val noTrips = "कोई बस यात्रा नहीं मिली"; override val noTripsHint = "कोई और समय या पास का स्टॉप आज़माएँ। हम सीधी बस और दो बदलाव तक वाली यात्राएँ खोजते हैं।"
     override val filterAll = "सभी"; override val filterDirect = "सीधी"; override val filterChange = "बदलाव वाली"; override val filterWalk = "पैदल"
+    override val legendWalk = "पैदल"; override val legendWait = "इंतज़ार"; override val legendRide = "बस, भीड़ के हिसाब से"
+    override fun leaveAtT(time: String) = "$time पर निकलें"
     override val walkWhole = "पूरा रास्ता पैदल"
     override fun walkDetail(min: Int, m: Int, approx: Boolean) = "$min मिनट · ${if (m >= 1000) "%.1f किमी".format(m / 1000.0) else "$m मी"}" + if (approx) " (अनुमान)" else " सड़क से"
     override fun changeDetail(stop: String, walk: Int, wait: Int) =
