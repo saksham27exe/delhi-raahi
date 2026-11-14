@@ -70,7 +70,7 @@ private const val CLOCK_AFTER_MS = 25_000L   // no good fix for this long -> fol
 /** What comes after getting off: walk to the next bus stop, or to the destination. */
 private data class NextStep(val say: String, val lat: Double, val lon: Double, val name: String)
 
-private fun buzz(ctx: Context, long: Boolean) {
+internal fun buzz(ctx: Context, long: Boolean) {
     val v: Vibrator? = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
     else @Suppress("DEPRECATION") (ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
     val pattern = if (long) longArrayOf(0, 500, 200, 500, 200, 500) else longArrayOf(0, 300, 150, 300)

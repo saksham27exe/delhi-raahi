@@ -34,6 +34,29 @@ def vehicles(route_id: str | None = None,
     return {"live": st.live.status()["live"], "count": len(vs), "vehicles": vs}
 
 
+@router.get("/vehicle")
+def vehicle(id: str = Query(..., min_length=1, max_length=64), st: AppState = Depends(get_state)) -> dict:
+    """One bus: position, route, its stops (passed or not) and estimated times at the stops ahead."""
+    require_gtfs(st)
+    d = st.live.vehicle_detail(id)
+    if d is None:
+        raise HTTPException(404, detail="That bus is not in the live feed right now.")
+    return d
+
+
+@router.get("/track")
+def track(route_id: str, board_stop_id: str, alight_stop_id: str,
+          vehicle_id: str | None = None, skip: str | None = Query(None, description="comma-separated vehicle ids to ignore"),
+          st: AppState = Depends(get_state)) -> dict:
+    """Follow one ride on live data: the bus coming to your stop, then your stops left to get off."""
+    require_gtfs(st)
+    for sid in (board_stop_id, alight_stop_id):
+        if sid not in st.network.stops.index:
+            raise HTTPException(404, detail=f"Unknown stop id '{sid}'.")
+    return st.live.track(route_id, board_stop_id, alight_stop_id, vehicle_id,
+                         set(filter(None, (skip or "").split(","))))
+
+
 @router.get("/arrivals/{stop_id}")
 def arrivals(stop_id: str, horizon_min: int = Query(60, ge=5, le=180), st: AppState = Depends(get_state)) -> dict:
     """Next buses at a stop: live estimates for tracked buses, timetable otherwise."""

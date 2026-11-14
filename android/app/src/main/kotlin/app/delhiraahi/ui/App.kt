@@ -149,7 +149,8 @@ fun App(settings: Settings, store: SettingsStore) {
                     onLogin = { login(null) })
             }
             composable("ticket/{id}") { e ->
-                TicketScreen(tickets, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() })
+                TicketScreen(tickets, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() },
+                    onStartRide = { id -> nav.navigate("liveride/${Uri.encode(id)}") })
             }
             composable("stop/{id}?route={route}", arguments = listOf(navArgument("route") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
                 StopScreen(e.arguments?.getString("id").orEmpty(), e.arguments?.getString("route"), settings.lang, onBack = { nav.popBackStack() })
@@ -193,6 +194,10 @@ fun App(settings: Settings, store: SettingsStore) {
                 })
             }
             composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
+            composable("liveride/{id}") { e ->
+                app.delhiraahi.ui.trip.LiveRideScreen(tickets, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() },
+                    onGuide = { la, lo, nm -> nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") })
+            }
             composable("ride/{idx}/{leg}", arguments = listOf(navArgument("idx") { type = NavType.IntType }, navArgument("leg") { type = NavType.IntType })) { e ->
                 app.delhiraahi.ui.trip.RideScreen(trip, e.arguments?.getInt("idx") ?: 0, e.arguments?.getInt("leg") ?: 0, settings.lang,
                     onBack = { nav.popBackStack() },

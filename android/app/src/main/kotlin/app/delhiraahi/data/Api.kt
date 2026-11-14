@@ -111,6 +111,13 @@ object Api {
     suspend fun verify(qr: String): VerifyResult = post("/tickets/verify", buildJsonObject { put("qr_payload", qr) })
 
     suspend fun stop(id: String): StopDetail = get("/stops/${java.net.URLEncoder.encode(id, "UTF-8")}")
+    suspend fun vehicle(id: String): VehicleDetail = get("/live/vehicle", mapOf("id" to id))
+    suspend fun track(routeId: String, board: String, alight: String, vehicleId: String?, skip: Set<String>): TrackResult =
+        get("/live/track", buildMap {
+            put("route_id", routeId); put("board_stop_id", board); put("alight_stop_id", alight)
+            vehicleId?.let { put("vehicle_id", it) }
+            if (skip.isNotEmpty()) put("skip", skip.joinToString(","))
+        })
     suspend fun arrivals(stopId: String): ArrivalsBoard = get("/live/arrivals/${java.net.URLEncoder.encode(stopId, "UTF-8")}")
     suspend fun vehicles(routeId: String? = null, bbox: String? = null): VehiclesResponse =
         get("/live/vehicles", mapOf("route_id" to routeId, "bbox" to bbox))

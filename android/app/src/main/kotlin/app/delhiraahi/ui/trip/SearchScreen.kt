@@ -81,7 +81,8 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     val t = LocalExtra.current
     val ctx = LocalContext.current
     var field by remember { mutableStateOf(if (trip.editFrom || (trip.to != null && trip.from == null)) Field.FROM else Field.TO).also { trip.editFrom = false } }
-    var fromText by remember { mutableStateOf(trip.from?.label.orEmpty()) }
+    // Opening on the From field means "change where I start": start with an empty field, not the old label.
+    var fromText by remember { mutableStateOf(if (field == Field.FROM) "" else trip.from?.label.orEmpty()) }
     var toText by remember { mutableStateOf(trip.to?.label.orEmpty()) }
     var hits by remember { mutableStateOf<List<StopHit>>(emptyList()) }
     var places by remember { mutableStateOf<List<app.delhiraahi.data.PlaceHit>>(emptyList()) }
@@ -95,7 +96,8 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
         if (field == Field.TO) toFocus.requestFocus() else fromFocus.requestFocus()
         val loc = DeviceLocation.current(ctx) ?: return@LaunchedEffect
         here = PickedPlace.here(s.currentLocation, loc.latitude, loc.longitude)
-        if (trip.from == null) { trip.from = here; fromText = s.currentLocation }
+        // Fall back to "here" only if nothing is typed; on the From field keep the box empty (placeholder says it).
+        if (trip.from == null && fromText.isEmpty()) { trip.from = here; if (field != Field.FROM) fromText = s.currentLocation }
     }
 
     val query = (if (field == Field.FROM) fromText else toText).trim()

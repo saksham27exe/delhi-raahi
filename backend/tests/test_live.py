@@ -102,3 +102,40 @@ def test_terminal_stop_has_no_departures(net):  # noqa: F811
     tr = LiveTracker(net)
     tr.ingest(*parse_vehicle_positions(feed(BUS)), now=ts(8, 20, 30))
     assert tr.arrivals("D", now=ts(8, 20, 30))["arrivals"] == []   # route 1 ends at D: nothing to board
+
+
+def test_vehicle_detail(net):  # noqa: F811
+    tr = LiveTracker(net)
+    now = ts(8, 20, 30)
+    tr.ingest(*parse_vehicle_positions(feed(BUS)), now=now)
+    d = tr.vehicle_detail("DL1PC0001", now=now)
+    assert d["route"] == "R1UP" and d["towards"] == "Delta" and d["matched"]
+    assert [s["passed"] for s in d["stops"]] == [True, True, False, False]
+    assert d["stops"][2]["eta"] == "08:25" and d["stops"][2]["basis"] == "live_estimate"
+    assert "eta" not in d["stops"][0]
+    assert tr.vehicle_detail("nope") is None
+
+
+def test_track_ride(net):  # noqa: F811
+    tr = LiveTracker(net)
+    now = ts(8, 20, 30)
+    tr.ingest(*parse_vehicle_positions(feed(BUS)), now=now)
+    a = tr.track("1", "C", "D", now=now)                         # bus is coming to C
+    assert a["phase"] == "approaching" and a["vehicle"]["vehicle_id"] == "DL1PC0001"
+    assert a["stops_away"] == 1 and a["eta_board"] == "08:25" and a["eta_alight"] == "08:35"
+    assert [s["name"] for s in a["stops"]] == ["Charlie", "Delta"]
+    b = tr.track("1", "B", "D", vehicle_id="DL1PC0001", now=now)  # we are on it: past B
+    assert b["phase"] == "on_board" and b["stops_left"] == 2
+    late = dict(BUS, lat=28.6299, t=ts(8, 36))
+    tr.ingest(*parse_vehicle_positions(feed(late)), now=ts(8, 36, 10))
+    assert tr.track("1", "B", "D", vehicle_id="DL1PC0001", now=ts(8, 36, 10))["phase"] == "arrived"
+
+
+def test_track_falls_back_to_timetable(net):  # noqa: F811
+    tr = LiveTracker(net)
+    now = ts(8, 20, 30)
+    tr.ingest(*parse_vehicle_positions(feed(BUS)), now=now)
+    r = tr.track("1", "A", "C", now=now)                         # the only bus already passed A
+    assert r["phase"] == "no_live" and r["next_scheduled"] == "08:30"
+    assert tr.track("1", "D", "A", now=now)["phase"] == "unknown_route"
+    assert tr.track("1", "C", "D", skip={"DL1PC0001"}, now=now)["phase"] == "no_live"

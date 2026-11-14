@@ -179,6 +179,9 @@ data class Quote(
 @Serializable
 data class TicketLeg(
     val route: String,
+    val route_id: String = "",
+    val board_stop_id: String = "",
+    val alight_stop_id: String = "",
     val board_stop: String,
     val alight_stop: String,
     val bus_type: String = "",
@@ -236,6 +239,34 @@ data class Vehicle(
     val stale: Boolean = false,
     val next_stop: String? = null,
     val delay_min: Double? = null,
+    val speed_kmh: Double? = null,
+    val age_s: Int? = null,
+    val scheduled_trip_id: String? = null,
+)
+
+/** A stop on a live bus's route; passed / eta filled for GET /live/vehicle. */
+@Serializable
+data class LiveStop(
+    val stop_id: String, val name: String, val lat: Double, val lon: Double,
+    val passed: Boolean = false, val eta: String? = null, val eta_min: Double? = null, val basis: String? = null,
+)
+
+/** GET /live/vehicle */
+@Serializable
+data class VehicleDetail(
+    val vehicle: Vehicle, val route_id: String = "", val route: String = "", val route_long_name: String? = null,
+    val towards: String? = null, val stops: List<LiveStop> = emptyList(), val matched: Boolean = false,
+)
+
+/** GET /live/track: phase is approaching / on_board / arrived / no_live / unknown_route. */
+@Serializable
+data class TrackResult(
+    val phase: String, val route_id: String = "", val route: String = "", val board_stop: String = "", val alight_stop: String = "",
+    val live_feed: Boolean = false, val vehicle: Vehicle? = null, val basis: String? = null, val towards: String? = null,
+    val stops_away: Int = 0, val stops_left: Int = 0,
+    val eta_board: String? = null, val eta_board_min: Double? = null, val eta_alight: String? = null, val eta_alight_min: Double? = null,
+    val next_stop: String? = null, val stops: List<LiveStop> = emptyList(), val progress: Double? = null,
+    val next_scheduled: String? = null, val next_scheduled_min: Double? = null, val message: String? = null,
 )
 
 @Serializable

@@ -179,7 +179,7 @@ private fun StatusPill(expired: Boolean) {
 
 /** One ticket: DEMO banner, QR with a large rotated DEMO watermark, status, legs, verify / delete. */
 @Composable
-fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit) {
+fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit, onStartRide: (String) -> Unit = {}) {
     SecureScreen()
     val s = LocalStrings.current
     val t = LocalExtra.current
@@ -236,6 +236,9 @@ fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit)
                     Text(money(tk.total), style = MaterialTheme.typography.headlineSmall, color = t.text)
                 }
             }
+            // Follow this ride on live bus data (needs route/stop ids, which tickets issued since v0.9 carry).
+            if (!expired && tk.legs.any { it.route_id.isNotBlank() && it.board_stop_id.isNotBlank() && it.alight_stop_id.isNotBlank() })
+                app.delhiraahi.ui.trip.PrimaryButton(app.delhiraahi.voice.LiveText.of(lang == Lang.HI).startRide) { onStartRide(tk.ticket_id) }
             if (check != null) Text(check!!, color = t.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             SecondaryButton(s.verify) {
                 check = "…"

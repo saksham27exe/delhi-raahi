@@ -305,6 +305,134 @@ class LiveTracker:
                 "now": now_dt.isoformat(timespec="seconds"), "arrivals": rows[:limit],
                 "note": None if live_ok else "Live feed unavailable: showing timetable times only."}
 
+    # ---- one bus, one ride ---------------------------------------------------------
+    def _eta_s(self, v: VehicleState, k: int, m: int) -> tuple[float, str]:
+        """When bus v (on pattern k) should reach stop position m: (unix seconds, basis)."""
+        p = self.net.patterns[k]
+        if v.trip_row is not None and v.delay_s is not None and np.isfinite(p.arr[v.trip_row, m]):
+            return self._service_day_ts(v, float(p.arr[v.trip_row, m])) + v.delay_s, "live_estimate"
+        off = self.median_offsets(k)
+        prog = v.progress or 0.0
+        i = min(int(prog), len(off) - 2)
+        at = off[i] + (prog - i) * (off[i + 1] - off[i])
+        return v.timestamp + float(off[m] - at), "live_estimate_typical_running_time"
+
+    def _usable(self, v: VehicleState) -> bool:
+        return (v.pattern_idx is not None and not v.stale and (v.off_route_m or 0) <= OFF_ROUTE_M
+                and (v.trip_row is not None or (v.speed_kmh or 0) >= MIN_MOVING_KMH))
+
+    def _stop_rows(self, k: int, lo: int, hi: int) -> list[dict]:
+        p = self.net.patterns[k]
+        out = []
+        for m in range(lo, hi + 1):
+            sid = p.stops[m]
+            r = self.net.stops.loc[sid]
+            out.append({"stop_id": sid, "name": self.net.stop_name(sid), "lat": float(r["stop_lat"]), "lon": float(r["stop_lon"])})
+        return out
+
+    def _route_info(self, rid: str) -> dict:
+        r = self.net.routes.loc[rid] if rid in self.net.routes.index else None
+        long_name = None
+        if r is not None and "route_long_name" in r.index and isinstance(r["route_long_name"], str):
+            long_name = r["route_long_name"]
+        return {"route_id": rid, "route": str(r["route_short_name"]) if r is not None else rid, "route_long_name": long_name}
+
+    def vehicle_detail(self, vehicle_id: str, now: float | None = None) -> dict | None:
+        """One bus: where it is, its route's stops (passed or not) and estimated times at the stops ahead."""
+        now = now or time.time()
+        v = self.vehicles.get(vehicle_id)
+        if v is None:
+            return None
+        out = {"vehicle": v.public(), **self._route_info(v.route_id), "towards": None, "stops": [], "matched": v.pattern_idx is not None}
+        if v.pattern_idx is None:
+            return out
+        k = v.pattern_idx
+        p = self.net.patterns[k]
+        out["towards"] = self.net.stop_name(p.stops[-1])
+        prog = v.progress or 0.0
+        rows = self._stop_rows(k, 0, len(p.stops) - 1)
+        for m, row in enumerate(rows):
+            row["passed"] = m <= prog
+            if m > prog and not v.stale:
+                eta, basis = self._eta_s(v, k, m)
+                eta = max(eta, now)
+                row["eta"] = datetime.fromtimestamp(eta, IST).strftime("%H:%M")
+                row["eta_min"] = round((eta - now) / 60, 1)
+                row["basis"] = basis
+        out["stops"] = rows
+        return out
+
+    def track(self, route_id: str, board_stop_id: str, alight_stop_id: str, vehicle_id: str | None = None,
+              skip: set[str] | None = None, now: float | None = None) -> dict:
+        """Follow one ride on live data.
+
+        Before boarding: the nearest tracked bus of this route that has not yet passed the boarding stop
+        (phase "approaching"). Once the followed bus (vehicle_id) is past the boarding stop: "on_board",
+        then "arrived" at the alighting stop. Without a usable live bus: phase "no_live" with timetable times.
+        """
+        now = now or time.time()
+        skip = skip or set()
+        cands = []                                   # (pattern, board pos, alight pos)
+        for k in self.route_patterns.get(str(route_id), []):
+            st = self.net.patterns[k].stops
+            for a in (i for i, s in enumerate(st) if s == board_stop_id):
+                b = next((j for j in range(a + 1, len(st)) if st[j] == alight_stop_id), None)
+                if b is not None:
+                    cands.append((k, a, b))
+                    break
+        base = {**self._route_info(str(route_id)), "board_stop": self.net.stop_name(board_stop_id),
+                "alight_stop": self.net.stop_name(alight_stop_id), "live_feed": self.status(now)["live"]}
+        if not cands:
+            return {**base, "phase": "unknown_route", "message": "This route does not run from the boarding stop to the alighting stop."}
+
+        def view(v: VehicleState, k: int, a: int, b: int) -> dict:
+            prog = v.progress or 0.0
+            ea, basis = self._eta_s(v, k, a)
+            eb, _ = self._eta_s(v, k, b)
+            ea, eb = max(ea, now), max(eb, now)
+            if prog >= b - 0.25:
+                phase = "arrived"
+            elif prog >= a - 0.1:
+                phase = "on_board"
+            else:
+                phase = "approaching"
+            p = self.net.patterns[k]
+            return {**base, "phase": phase, "vehicle": v.public(), "basis": basis,
+                    "towards": self.net.stop_name(p.stops[-1]),
+                    "stops_away": max(0, int(np.ceil(a - prog - 0.1))), "stops_left": max(0, int(np.ceil(b - prog - 0.25))),
+                    "eta_board": datetime.fromtimestamp(ea, IST).strftime("%H:%M"), "eta_board_min": round((ea - now) / 60, 1),
+                    "eta_alight": datetime.fromtimestamp(eb, IST).strftime("%H:%M"), "eta_alight_min": round((eb - now) / 60, 1),
+                    "next_stop": v.next_stop, "stops": self._stop_rows(k, a, b),
+                    "progress": round(prog - a, 2)}   # 0 at the boarding stop, len(stops)-1 at the alighting stop
+
+        # the bus we are already following
+        if vehicle_id and vehicle_id in self.vehicles:
+            v = self.vehicles[vehicle_id]
+            for k, a, b in cands:
+                if v.pattern_idx == k and not v.stale:
+                    return view(v, k, a, b)
+        # otherwise the soonest usable bus still before the boarding stop
+        best = None
+        for v in self.vehicles.values():
+            if v.vehicle_id in skip or not self._usable(v):
+                continue
+            for k, a, b in cands:
+                if v.pattern_idx == k and (v.progress or 0) < a - 0.1:
+                    eta, _ = self._eta_s(v, k, a)
+                    if eta - now <= 90 * 60 and (best is None or eta < best[0]):
+                        best = (eta, v, k, a, b)
+        if best is not None:
+            return view(*best[1:])
+        # timetable fallback
+        board = self.arrivals(board_stop_id, now=now, horizon_min=120, limit=40)
+        sched = [r for r in board["arrivals"] if r["route_id"] == str(route_id)]
+        k, a, b = cands[0]
+        return {**base, "phase": "no_live", "vehicle": None, "basis": "scheduled",
+                "next_scheduled": sched[0]["eta"] if sched else None,
+                "next_scheduled_min": sched[0]["eta_min"] if sched else None,
+                "stops": self._stop_rows(k, a, b),
+                "message": "No live bus of this route is being tracked towards your stop right now."}
+
     @staticmethod
     def _service_day_ts(v: VehicleState, sched_s: float) -> float:
         # the trip's service day is the day its timestamp falls on, minus a day if the schedule wrapped past midnight
