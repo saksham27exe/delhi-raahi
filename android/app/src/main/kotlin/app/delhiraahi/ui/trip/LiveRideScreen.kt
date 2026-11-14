@@ -78,7 +78,7 @@ private const val MISSED_BUS_M = 300f       // bus passed your stop while you we
  * for each leg in turn. Speaks and vibrates at the moments that matter.
  */
 @Composable
-fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
+fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: Boolean, getOffOn: Boolean, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -107,7 +107,8 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, onBack: () 
     var said by remember { mutableStateOf(setOf<String>()) }   // keys of announcements already made this leg
 
     val queue = remember { Channel<String>(Channel.UNLIMITED) }
-    fun speak(x: String) { line = x; queue.trySend(x) }
+    // Alerts switched off in Settings are still written on screen, just not spoken or vibrated.
+    fun speak(x: String, on: Boolean = true) { line = x; if (on) queue.trySend(x) }
     fun once(key: String, block: () -> Unit) { if (key !in said) { said = said + key; block() } }
     LaunchedEffect(Unit) { for (x in queue) runCatching { speaker.say(x, locale) } }
     DisposableEffect(Unit) {
@@ -124,9 +125,9 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, onBack: () 
             "approaching" -> {
                 if (v != null && vehicleId != v.vehicle_id) { vehicleId = v.vehicle_id; said = said.filterNot { it.startsWith("a:") }.toSet() }
                 val min = (r.eta_board_min ?: 0.0).roundToInt()
-                once("a:first") { speak(lt.approaching(leg.route, r.stops_away, min)) }
-                if (min in 2..5) once("a:5") { speak(lt.fiveMin(leg.route)) }
-                if (r.stops_away == 0 || (r.eta_board_min ?: 99.0) <= 1.5) once("a:now") { speak(lt.arrivingNow(leg.route)); buzz(ctx, long = false) }
+                once("a:first") { speak(lt.approaching(leg.route, r.stops_away, min), arriveOn) }
+                if (min in 2..5) once("a:5") { speak(lt.fiveMin(leg.route), arriveOn) }
+                if (r.stops_away == 0 || (r.eta_board_min ?: 99.0) <= 1.5) once("a:now") { speak(lt.arrivingNow(leg.route), arriveOn); if (arriveOn) buzz(ctx, long = false) }
             }
             "on_board", "arrived" -> {
                 // The followed bus has passed the boarding stop. If the phone was clearly elsewhere, the rider missed it.
@@ -138,14 +139,14 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, onBack: () 
                         speak(lt.missed); skip = skip + v.vehicle_id; vehicleId = null; said = emptySet(); return
                     }
                 }
-                once("board") { speak(lt.boarded(leg.route, r.stops_left, leg.alight_stop)) }
-                if (r.phase == "on_board" && r.stops_left == 2) once("two") { speak(rt.say(RideCue.TwoLeft(r.next_stop ?: "", false))) }
-                if (r.phase == "on_board" && r.stops_left == 1) once("one") { speak(rt.say(RideCue.NextIsYours(leg.alight_stop, false))); buzz(ctx, long = false) }
+                once("board") { speak(lt.boarded(leg.route, r.stops_left, leg.alight_stop), getOffOn) }
+                if (r.phase == "on_board" && r.stops_left == 2) once("two") { speak(rt.say(RideCue.TwoLeft(r.next_stop ?: "", false)), getOffOn) }
+                if (r.phase == "on_board" && r.stops_left == 1) once("one") { speak(rt.say(RideCue.NextIsYours(leg.alight_stop, false)), getOffOn); if (getOffOn) buzz(ctx, long = false) }
                 if (r.phase == "arrived") once("arrive") {
-                    speak(rt.say(RideCue.Arrive(leg.alight_stop, false))); buzz(ctx, long = true)
+                    speak(rt.say(RideCue.Arrive(leg.alight_stop, false)), getOffOn); if (getOffOn) buzz(ctx, long = true)
                     val next = legs.getOrNull(legIdx + 1)
                     if (next != null) {
-                        speak(rt.changeHere(next.route, next.board_stop, 0))
+                        speak(rt.changeHere(next.route, next.board_stop, 0), getOffOn)
                         legIdx++; vehicleId = null; skip = emptySet(); said = emptySet()
                     } else finished = true
                 }
@@ -216,6 +217,7 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, onBack: () 
             }
             if (failed) Text(s.errNetwork, style = MaterialTheme.typography.bodyMedium, color = t.veryHigh.fg)
             if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodyLarge, color = t.text)
+            if (!arriveOn || !getOffOn) Text(s.alertsOffNote, style = MaterialTheme.typography.bodyMedium, color = t.muted)
             if (lines.isNotEmpty()) Box(Modifier.padding(top = Space.sm).fillMaxWidth().height(220.dp).clip(RoundedCornerShape(Radius.lg))
                 .border(1.dp, t.border, RoundedCornerShape(Radius.lg))) {
                 BusMap(Modifier.fillMaxSize(), map, pins, t.dark, 0.dp, showMyLocation = me != null, lines = lines, fitKey = "$legIdx:${r?.vehicle?.vehicle_id}")

@@ -75,6 +75,7 @@ interface Strings {
     val profile: String; val womanTraveller: String; val womanTravellerSub: String; val changePassword: String
     val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
+    val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String
     val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
@@ -201,6 +202,11 @@ object En : Strings {
     override val deleteAccount = "Delete account"
     override val deleteWarn = "This permanently deletes your account, wallet history, tickets and passes. Enter your password to confirm."
     override val cancel = "Cancel"; override val settings = "Settings"
+    override val alertsTitle = "Ride alerts"; override val alertArrive = "Bus arriving"
+    override val alertArriveSub = "Speak and vibrate when your bus is close and when it arrives"
+    override val alertGetOff = "Time to get off"
+    override val alertGetOffSub = "Speak and vibrate as your stop comes near and when you reach it"
+    override val alertsOffNote = "Some alerts are off in Settings, so they're shown here but not spoken"
     override val help = "Help & feedback"
     override val faq = listOf(
         "Are these real tickets?" to "No. Tickets and passes are demos: not valid for travel and no money is taken.",
@@ -338,6 +344,11 @@ object Hi : Strings {
     override val deleteAccount = "अकाउंट मिटाएँ"
     override val deleteWarn = "इससे आपका अकाउंट, वॉलेट का इतिहास, टिकट और पास हमेशा के लिए मिट जाएँगे। पुष्टि के लिए पासवर्ड डालें।"
     override val cancel = "रद्द करें"; override val settings = "सेटिंग्स"
+    override val alertsTitle = "यात्रा अलर्ट"; override val alertArrive = "बस आ रही है"
+    override val alertArriveSub = "बस पास आने और पहुँचने पर बोलकर और वाइब्रेट करके बताया जाए"
+    override val alertGetOff = "उतरने का समय"
+    override val alertGetOffSub = "आपका स्टॉप पास आने और पहुँचने पर बोलकर और वाइब्रेट करके बताया जाए"
+    override val alertsOffNote = "कुछ अलर्ट सेटिंग्स में बंद हैं, इसलिए वे यहाँ दिखेंगे पर बोले नहीं जाएँगे"
     override val help = "मदद और सुझाव"
     override val faq = listOf(
         "क्या ये असली टिकट हैं?" to "नहीं। टिकट और पास डेमो हैं: यात्रा के लिए मान्य नहीं और कोई पैसा नहीं लिया जाता।",

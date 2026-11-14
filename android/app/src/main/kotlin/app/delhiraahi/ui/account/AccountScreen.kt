@@ -154,7 +154,24 @@ fun AccountScreen(
             ListRow(Icons.AutoMirrored.Outlined.HelpOutline, s.help, subtitle = s.privacyTitle, chevron = true, onClick = onHelp)
 
             SectionTitle(s.settings)
-            Text(s.language, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(bottom = Space.xs))
+            Text(s.alertsTitle, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(bottom = Space.xs))
+            listOf(
+                Triple(s.alertArrive, s.alertArriveSub, settings.alertArrive) to { on: Boolean -> scope.launch { store.setAlertArrive(on) }; Unit },
+                Triple(s.alertGetOff, s.alertGetOffSub, settings.alertGetOff) to { on: Boolean -> scope.launch { store.setAlertGetOff(on) }; Unit },
+            ).forEach { (txt, set) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(end = Space.md)) {
+                        Text(txt.first, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = x.text)
+                        Text(txt.second, style = MaterialTheme.typography.bodyMedium, color = x.muted)
+                    }
+                    Switch(
+                        checked = txt.third, onCheckedChange = set,
+                        colors = SwitchDefaults.colors(checkedTrackColor = x.primary, checkedThumbColor = x.onPrimary),
+                        modifier = Modifier.semantics { contentDescription = txt.first },
+                    )
+                }
+            }
+            Text(s.language, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(top = Space.md, bottom = Space.xs))
             Segmented(listOf(Lang.EN to "English", Lang.HI to "हिन्दी"), settings.lang, { scope.launch { store.setLang(it) } }, s.language)
             Text(s.appearance, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(top = Space.md, bottom = Space.xs))
             Segmented(
