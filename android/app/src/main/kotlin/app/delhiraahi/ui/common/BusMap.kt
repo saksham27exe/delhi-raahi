@@ -81,7 +81,7 @@ private fun dashes(pts: List<Pair<Double, Double>>, dashM: Double, gapM: Double)
 }
 
 data class MapPin(val id: String, val lat: Double, val lon: Double, val title: String, val kind: Kind = Kind.STOP) {
-    enum class Kind { STOP, BUS, FROM, TO }
+    enum class Kind { STOP, BUS, FROM, TO, ROUTE_STOP, PASSED_STOP, PICKED_STOP }
 }
 
 /** Imperative handle for camera moves from screens. */
@@ -190,6 +190,9 @@ fun BusMap(
             MapPin.Kind.BUS to busIcon(ctx, 0xFFA63D2A.toInt(), 28),
             MapPin.Kind.FROM to dotIcon(ctx, 0xFF16A34A.toInt(), 26),
             MapPin.Kind.TO to dotIcon(ctx, 0xFF000000.toInt(), 28),
+            MapPin.Kind.ROUTE_STOP to stopIcon(ctx, 0xFFA63D2A.toInt(), 24),
+            MapPin.Kind.PASSED_STOP to dotIcon(ctx, 0xFF8A8F98.toInt(), 14),
+            MapPin.Kind.PICKED_STOP to stopIcon(ctx, 0xFFA63D2A.toInt(), 34),
         )
     }
 

@@ -144,7 +144,7 @@ fun StopScreen(stopId: String, routeFilter: String?, lang: Lang, onBack: () -> U
 }
 
 @Composable
-private fun ArrivalRow(a: Arrival) {
+internal fun ArrivalRow(a: Arrival) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val m = a.eta_min.coerceAtLeast(0.0).roundToInt()

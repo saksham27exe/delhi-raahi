@@ -99,6 +99,8 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
     var focus by remember { mutableStateOf<MapPin?>(null) }          // searched place, shown on this map
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var selected by remember { mutableStateOf<String?>(null) }        // tapped bus
+    var picked by remember { mutableStateOf<MapPin?>(null) }          // tapped stop: its arrivals, on this page
+    var board by remember { mutableStateOf<app.delhiraahi.data.ArrivalsBoard?>(null) }
     var detail by remember { mutableStateOf<app.delhiraahi.data.VehicleDetail?>(null) }
     val lt = app.delhiraahi.voice.LiveText.of(LocalStrings.current === app.delhiraahi.i18n.Hi)
 
@@ -129,6 +131,21 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
         val b = bbox ?: return@LaunchedEffect
         delay(300)
         runCatching { Api.stopsInArea(b, if (zoom >= STOP_ZOOM) 60 else 1) }.onSuccess { area = it }
+    }
+
+    // The tapped stop: next buses, refreshed every 30 s, without leaving this page.
+    LaunchedEffect(picked) {
+        board = null
+        val p = picked ?: return@LaunchedEffect
+        while (true) {
+            runCatching { Api.arrivals(p.id.removePrefix("s")) }.onSuccess { board = it }
+            delay(30_000)
+        }
+    }
+    fun pickStop(id: String, name: String, lat: Double, lon: Double) {
+        keyboard?.hide(); selected = null
+        picked = MapPin("s$id", lat, lon, name, MapPin.Kind.PICKED_STOP)
+        map.moveTo(lat, lon, 15.5)
     }
 
     // The tapped bus: its route and times, refreshed while selected.
@@ -163,16 +180,21 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
     }
 
     val d = detail
-    val pins = remember(vehicles, nearby, d, area, zoom, focus) {
-        val upcoming = d?.stops?.filter { !it.passed }?.take(12).orEmpty()
+    val pins = remember(vehicles, nearby, d, area, zoom, focus, picked) {
         // The followed bus stays on the map even when zoomed out past the live-bus limit.
         val shown = if (d != null && vehicles.none { it.vehicle_id == d.vehicle.vehicle_id }) vehicles + d.vehicle else vehicles
-        shown.map { v -> MapPin("v:" + v.vehicle_id, v.lat, v.lon, routeName(v.route ?: "?") + (v.next_stop?.let { " → $it" } ?: ""), MapPin.Kind.BUS) } +
+        val buses = shown.map { v -> MapPin("v:" + v.vehicle_id, v.lat, v.lon, routeName(v.route ?: "?") + (v.next_stop?.let { " → $it" } ?: ""), MapPin.Kind.BUS) }
+        if (d != null) {
+            // A bus is selected: only its route's stops — passed ones small and grey, the ones ahead highlighted.
+            buses + d.stops.map { st ->
+                if (st.passed) MapPin("s" + st.stop_id, st.lat, st.lon, st.name, MapPin.Kind.PASSED_STOP)
+                else MapPin("s" + st.stop_id, st.lat, st.lon, st.name + (st.eta?.let { " · $it" } ?: ""), MapPin.Kind.ROUTE_STOP)
+            }
+        } else buses +
             (nearby + if (zoom >= STOP_ZOOM) area.results else emptyList()).distinctBy { it.stop_id }
-                .filter { st -> upcoming.none { it.stop_id == st.stop_id } }
+                .filter { st -> "s" + st.stop_id != picked?.id }
                 .map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name) } +
-            listOfNotNull(focus) +
-            upcoming.map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name + (st.eta?.let { " · $it" } ?: ""), MapPin.Kind.STOP) }
+            listOfNotNull(focus, picked)
     }
     // Selected bus: the stretch already covered muted, the rest of its route in the accent colour.
     val routeLines = remember(d, t) {
@@ -226,8 +248,8 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                 fitKey = d?.vehicle?.vehicle_id?.takeIf { selected != null },
                 onPinClick = { p ->
                     when {
-                        p.id.startsWith("v:") -> selected = p.id.drop(2)
-                        p.id.startsWith("s") -> onOpenStop(p.id.drop(1))
+                        p.id.startsWith("v:") -> { picked = null; selected = p.id.drop(2) }
+                        p.id.startsWith("s") -> pickStop(p.id.drop(1), p.title.substringBefore(" · "), p.lat, p.lon)
                     }
                 },
                 onCameraIdle = { b, z -> bbox = b; zoom = z },
@@ -235,7 +257,11 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
         }
 
         if (selected != null) {
-            BusPanel(detail, lt, onClose = { selected = null }, onOpenStop = onOpenStop)
+            BusPanel(detail, lt, onClose = { selected = null }, onOpenStop = { st -> pickStop(st.stop_id, st.name, st.lat, st.lon) })
+            return@Column
+        }
+        picked?.let { p ->
+            StopPanel(p.title, board, onClose = { picked = null }, onBus = { id -> picked = null; selected = id })
             return@Column
         }
         // Stop search, underlined like the trip sentence
@@ -264,7 +290,7 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                 if (me == null && focus == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 else if (nearby.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 nearby.forEach { st ->
-                    ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { onOpenStop(st.stop_id) }
+                    ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { pickStop(st.stop_id, st.name, st.lat, st.lon) }
                 }
             }
         }
@@ -277,7 +303,7 @@ private const val DELHI_LON = 77.2167
 /** Details of the tapped bus: route, direction, next stop, speed, delay, freshness, and its next stops with times. */
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.BusPanel(
-    d: app.delhiraahi.data.VehicleDetail?, lt: app.delhiraahi.voice.LiveText, onClose: () -> Unit, onOpenStop: (String) -> Unit,
+    d: app.delhiraahi.data.VehicleDetail?, lt: app.delhiraahi.voice.LiveText, onClose: () -> Unit, onOpenStop: (app.delhiraahi.data.LiveStop) -> Unit,
 ) {
     val t = LocalExtra.current
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.xl).padding(bottom = Space.xl),
@@ -305,7 +331,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.BusPanel(
                 modifier = Modifier.padding(top = Space.md).semantics { heading() })
             ahead.take(15).forEachIndexed { i, st ->
                 Row(
-                    Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { onOpenStop(st.stop_id) },
+                    Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { onOpenStop(st) },
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
                 ) {
                     Box(Modifier.size(12.dp).clip(CircleShape).background(if (i == 0) t.primary else t.bg)
@@ -315,6 +341,31 @@ private fun androidx.compose.foundation.layout.ColumnScope.BusPanel(
                 }
             }
             Text(lt.basis(ahead.firstOrNull()?.basis), style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
+        }
+    }
+}
+
+/** The tapped stop, on the Live page: next buses with live or timetable times. Tap a live bus to follow it on the map. */
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.StopPanel(
+    name: String, b: app.delhiraahi.data.ArrivalsBoard?, onClose: () -> Unit, onBus: (String) -> Unit,
+) {
+    val s = LocalStrings.current
+    val t = LocalExtra.current
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.xl).padding(bottom = Space.xl)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            Text(name, style = MaterialTheme.typography.titleLarge, color = t.text, modifier = Modifier.weight(1f).semantics { heading() }, maxLines = 2)
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose).semantics { contentDescription = s.back },
+                contentAlignment = Alignment.Center,
+            ) { Icon(androidx.compose.material.icons.Icons.Outlined.Close, contentDescription = null, tint = t.text) }
+        }
+        if (b == null) { androidx.compose.material3.CircularProgressIndicator(Modifier.padding(Space.lg).size(22.dp), strokeWidth = 2.dp, color = t.primary); return@Column }
+        Text(if (b.live_feed) s.liveOn else s.liveOff, style = MaterialTheme.typography.labelMedium, color = if (b.live_feed) t.low.fg else t.moderate.fg)
+        if (b.arrivals.isEmpty()) Text(s.noArrivals, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))
+        b.arrivals.forEach { a ->
+            val id = a.vehicle_id
+            Box(if (id != null) Modifier.clickable(role = Role.Button) { onBus(id) } else Modifier) { ArrivalRow(a) }
         }
     }
 }
