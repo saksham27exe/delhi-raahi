@@ -55,6 +55,7 @@ interface Strings {
     val limitations: String; val limitationsEnOnly: String; val honest: String; fun chartA11y(parts: String): String
     val home: String; val work: String; val savedPlaces: String; val remove: String; val recent: String; val clearRecent: String
     fun choosePlace(slot: String): String; val fromHere: String; fun fromStop(stop: String): String; val notSet: String
+    val expand: String; val collapse: String
 }
 
 object En : Strings {
@@ -136,6 +137,7 @@ object En : Strings {
     override val recent = "Recent"; override val clearRecent = "Clear"
     override fun choosePlace(slot: String) = "Set $slot"; override val fromHere = "From your location"
     override fun fromStop(stop: String) = "From $stop"; override val notSet = "Not set"
+    override val expand = "Expand panel"; override val collapse = "Collapse panel"
 }
 
 object Hi : Strings {
@@ -217,6 +219,7 @@ object Hi : Strings {
     override val recent = "हाल की यात्राएँ"; override val clearRecent = "साफ़ करें"
     override fun choosePlace(slot: String) = "$slot चुनें"; override val fromHere = "आपकी लोकेशन से"
     override fun fromStop(stop: String) = "$stop से"; override val notSet = "तय नहीं"
+    override val expand = "पैनल बड़ा करें"; override val collapse = "पैनल छोटा करें"
 }
 
 fun stringsFor(lang: Lang): Strings = if (lang == Lang.HI) Hi else En

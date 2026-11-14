@@ -97,7 +97,7 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
                 }
             },
             header = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("${j.departure} – ${j.arrival}", style = MaterialTheme.typography.headlineSmall, color = t.text, modifier = Modifier.semantics { heading() })
                         Text(s.minutes(j.duration_minutes.mins()), style = MaterialTheme.typography.bodyMedium, color = t.muted)
@@ -150,7 +150,7 @@ private fun Step(icon: ImageVector, title: String, detail: String?, dotted: Bool
             }
             if (!last) Box(Modifier.width(if (dotted) 2.dp else 4.dp).weight(1f).background(if (dotted) t.surface2 else t.text))
         }
-        Column(Modifier.weight(1f).padding(start = Space.md, bottom = Space.lg, top = 4.dp)) {
+        Column(Modifier.weight(1f).padding(start = Space.md, bottom = Space.lg, top = 4.dp).semantics(mergeDescendants = true) {}) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = t.text)
             if (detail != null) Text(detail, style = MaterialTheme.typography.bodyMedium, color = t.muted)
             content?.invoke()

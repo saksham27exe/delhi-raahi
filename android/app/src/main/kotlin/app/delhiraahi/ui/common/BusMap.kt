@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.common
 
+import app.delhiraahi.ui.theme.Space
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -102,10 +103,19 @@ fun BusMap(
 ) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
+    // On landscape tablets the sheet is a left side panel: shift the map centre right instead of up.
+    val wide = isWide()
+    val fullScreen = bottomPadding > 0.dp
+    val leftPad = if (wide && fullScreen) SidePanelWidth + Space.lg else 0.dp
+    val bottomPad = if (wide) 0.dp else bottomPadding
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val mapView = remember {
         MapLibre.getInstance(ctx)
-        MapView(ctx).apply { onCreate(Bundle()) }
+        MapView(ctx).apply {
+            onCreate(Bundle())
+            // Every screen states in text what the map shows; keep TalkBack off the map canvas.
+            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
     }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     val idleCb by rememberUpdatedState(onCameraIdle)
@@ -147,6 +157,8 @@ fun BusMap(
             m.uiSettings.isCompassEnabled = false
             m.uiSettings.isRotateGesturesEnabled = false
             m.uiSettings.isTiltGesturesEnabled = false
+            // Apply sheet/panel padding before any queued camera move runs.
+            m.setPadding(with(density) { leftPad.roundToPx() }, 0, 0, with(density) { bottomPad.roundToPx() })
             map = m
             controller.map = m
             m.addOnCameraIdleListener {
@@ -164,8 +176,8 @@ fun BusMap(
     }
 
     // Keep the map centre visible above the bottom sheet.
-    LaunchedEffect(map, bottomPadding) {
-        map?.setPadding(0, 0, 0, with(density) { bottomPadding.roundToPx() })
+    LaunchedEffect(map, bottomPadding, leftPad, bottomPad) {
+        map?.setPadding(with(density) { leftPad.roundToPx() }, 0, 0, with(density) { bottomPad.roundToPx() })
     }
 
     // Lines + pins (annotations are cleared and redrawn together)
@@ -183,15 +195,16 @@ fun BusMap(
     }
 
     // Fit the camera to everything drawn whenever fitKey changes (e.g. another trip selected).
-    LaunchedEffect(map, fitKey) {
+    LaunchedEffect(map, fitKey, wide) {
         val m = map ?: return@LaunchedEffect
         if (fitKey == null) return@LaunchedEffect
         val pts = lines.flatMap { it.points } + pins.map { it.lat to it.lon }
         if (pts.size < 2) return@LaunchedEffect
         val bounds = LatLngBounds.Builder().includes(pts.map { LatLng(it.first, it.second) }).build()
         val pad = with(density) { 48.dp.roundToPx() }
-        val sheet = with(density) { bottomPadding.roundToPx() }
-        runCatching { m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad, sheet + pad), 600) }
+        val sheet = with(density) { bottomPad.roundToPx() }
+        val side = with(density) { leftPad.roundToPx() }
+        runCatching { m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, side + pad, pad * 2, pad, sheet + pad), 600) }
     }
 
     // Blue "you are here" dot (MapLibre location component), only with permission.

@@ -1,5 +1,15 @@
 package app.delhiraahi.ui.common
 
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import app.delhiraahi.i18n.LocalStrings
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -59,6 +69,17 @@ import app.delhiraahi.ui.theme.Space
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+/** Landscape tablets: the sheet becomes a fixed side panel and the map sits to its right. */
+val SidePanelWidth = 400.dp
+/** Gap left above the side panel for the floating buttons (back, language, locate). */
+private val SidePanelTop = 68.dp
+
+@Composable
+fun isWide(): Boolean {
+    val c = LocalConfiguration.current
+    return c.screenWidthDp > c.screenHeightDp && c.screenWidthDp >= 720
+}
+
 /** List row: icon in a grey circle, title, subtitle, optional chevron. Min height 56 dp. */
 @Composable
 fun ListRow(
@@ -92,7 +113,8 @@ fun Chip(label: String, icon: ImageVector? = null, selected: Boolean = false, on
     val fg = if (selected) t.onPrimary else t.text
     Row(
         Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(50)).background(if (selected) t.primary else t.surface)
-            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
+            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp)
+            .then(if (selected) Modifier.semantics { this.selected = true } else Modifier),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (icon != null) Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
@@ -155,8 +177,21 @@ fun MapSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val t = LocalExtra.current
+    val s = LocalStrings.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    if (isWide()) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(start = Space.lg, top = SidePanelTop, bottom = Space.lg)) {
+            Surface(Modifier.width(SidePanelWidth).fillMaxHeight(), shape = RoundedCornerShape(Radius.xl), color = t.card, shadowElevation = 16.dp) {
+                Column {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = Space.lg).padding(top = Space.lg, bottom = Space.sm), content = header)
+                    Column(Modifier.weight(1f).fillMaxWidth(), content = content)
+                    if (footer != null) footer()
+                }
+            }
+        }
+        return
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val h = constraints.maxHeight.toFloat()
         val hFull = h * full
@@ -179,7 +214,14 @@ fun MapSheet(
                             val target = if (v > 1200f || (v > -1200f && y > closed / 2)) closed else 0f
                             scope.launch { animate(y, target, v, spring(dampingRatio = 0.9f, stiffness = 500f)) { value, _ -> y = value } }
                         })
-                        .padding(horizontal = Space.lg).padding(bottom = Space.sm),
+                        .padding(horizontal = Space.lg).padding(bottom = Space.sm)
+                        // TalkBack users cannot drag: offer expand/collapse as actions.
+                        .semantics {
+                            customActions = listOf(
+                                if (y > 1f) CustomAccessibilityAction(s.expand) { scope.launch { animate(y, 0f) { v, _ -> y = v } }; true }
+                                else CustomAccessibilityAction(s.collapse) { scope.launch { animate(y, closed) { v, _ -> y = v } }; true },
+                            )
+                        },
                 ) {
                     Box(Modifier.align(Alignment.CenterHorizontally).padding(vertical = Space.sm).size(40.dp, 5.dp).clip(RoundedCornerShape(3.dp)).background(t.surface2))
                     header()
