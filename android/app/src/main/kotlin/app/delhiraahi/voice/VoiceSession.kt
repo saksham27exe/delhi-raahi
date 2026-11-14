@@ -51,6 +51,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     /** Set by the screen: open option [i] on screen; the conversation ends. */
     var onShow: (Int) -> Unit = {}
     var onGuide: (Double, Double, String) -> Unit = { _, _, _ -> }
+    var onRide: (Int) -> Unit = {}
 
     private val speaker = Speaker(ctx)
     private val listener = Listener(ctx)
@@ -208,6 +209,15 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
                 trip.preference = when (cmd) { Said.Fastest -> Preference.FASTEST; Said.LeastCrowded -> Preference.LEAST_CROWDED; else -> Preference.BALANCED }
                 say(vs.preferenceSet(trip.preference.wire))
                 search()
+            }
+            Said.Alert -> {
+                val i = view.getOrNull(idx)
+                if (i == null || options.getOrNull(i)?.legs.isNullOrEmpty()) say(vs.noGuide) else {
+                    say(vs.alerting(options[i].legs.first().alight_stop))
+                    trip.selected = i
+                    onRide(i)
+                    throw EndConversation()
+                }
             }
             Said.Guide -> {
                 val j = options.getOrNull(view.getOrNull(idx) ?: 0)

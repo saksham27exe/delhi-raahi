@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -79,6 +80,8 @@ private class Moment(
     val leg: Leg? = null, val end: Boolean = false,
     /** Where a walking stretch leads (lat, lon, name), for spoken directions. */
     val guide: Triple<Double, Double, String>? = null,
+    /** For a bus leg: its index, for "Ride with alerts". */
+    val legIdx: Int = -1,
 )
 
 /** Turn the trip's ribbon pieces into moments: start, board, get off, change, arrive. */
@@ -96,7 +99,7 @@ private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabe
         out += when (p) {
             is RidePiece -> {
                 val leg = j.legs[legIdx]; legIdx++
-                Moment(p.a, s.board(leg.board_stop), null, p, leg = leg)
+                Moment(p.a, s.board(leg.board_stop), null, p, leg = leg, legIdx = legIdx - 1)
             }
             is WalkPiece -> when {
                 k == 0 -> Moment(p.a, fromLabel, walkText(len, j.walk.origin_m, j.walk.basis?.origin), p, guide = boardOf(nextLeg))
@@ -122,6 +125,7 @@ private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabe
 fun JourneyScreen(
     trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Unit, onBook: () -> Unit, onTrack: (String, String) -> Unit,
     onGuide: (Double, Double, String) -> Unit = { _, _, _ -> },
+    onRide: (Int) -> Unit = {},
 ) {
     val s = LocalStrings.current
     val t = LocalExtra.current
@@ -162,7 +166,10 @@ fun JourneyScreen(
             if (ribbon != null) {
                 val toPt = trip.to?.let { d -> d.lat?.let { it to d.lon!! } }
                 val ms = remember(j, ribbon, s) { moments(j, ribbon, s, trip.from?.label ?: s.yourLocation, trip.to?.label.orEmpty(), toPt) }
-                ms.forEach { m -> MomentRow(m, guideLabel = app.delhiraahi.voice.GuideText.of(lang == Lang.HI).title, onGuide = onGuide) }
+                ms.forEach { m ->
+                    MomentRow(m, guideLabel = app.delhiraahi.voice.GuideText.of(lang == Lang.HI).title, onGuide = onGuide,
+                        rideLabel = app.delhiraahi.voice.RideText.of(lang == Lang.HI).title, onRide = onRide)
+                }
             }
 
             Text(s.why, style = MaterialTheme.typography.titleMedium, color = t.text, modifier = Modifier.padding(top = Space.xl, bottom = Space.xs).semantics { heading() })
@@ -180,7 +187,7 @@ fun JourneyScreen(
 }
 
 @Composable
-private fun MomentRow(m: Moment, guideLabel: String, onGuide: (Double, Double, String) -> Unit) {
+private fun MomentRow(m: Moment, guideLabel: String, onGuide: (Double, Double, String) -> Unit, rideLabel: String, onRide: (Int) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val minutes = m.after?.let { it.b - it.a } ?: 0f
@@ -200,6 +207,7 @@ private fun MomentRow(m: Moment, guideLabel: String, onGuide: (Double, Double, S
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = t.text)
             m.detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.muted) }
             m.leg?.let { leg -> LegDetail(leg, s) }
+            if (m.legIdx >= 0) ActionPill(androidx.compose.material.icons.Icons.Outlined.NotificationsActive, rideLabel) { onRide(m.legIdx) }
             m.guide?.let { (la, lo, nm) ->
                 Row(
                     Modifier.padding(top = Space.xs).clip(RoundedCornerShape(50)).border(1.dp, t.primary, RoundedCornerShape(50))
@@ -211,6 +219,20 @@ private fun MomentRow(m: Moment, guideLabel: String, onGuide: (Double, Double, S
                 }
             }
         }
+    }
+}
+
+/** Small outlined sandstone action under a step ("Walk with voice", "Ride with alerts"). */
+@Composable
+private fun ActionPill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    val t = LocalExtra.current
+    Row(
+        Modifier.padding(top = Space.xs).clip(RoundedCornerShape(50)).border(1.dp, t.primary, RoundedCornerShape(50))
+            .clickable(role = Role.Button, onClick = onClick).heightIn(min = 40.dp).padding(horizontal = Space.md),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = t.primary, modifier = Modifier.size(18.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, color = t.primary)
     }
 }
 

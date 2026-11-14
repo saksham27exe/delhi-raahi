@@ -186,9 +186,18 @@ fun App(settings: Settings, store: SettingsStore) {
                     nav.navigate("journey/$i")
                 }, onGuide = { la, lo, nm ->
                     nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") { popUpTo("voice") { inclusive = true } }
+                }, onRide = { i ->
+                    nav.navigate("results") { popUpTo("voice") { inclusive = true } }
+                    nav.navigate("journey/$i")
+                    nav.navigate("ride/$i/0")
                 })
             }
             composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
+            composable("ride/{idx}/{leg}", arguments = listOf(navArgument("idx") { type = NavType.IntType }, navArgument("leg") { type = NavType.IntType })) { e ->
+                app.delhiraahi.ui.trip.RideScreen(trip, e.arguments?.getInt("idx") ?: 0, e.arguments?.getInt("leg") ?: 0, settings.lang,
+                    onBack = { nav.popBackStack() },
+                    onGuide = { la, lo, nm -> nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") { popUpTo("ride/{idx}/{leg}") { inclusive = true } } })
+            }
             composable("guide?lat={lat}&lon={lon}&name={name}", arguments = listOf(
                 navArgument("lat") { type = NavType.StringType }, navArgument("lon") { type = NavType.StringType },
                 navArgument("name") { type = NavType.StringType; defaultValue = "" },
@@ -215,7 +224,8 @@ fun App(settings: Settings, store: SettingsStore) {
                 val idx = e.arguments?.getInt("idx") ?: 0
                 JourneyScreen(trip, idx, settings.lang, onBack = { nav.popBackStack() },
                     onBook = { if (session.loggedIn) nav.navigate("book/$idx") else login("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) },
-                    onGuide = { la, lo, nm -> nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") })
+                    onGuide = { la, lo, nm -> nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") },
+                    onRide = { leg -> nav.navigate("ride/$idx/$leg") })
             }
         }
         if (showTabs) {

@@ -71,7 +71,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (Int) -> Unit,
-    onGuide: (Double, Double, String) -> Unit = { _, _, _ -> }) {
+    onGuide: (Double, Double, String) -> Unit = { _, _, _ -> }, onRide: (Int) -> Unit = {}) {
     val vs = voiceStrings(lang)
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -84,6 +84,7 @@ fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (In
     DisposableEffect(session) { onDispose { job?.cancel(); session.close() } }
     session.onShow = onShow
     session.onGuide = onGuide
+    session.onRide = onRide
 
     fun start(greetingDelay: Long = 0) {
         job?.cancel()
