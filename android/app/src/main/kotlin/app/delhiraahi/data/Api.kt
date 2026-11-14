@@ -38,7 +38,12 @@ object Api {
     @Volatile
     var token: String? = null
 
-    private fun Request.Builder.auth(): Request.Builder = apply { token?.let { header("Authorization", "Bearer $it") } }
+    /** Set when signed in with Firebase: returns a current ID token (refreshed by Firebase when needed). */
+    @Volatile
+    var tokenProvider: (suspend () -> String?)? = null
+
+    private fun Request.Builder.auth(tok: String?): Request.Builder = apply { tok?.let { header("Authorization", "Bearer $it") } }
+    private suspend fun bearer(): String? = tokenProvider?.let { p -> runCatching { p() }.getOrNull() } ?: token
 
     val json = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
 
@@ -70,8 +75,9 @@ object Api {
             val url = "$base/api/v1$path".toHttpUrlOrNull()?.newBuilder()?.apply {
                 query.forEach { (k, v) -> if (v != null) addQueryParameter(k, v.toString()) }
             }?.build() ?: throw ApiException(0, "bad server address")
+            val tok = bearer()
             val response = try {
-                client.newCall(Request.Builder().url(url).auth().get().build()).execute()
+                client.newCall(Request.Builder().url(url).auth(tok).get().build()).execute()
             } catch (e: IOException) {
                 throw ApiException(0, "network")
             }
@@ -85,7 +91,7 @@ object Api {
     private suspend inline fun <reified T> post(path: String, body: JsonObject, timeoutMs: Long = 45_000, method: String = "POST"): T =
         withContext(Dispatchers.IO) {
             val url = "$base/api/v1$path".toHttpUrlOrNull() ?: throw ApiException(0, "bad server address")
-            val req = Request.Builder().url(url).auth().method(method, body.toString().toRequestBody("application/json".toMediaType())).build()
+            val req = Request.Builder().url(url).auth(bearer()).method(method, body.toString().toRequestBody("application/json".toMediaType())).build()
             val call = client.newBuilder().readTimeout(timeoutMs, TimeUnit.MILLISECONDS).build().newCall(req)
             val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
             response.use {

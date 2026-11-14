@@ -50,6 +50,7 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
         meta = _json(st.settings.artifacts_dir / "route_model_meta.json") or {}
         core = comps["gtfs_network"] and comps["crowd_model"]
         return {"status": "ok" if core else "degraded", "components": comps, "load_errors": st.load_errors,
+                "accounts_store": getattr(st.accounts, "kind", "local") if st.accounts is not None else None,
                 "load_seconds": st.load_seconds, "model_version": meta.get("model_version"),
                 "data_window": meta.get("training_period")}
 

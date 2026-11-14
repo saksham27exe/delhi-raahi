@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     live_poll_seconds: float = 30.0
     osm_services_enabled: bool = True  # Photon place search + OSRM foot routing (server-side)
     demo_ticket_secret: str = ""       # HMAC key for demo ticket QR codes; random per run if empty
+    # Firebase service-account key (git-ignored). If the file exists, accounts use Firebase Auth + Firestore;
+    # otherwise they use the local SQLite store.
+    firebase_credentials: Path = REPO_ROOT / "backend" / "firebase-service-account.json"
     crowdwise_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ---- derived paths -------------------------------------------------

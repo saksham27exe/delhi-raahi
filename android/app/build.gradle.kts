@@ -7,6 +7,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Firebase sign-in is switched on by app/google-services.json (git-ignored). Without it the app
+// builds as before and uses the backend's own phone + password accounts.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 // Machine-local values (git-ignored): backend address. Never committed.
 val local = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
@@ -58,6 +62,9 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     // Map: MapLibre Native (open source) with OpenStreetMap-based styles; no API key.
     implementation("org.maplibre.gl:android-sdk:11.8.0")

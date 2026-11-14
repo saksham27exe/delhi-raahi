@@ -94,7 +94,11 @@ def load_state(settings: Settings | None = None) -> AppState:
     acc_dir = s.crowdwise_data_dir / "accounts"
     secret = s.demo_ticket_secret or load_or_create_secret(acc_dir / "server_secret.txt")
     try:
-        st.accounts = AccountStore(acc_dir / "accounts.db", secret)
+        if s.firebase_credentials.is_file():
+            from app.services.firebase_accounts import connect
+            st.accounts = connect(str(s.firebase_credentials))
+        else:
+            st.accounts = AccountStore(acc_dir / "accounts.db", secret)
     except Exception as e:  # noqa: BLE001
         st.load_errors["accounts"] = f"{type(e).__name__}: {e}"
     if st.network is not None:

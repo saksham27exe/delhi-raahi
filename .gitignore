@@ -25,3 +25,7 @@ data/mappings/*
 data/rt_snapshots/
 models/metrics/*.parquet
 models/metrics/*.txt
+
+# firebase (keys: never commit)
+google-services.json
+firebase-service-account*.json

@@ -114,7 +114,7 @@ fun AccountScreen(
                         }
                         Column {
                             Text(user.name, style = MaterialTheme.typography.titleMedium, color = x.text)
-                            Text("+91 ${user.phone_masked}", style = MaterialTheme.typography.bodyMedium, color = x.muted)
+                            Text(if (user.email.isNotBlank()) user.email else "+91 ${user.phone_masked}", style = MaterialTheme.typography.bodyMedium, color = x.muted)
                         }
                     }
                     Divider()

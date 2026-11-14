@@ -31,12 +31,37 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
 
     val loggedIn get() = user != null
 
+    /** Built with Firebase config (google-services.json): sign-in is email + password with Firebase. */
+    val firebase = FirebaseLogin.available(app)
+    /** What the backend uses: "firebase" or "local" (null until known / offline). */
+    var serverStore by mutableStateOf<String?>(null); private set
+
     init {
         viewModelScope.launch {
-            Api.token = runCatching { ctx.sessionData.data.first()[kToken] }.getOrNull()
-            if (Api.token != null) refreshMe()
+            if (firebase) {
+                Api.tokenProvider = { FirebaseLogin.idToken() }
+                if (FirebaseLogin.signedIn) refreshMe()
+            } else {
+                Api.token = runCatching { ctx.sessionData.data.first()[kToken] }.getOrNull()
+                if (Api.token != null) refreshMe()
+            }
             ready = true
         }
+    }
+
+    suspend fun checkServer() { serverStore = runCatching { Api.health().accounts_store }.getOrNull() }
+
+    suspend fun loginEmail(email: String, password: String, hindi: Boolean) {
+        FirebaseLogin.signIn(email, password, hindi); afterFirebase()
+    }
+    suspend fun registerEmail(name: String, email: String, password: String, hindi: Boolean) {
+        FirebaseLogin.signUp(name, email, password, hindi); afterFirebase()
+    }
+    suspend fun resetPassword(email: String, hindi: Boolean) = FirebaseLogin.sendReset(email, hindi)
+
+    private suspend fun afterFirebase() {
+        try { user = Api.me().user } catch (e: Exception) { FirebaseLogin.signOut(); throw e }
+        syncAll()
     }
 
     /** Check the token; a 401 means it expired or was signed out elsewhere. */
@@ -96,7 +121,8 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun setWomanTraveller(on: Boolean) { user = Api.updateMe(womanTraveller = on).user }
     suspend fun setName(name: String) { user = Api.updateMe(name = name).user }
 
-    suspend fun changePassword(old: String, new: String) {
+    suspend fun changePassword(old: String, new: String, hindi: Boolean = false) {
+        if (firebase) { FirebaseLogin.changePassword(old, new, hindi); return }
         val tok = Api.changePassword(old, new).token
         Api.token = tok
         ctx.sessionData.edit { it[kToken] = tok }
@@ -104,16 +130,18 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Signs out on every device (server bumps the token version), then clears this device. */
     fun logout() = viewModelScope.launch {
-        runCatching { Api.logout() }
+        if (!firebase) runCatching { Api.logout() }
         clearLocal()
     }
 
-    suspend fun deleteAccount(password: String) {
-        Api.deleteAccount(password)
+    suspend fun deleteAccount(password: String, hindi: Boolean = false) {
+        if (firebase) FirebaseLogin.reauth(password, hindi)      // confirm it's really you
+        Api.deleteAccount(password)                               // server deletes the data and the sign-in
         clearLocal()
     }
 
     private suspend fun clearLocal() {
+        if (firebase) FirebaseLogin.signOut()
         Api.token = null
         ctx.sessionData.edit { it.remove(kToken) }
         tickets.clear()

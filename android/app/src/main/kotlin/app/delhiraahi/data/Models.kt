@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /** Wire types for the DelhiRaahi backend (/api/v1). Unknown fields are ignored. */
 
 @Serializable
-data class Health(val status: String, val components: Map<String, Boolean> = emptyMap())
+data class Health(val status: String, val components: Map<String, Boolean> = emptyMap(), val accounts_store: String? = null)
 
 @Serializable
 data class NearbyStop(
@@ -318,9 +318,11 @@ data class HotspotsResponse(val segments: List<Hotspot> = emptyList())
 // K5: accounts, DEMO wallet, passes
 @Serializable
 data class User(
-    val id: Int,
-    val phone: String,
+    val id: kotlinx.serialization.json.JsonPrimitive? = null,     // number (local accounts) or Firebase uid
+    val phone: String = "",
     val phone_masked: String = "",
+    val email: String = "",
+    val email_masked: String = "",
     val name: String = "",
     val woman_traveller: Boolean = false,
 )

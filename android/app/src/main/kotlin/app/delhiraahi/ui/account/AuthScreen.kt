@@ -37,9 +37,21 @@ import app.delhiraahi.ui.theme.Space
 import app.delhiraahi.ui.trip.PrimaryButton
 import kotlinx.coroutines.launch
 
-/** Phone + password log in / sign up. `reason` explains why we asked (e.g. booking needs an account). */
+/** Words only the email (Firebase) sign-in uses. */
+private class AuthWords(hi: Boolean) {
+    val email = if (hi) "ईमेल" else "Email"
+    val forgot = if (hi) "पासवर्ड भूल गए?" else "Forgot password?"
+    val resetSent = { e: String -> if (hi) "$e पर पासवर्ड बदलने का लिंक भेजा गया है।" else "A link to reset your password was sent to $e." }
+    val note = if (hi) "खाते Google Firebase पर सुरक्षित रखे जाते हैं (ईमेल + पासवर्ड)। डेमो वॉलेट: कोई असली पैसा नहीं।"
+        else "Accounts are kept with Google Firebase (email + password). Demo wallet: no real money."
+    val mismatch = if (hi) "सर्वर पर Firebase चालू नहीं है, इसलिए अभी लॉग इन नहीं हो सकता।"
+        else "The server isn't set up for Firebase sign-in yet, so logging in won't work."
+}
+
+/** Log in / sign up. Email + password with Firebase when the app has Firebase config, else phone + password. */
 @Composable
 fun AuthScreen(session: SessionViewModel, reason: String?, onBack: () -> Unit, onDone: () -> Unit) {
+    if (session.firebase) { EmailAuth(session, reason, onBack, onDone); return }
     val s = LocalStrings.current
     val t = LocalExtra.current
     val scope = rememberCoroutineScope()
@@ -72,6 +84,60 @@ fun AuthScreen(session: SessionViewModel, reason: String?, onBack: () -> Unit, o
                     }
                 }
                 Text(s.noSmsNote, style = MaterialTheme.typography.labelSmall, color = t.muted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmailAuth(session: SessionViewModel, reason: String?, onBack: () -> Unit, onDone: () -> Unit) {
+    val s = LocalStrings.current
+    val t = LocalExtra.current
+    val hi = s === app.delhiraahi.i18n.Hi
+    val w = remember(hi) { AuthWords(hi) }
+    val scope = rememberCoroutineScope()
+    var signUp by remember { mutableStateOf(false) }
+    var email by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var pw by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var info by remember { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { session.checkServer() }
+    val emailOk = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""").matches(email.trim())
+    val canSubmit = !busy && emailOk && pw.length >= (if (signUp) 8 else 1) && (!signUp || name.isNotBlank())
+
+    Column(Modifier.fillMaxSize().background(t.bg).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        ScreenHeader(if (signUp) s.createAccount else s.logIn, onBack)
+        Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.widthIn(max = MaxWidth).fillMaxWidth().padding(Space.lg), verticalArrangement = Arrangement.spacedBy(Space.lg)) {
+                if (reason != null) Text(reason, style = MaterialTheme.typography.titleMedium, color = t.text)
+                if (session.serverStore == "local") Text(w.mismatch, color = t.veryHigh.fg, style = MaterialTheme.typography.bodyMedium)
+                Segmented(listOf(false to s.logIn, true to s.signUp), signUp, { signUp = it; error = null; info = null }, s.loginOrSignUp)
+                if (signUp) FormField(s.yourName, name, { name = it.take(60) })
+                FormField(w.email, email, { email = it.trim().take(120) }, keyboard = KeyboardType.Email)
+                FormField(s.password, pw, { pw = it.take(128) }, keyboard = KeyboardType.Password, secret = true)
+                if (signUp) Text(s.passwordRule, style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                if (error != null) Text(error!!, color = t.veryHigh.fg, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+                if (info != null) Text(info!!, color = t.low.fg, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                PrimaryButton(if (signUp) s.createAccount else s.logIn, enabled = canSubmit) {
+                    busy = true; error = null; info = null
+                    scope.launch {
+                        runCatching { if (signUp) session.registerEmail(name.trim(), email, pw, hi) else session.loginEmail(email, pw, hi) }
+                            .onSuccess { onDone() }
+                            .onFailure { error = s.errorText(it); busy = false }
+                    }
+                }
+                if (!signUp) androidx.compose.material3.TextButton(enabled = emailOk && !busy, onClick = {
+                    error = null
+                    scope.launch {
+                        runCatching { session.resetPassword(email, hi) }
+                            .onSuccess { info = w.resetSent(email.trim()) }.onFailure { error = s.errorText(it) }
+                    }
+                }) { Text(w.forgot, color = t.primary) }
+                Text(w.note, style = MaterialTheme.typography.labelSmall, color = t.muted)
             }
         }
     }
