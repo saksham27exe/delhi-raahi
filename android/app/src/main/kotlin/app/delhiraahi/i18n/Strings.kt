@@ -76,6 +76,7 @@ interface Strings {
     val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
     val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String; val alertSpoken: String; val alertSpokenSub: String; val hearChime: String
+    val voiceTitle: String; val wakeTitle: String; val wakeSub: String; val wakeHint: String
     val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
@@ -207,6 +208,9 @@ object En : Strings {
     override val alertGetOff = "Time to get off"
     override val alertGetOffSub = "A soft chime and vibration one stop before yours and when you reach it"
     override val alertSpoken = "Speak alerts aloud"; override val hearChime = "Hear the chime"
+    override val voiceTitle = "Voice assistant"; override val wakeTitle = "Start with “Hey Raahi”"
+    override val wakeSub = "Say “Hey Raahi” to start the assistant without touching the screen. Listens on this phone only, while the app is open; nothing is recorded or sent. On by default when TalkBack is on."
+    override val wakeHint = "or say “Hey Raahi”"
     override val alertSpokenSub = "Also say each alert in words (uses the speaker; earphones recommended)"
     override val alertsOffNote = "Some alerts are off in Settings, so they're only shown here"
     override val help = "Help & feedback"
@@ -351,6 +355,9 @@ object Hi : Strings {
     override val alertGetOff = "उतरने का समय"
     override val alertGetOffSub = "आपके स्टॉप से एक स्टॉप पहले और पहुँचने पर हल्की घंटी और वाइब्रेशन"
     override val alertSpoken = "अलर्ट बोलकर भी बताएँ"; override val hearChime = "घंटी सुनें"
+    override val voiceTitle = "आवाज़ सहायक"; override val wakeTitle = "“हे राही” बोलकर शुरू करें"
+    override val wakeSub = "स्क्रीन छुए बिना सहायक शुरू करने के लिए “हे राही” बोलें। सिर्फ़ इसी फ़ोन पर, ऐप खुला होने पर ही सुना जाता है; कुछ भी रिकॉर्ड या भेजा नहीं जाता। TalkBack चालू होने पर यह अपने-आप चालू रहता है।"
+    override val wakeHint = "या “हे राही” बोलें"
     override val alertSpokenSub = "हर अलर्ट शब्दों में भी सुनाया जाए (ईयरफ़ोन बेहतर रहेंगे)"
     override val alertsOffNote = "कुछ अलर्ट सेटिंग्स में बंद हैं, इसलिए वे सिर्फ़ यहाँ दिखेंगे"
     override val help = "मदद और सुझाव"

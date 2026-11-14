@@ -176,6 +176,27 @@ fun AccountScreen(
                     )
                 }
             }
+            // Wake word: hands-free start, mainly for people who can't see the screen.
+            val ctxW = androidx.compose.ui.platform.LocalContext.current
+            val wakeOn = settings.wakeWord ?: app.delhiraahi.voice.screenReaderOn(ctxW)
+            val askMicW = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> if (!ok) scope.launch { store.setWakeWord(false) } }
+            Text(s.voiceTitle, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(top = Space.md))
+            Row(Modifier.fillMaxWidth().padding(vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = Space.md)) {
+                    Text(s.wakeTitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = x.text)
+                    Text(s.wakeSub, style = MaterialTheme.typography.bodyMedium, color = x.muted)
+                }
+                Switch(
+                    checked = wakeOn,
+                    onCheckedChange = { on ->
+                        scope.launch { store.setWakeWord(on) }
+                        if (on && !app.delhiraahi.voice.hasMicPermission(ctxW)) askMicW.launch(android.Manifest.permission.RECORD_AUDIO)
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = x.primary, checkedThumbColor = x.onPrimary),
+                    modifier = Modifier.semantics { contentDescription = s.wakeTitle },
+                )
+            }
             Text(s.language, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(top = Space.md, bottom = Space.xs))
             Segmented(listOf(Lang.EN to "English", Lang.HI to "हिन्दी"), settings.lang, { scope.launch { store.setLang(it) } }, s.language)
             Text(s.appearance, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(top = Space.md, bottom = Space.xs))

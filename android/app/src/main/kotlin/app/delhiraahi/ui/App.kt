@@ -256,6 +256,32 @@ fun App(settings: Settings, store: SettingsStore) {
 
     var voiceOpen by remember { mutableStateOf(false) }
 
+    // "Hey Raahi": hands-free start. Listens only while the app is on screen and the panel is closed.
+    val wakeOn = settings.wakeWord ?: app.delhiraahi.voice.screenReaderOn(ctx)
+    val wake = remember { app.delhiraahi.voice.WakeWord(ctx) { voiceOpen = true } }
+    val openVoice = { wake.stop(); voiceOpen = true }
+    var onScreen by remember { mutableStateOf(true) }
+    var micOk by remember { mutableStateOf(app.delhiraahi.voice.hasMicPermission(ctx)) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_START) { onScreen = true; micOk = app.delhiraahi.voice.hasMicPermission(ctx) }
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) onScreen = false
+        }
+        lifecycle.lifecycle.addObserver(obs)
+        onDispose { lifecycle.lifecycle.removeObserver(obs); wake.release() }
+    }
+    val askMicWake = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> micOk = ok }
+    // Wake word on (e.g. TalkBack user) but no microphone permission yet: ask once.
+    LaunchedEffect(wakeOn) { if (wakeOn && !micOk) askMicWake.launch(android.Manifest.permission.RECORD_AUDIO) }
+    LaunchedEffect(wakeOn, voiceOpen, onScreen, micOk) {
+        if (wakeOn && !voiceOpen && onScreen && micOk) {
+            kotlinx.coroutines.delay(500)        // let the assistant's recogniser release the microphone first
+            wake.start()
+        } else wake.stop()
+    }
+
     Box(Modifier.fillMaxSize()) {
 
     Column(Modifier.fillMaxSize().background(t.bg)) {
@@ -292,7 +318,7 @@ fun App(settings: Settings, store: SettingsStore) {
 
                     onInsights = { nav.navigate("insights") },
 
-                    onVoice = { voiceOpen = true },
+                    onVoice = openVoice,
 
                 )
 
@@ -520,11 +546,11 @@ fun App(settings: Settings, store: SettingsStore) {
 
     if (!voiceOpen && showTabs) app.delhiraahi.voice.VoiceButton(
 
-        app.delhiraahi.voice.voiceStrings(settings.lang).open,
+        app.delhiraahi.voice.voiceStrings(settings.lang).open + if (wakeOn) ", " + app.delhiraahi.i18n.stringsFor(settings.lang).wakeHint else "",
 
         Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.navigationBars).padding(end = 20.dp, bottom = barH + 16.dp),
 
-    ) { voiceOpen = true }
+    ) { openVoice() }
 
     if (voiceOpen) app.delhiraahi.voice.VoiceOverlay(
 

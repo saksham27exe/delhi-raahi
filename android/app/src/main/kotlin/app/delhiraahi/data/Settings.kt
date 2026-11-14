@@ -22,6 +22,8 @@ data class Settings(
     val alertGetOff: Boolean = true,
     /** Off (default): alerts are a soft chime + vibration. On: they are also spoken aloud. */
     val alertSpoken: Boolean = false,
+    /** "Hey Raahi" opens the assistant. null = not chosen yet: on when TalkBack is on, else off. */
+    val wakeWord: Boolean? = null,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -34,6 +36,7 @@ class SettingsStore(private val context: Context) {
     private val kArrive = booleanPreferencesKey("alert_arrive")
     private val kGetOff = booleanPreferencesKey("alert_get_off")
     private val kSpoken = booleanPreferencesKey("alert_spoken")
+    private val kWake = booleanPreferencesKey("wake_word")
 
     val settings: Flow<Settings> = context.dataStore.data
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
@@ -45,6 +48,7 @@ class SettingsStore(private val context: Context) {
                 alertArrive = p[kArrive] ?: true,
                 alertGetOff = p[kGetOff] ?: true,
                 alertSpoken = p[kSpoken] ?: false,
+                wakeWord = p[kWake],
             )
         }
 
@@ -53,5 +57,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setAlertArrive(on: Boolean) = context.dataStore.edit { it[kArrive] = on }
     suspend fun setAlertGetOff(on: Boolean) = context.dataStore.edit { it[kGetOff] = on }
     suspend fun setAlertSpoken(on: Boolean) = context.dataStore.edit { it[kSpoken] = on }
+    suspend fun setWakeWord(on: Boolean) = context.dataStore.edit { it[kWake] = on }
     suspend fun setApiBase(b: String) = context.dataStore.edit { it[kBase] = b.trim() }
 }
