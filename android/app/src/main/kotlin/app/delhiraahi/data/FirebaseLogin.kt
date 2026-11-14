@@ -54,7 +54,18 @@ object FirebaseLogin {
         if (password.length < 8) throw FirebaseAuthWeakPasswordException("weak", "short", "short")
         val u = auth.createUserWithEmailAndPassword(email.trim(), password).await().user!!
         u.updateProfile(userProfileChangeRequest { displayName = name.trim() }).await()
+        u.sendEmailVerification().await()            // a link to prove the email is really theirs
         u.getIdToken(true).await(); Unit
+    }
+
+    suspend fun resendVerification(hindi: Boolean) = guard(hindi) { auth.currentUser?.sendEmailVerification()?.await(); Unit }
+
+    /** After the link is opened: reload the user and get a new token, so the server sees email_verified. */
+    suspend fun reloadVerified(hindi: Boolean): Boolean = guard(hindi) {
+        val u = auth.currentUser ?: return@guard false
+        u.reload().await()
+        u.getIdToken(true).await()
+        u.isEmailVerified
     }
 
     suspend fun sendReset(email: String, hindi: Boolean) = guard(hindi) { auth.sendPasswordResetEmail(email.trim()).await(); Unit }

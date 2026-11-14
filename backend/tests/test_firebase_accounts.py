@@ -5,8 +5,9 @@ from app.services.firebase_accounts import FirebaseAccountStore, MemoryRepo, mas
 from tests.test_journey import net  # noqa: F401
 from tests.test_ml import crowd  # noqa: F401
 
-TOKENS = {"tok-a": {"uid": "A", "email": "asha@example.com", "name": "Asha"},
-          "tok-b": {"uid": "B", "email": "bilal@example.com"}}
+TOKENS = {"tok-a": {"uid": "A", "email": "asha@example.com", "name": "Asha", "email_verified": True},
+          "tok-b": {"uid": "B", "email": "bilal@example.com"},
+          "tok-u": {"uid": "U", "email": "new@example.com", "email_verified": False}}
 
 
 def verify(tok):
@@ -95,3 +96,11 @@ def test_routes_with_firebase_store(net, crowd, tmp_path):  # noqa: F811
         p = c.post("/api/v1/passes/buy", json={"kind": "daily", "bus_type": "ac"}, headers=h).json()
         assert p["pass_id"] and c.get("/api/v1/passes/mine", headers=h).json()["passes"][0]["pass_id"] == p["pass_id"]
         assert c.get("/api/v1/me", headers={"Authorization": "Bearer nope"}).status_code == 401
+        # Not verified yet: may look, may not add money, book or buy.
+        u = {"Authorization": "Bearer tok-u"}
+        me = c.get("/api/v1/me", headers=u).json()["user"]
+        assert me["email_verified"] is False
+        r = c.post("/api/v1/wallet/topup", json={"amount": 200}, headers=u)
+        assert r.status_code == 403 and r.json()["detail"]["code"] == "email_not_verified"
+        assert c.post("/api/v1/passes/buy", json={"kind": "daily", "bus_type": "ac"}, headers=u).status_code == 403
+        assert c.get("/api/v1/wallet", headers=u).status_code == 200

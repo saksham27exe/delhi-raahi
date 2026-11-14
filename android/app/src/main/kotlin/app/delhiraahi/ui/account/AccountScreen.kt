@@ -133,6 +133,7 @@ fun AccountScreen(
                 }
             }
 
+            if (user != null && !user.email_verified) VerifyEmailCard(session, user.email)
             if (user != null) {
                 SectionTitle(s.wallet)
                 ListRow(Icons.Outlined.AccountBalanceWallet, s.wallet,
@@ -283,4 +284,44 @@ private fun DeleteDialog(session: SessionViewModel, onClose: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onClose) { Text(s.cancel, color = x.muted) } },
     )
+}
+
+/** Shown until the email link is opened: adding money, booking and buying stay locked until then. */
+@Composable
+private fun VerifyEmailCard(session: app.delhiraahi.data.SessionViewModel, email: String) {
+    val s = LocalStrings.current
+    val x = LocalExtra.current
+    val hi = s === app.delhiraahi.i18n.Hi
+    val scope = rememberCoroutineScope()
+    var msg by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    Column(
+        Modifier.padding(top = Space.md).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(x.moderate.bg)
+            .padding(Space.lg),
+        verticalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Text(if (hi) "अपना ईमेल सत्यापित करें" else "Verify your email", style = MaterialTheme.typography.titleMedium, color = x.moderate.fg)
+        Text(if (hi) "$email पर एक लिंक भेजा गया है। उसे खोलें, फिर \"सत्यापित कर दिया\" दबाएँ। तब तक आप यात्रा देख सकते हैं, पर पैसे जोड़ना, टिकट या पास लेना बंद रहेगा।"
+             else "We sent a link to $email. Open it, then tap \"I've verified\". Until then you can plan trips, but adding money, booking and buying passes stay locked.",
+            style = MaterialTheme.typography.bodyMedium, color = x.text)
+        msg?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = x.text) }
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            app.delhiraahi.ui.trip.PrimaryButton(if (hi) "सत्यापित कर दिया" else "I've verified", Modifier.weight(1f), enabled = !busy) {
+                busy = true; msg = null
+                scope.launch {
+                    runCatching { session.checkVerified(hi) }
+                        .onSuccess { ok -> if (!ok) msg = if (hi) "अभी सत्यापित नहीं हुआ। ईमेल का लिंक खोलें (स्पैम फ़ोल्डर भी देखें)।" else "Not verified yet. Open the link in the email (check spam too)." }
+                        .onFailure { msg = s.errorText(it) }
+                    busy = false
+                }
+            }
+            app.delhiraahi.ui.trip.SecondaryButton(if (hi) "ईमेल फिर भेजें" else "Resend email", Modifier.weight(1f)) {
+                scope.launch {
+                    runCatching { session.resendVerification(hi) }
+                        .onSuccess { msg = if (hi) "लिंक फिर से भेजा गया।" else "Link sent again." }
+                        .onFailure { msg = s.errorText(it) }
+                }
+            }
+        }
+    }
 }

@@ -10,7 +10,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.api.deps import current_user, get_state, require_user
+from app.api.deps import current_user, get_state, require_user, require_verified
 from app.services import passes
 from app.services.accounts import AccountError, User
 from app.services.state import AppState
@@ -129,7 +129,7 @@ def wallet(u: User = Depends(require_user), st: AppState = Depends(get_state)) -
 
 
 @router.post("/wallet/topup")
-def topup(req: TopupReq, u: User = Depends(require_user), st: AppState = Depends(get_state)) -> dict:
+def topup(req: TopupReq, u: User = Depends(require_verified), st: AppState = Depends(get_state)) -> dict:
     """DEMO top-up: no payment is taken, the balance only works inside this demo."""
     try:
         return _acc(st).topup(u.id, req.amount)
@@ -153,7 +153,7 @@ def my_passes(u: User = Depends(require_user), st: AppState = Depends(get_state)
 
 
 @router.post("/passes/buy")
-def buy_pass(req: PassReq, u: User = Depends(require_user), st: AppState = Depends(get_state)) -> dict:
+def buy_pass(req: PassReq, u: User = Depends(require_verified), st: AppState = Depends(get_state)) -> dict:
     if st.tickets is None:
         raise HTTPException(503, detail="Ticketing is not available on this server.")
     price = passes.CATALOG[req.kind]["price"][req.bus_type]

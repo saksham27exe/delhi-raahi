@@ -323,6 +323,7 @@ data class User(
     val phone_masked: String = "",
     val email: String = "",
     val email_masked: String = "",
+    val email_verified: Boolean = true,      // local (phone) accounts have no email step
     val name: String = "",
     val woman_traveller: Boolean = false,
 )

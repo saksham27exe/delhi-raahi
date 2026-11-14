@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_state, require_gtfs, require_user
+from app.api.deps import get_state, require_gtfs, require_user, require_verified
 from app.fare_engine.fares import RULES
 from app.schemas.api import FareQuoteRequest, TicketVerifyRequest
 from app.services import summaries
@@ -35,7 +35,7 @@ def quote(req: FareQuoteRequest, st: AppState = Depends(get_state)) -> dict:
 
 
 @router.post("/tickets/book")
-def book(req: FareQuoteRequest, st: AppState = Depends(get_state), u: User = Depends(require_user)) -> dict:
+def book(req: FareQuoteRequest, st: AppState = Depends(get_state), u: User = Depends(require_verified)) -> dict:
     """DEMO booking for a logged-in user, paid from the DEMO wallet (no real money); not valid for travel.
     The ticket carries the holder's masked phone and is stored on the account."""
     require_gtfs(st)

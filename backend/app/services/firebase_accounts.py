@@ -36,6 +36,7 @@ class FbUser:
     name: str
     woman_traveller: bool
     created_at: str
+    verified: bool = False          # email verified (from the Firebase token)
 
     @property
     def holder(self) -> str:
@@ -45,7 +46,8 @@ class FbUser:
     def public(self) -> dict:
         # phone fields kept (empty) so older app builds still parse the response
         return {"id": self.id, "email": self.email, "email_masked": mask_email(self.email), "phone": "", "phone_masked": "",
-                "name": self.name, "woman_traveller": self.woman_traveller, "created_at": self.created_at}
+                "name": self.name, "woman_traveller": self.woman_traveller, "created_at": self.created_at,
+                "email_verified": self.verified}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -213,7 +215,9 @@ class FirebaseAccountStore:
             name = (claims.get("name") or email.split("@")[0] or "Traveller")[:60]
             d = self.repo.create_user(uid, {"email": email, "name": name, "woman_traveller": False,
                                             "balance_paise": 0, "created_at": self._now()})
-        return self._user(uid, d)
+        u = self._user(uid, d)
+        u.verified = bool(claims.get("email_verified"))
+        return u
 
     def update_profile(self, uid: str, name: str | None = None, woman_traveller: bool | None = None) -> FbUser:
         f: dict = {}

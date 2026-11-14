@@ -57,6 +57,14 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun registerEmail(name: String, email: String, password: String, hindi: Boolean) {
         FirebaseLogin.signUp(name, email, password, hindi); afterFirebase()
     }
+    suspend fun resendVerification(hindi: Boolean) = FirebaseLogin.resendVerification(hindi)
+    /** True once the email link was opened; refreshes the profile so the app and server agree. */
+    suspend fun checkVerified(hindi: Boolean): Boolean {
+        val ok = FirebaseLogin.reloadVerified(hindi)
+        refreshMe()
+        if (ok) syncAll()
+        return ok
+    }
     suspend fun resetPassword(email: String, hindi: Boolean) = FirebaseLogin.sendReset(email, hindi)
 
     private suspend fun afterFirebase() {

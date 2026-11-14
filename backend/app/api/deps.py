@@ -32,6 +32,15 @@ def require_user(request: Request) -> User:
     return u
 
 
+def require_verified(request: Request) -> User:
+    """Signed in AND email verified (Firebase accounts): needed to add money, book or buy."""
+    u = require_user(request)
+    if not getattr(u, "verified", True):
+        raise HTTPException(403, detail={"message": "Verify your email first: open the link we sent you, then try again.",
+                                         "code": "email_not_verified"})
+    return u
+
+
 def require_gtfs(st: AppState) -> None:
     if not st.gtfs_ready:
         raise HTTPException(503, detail={"message": "Bus network (static GTFS) is not loaded yet.",
