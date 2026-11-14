@@ -1,81 +1,100 @@
 package app.delhiraahi.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Uber/Rapido-style: black-and-white surfaces, one teal accent, crowd colours carry meaning. */
-private val Light = lightColorScheme(
-    primary = Color(0xFF000000), onPrimary = Color.White,
-    secondary = Color(0xFF0F766E), onSecondary = Color.White,
-    background = Color.White, onBackground = Color(0xFF111111),
-    surface = Color.White, onSurface = Color(0xFF111111),
-    surfaceVariant = Color(0xFFF3F3F3), onSurfaceVariant = Color(0xFF5E5E5E),
-    surfaceContainer = Color(0xFFF6F6F6), surfaceContainerHigh = Color(0xFFEEEEEE),
-    outline = Color(0xFFE2E2E2), error = Color(0xFFB91C1C),
-)
-private val Dark = darkColorScheme(
-    primary = Color.White, onPrimary = Color.Black,
-    secondary = Color(0xFF2DD4BF), onSecondary = Color.Black,
-    background = Color.Black, onBackground = Color(0xFFF2F2F2),
-    surface = Color(0xFF121212), onSurface = Color(0xFFF2F2F2),
-    surfaceVariant = Color(0xFF1E1E1E), onSurfaceVariant = Color(0xFFA6A6A6),
-    surfaceContainer = Color(0xFF1A1A1A), surfaceContainerHigh = Color(0xFF242424),
-    outline = Color(0xFF2E2E2E), error = Color(0xFFF87171),
-)
-
+/**
+ * Same design tokens as the Expo app (mobile/src/lib/theme.ts): monochrome "ride app" look,
+ * colour reserved for crowd levels.
+ */
 @Immutable
 data class CrowdColor(val fg: Color, val bg: Color, val line: Color)
 
 @Immutable
-data class Extra(val dark: Boolean, val low: CrowdColor, val moderate: CrowdColor, val high: CrowdColor, val veryHigh: CrowdColor, val unknown: CrowdColor)
+data class Tokens(
+    val dark: Boolean,
+    val bg: Color, val surface: Color, val surface2: Color, val card: Color,
+    val text: Color, val muted: Color, val border: Color,
+    val primary: Color, val onPrimary: Color, val accent: Color, val danger: Color,
+    val low: CrowdColor, val moderate: CrowdColor, val high: CrowdColor, val veryHigh: CrowdColor, val unknown: CrowdColor,
+)
 
-private val ExtraLight = Extra(
+private val LightTokens = Tokens(
     dark = false,
-    low = CrowdColor(Color(0xFF166534), Color(0xFFDCFCE7), Color(0xFF16A34A)),
-    moderate = CrowdColor(Color(0xFF854D0E), Color(0xFFFEF9C3), Color(0xFFCA8A04)),
-    high = CrowdColor(Color(0xFF9A3412), Color(0xFFFFEDD5), Color(0xFFEA580C)),
-    veryHigh = CrowdColor(Color(0xFF991B1B), Color(0xFFFEE2E2), Color(0xFFDC2626)),
-    unknown = CrowdColor(Color(0xFF525252), Color(0xFFF1F1F1), Color(0xFF9CA3AF)),
+    bg = Color(0xFFFFFFFF), surface = Color(0xFFF3F3F3), surface2 = Color(0xFFE8E8E8), card = Color(0xFFFFFFFF),
+    text = Color(0xFF000000), muted = Color(0xFF5E5E5E), border = Color(0xFFE5E5E5),
+    primary = Color(0xFF000000), onPrimary = Color(0xFFFFFFFF), accent = Color(0xFF0F766E), danger = Color(0xFFB42318),
+    low = CrowdColor(Color(0xFF0E7A3B), Color(0xFFDFF5E7), Color(0xFF16A34A)),
+    moderate = CrowdColor(Color(0xFF8A5A00), Color(0xFFFFF1CC), Color(0xFFD19A00)),
+    high = CrowdColor(Color(0xFFB33D00), Color(0xFFFFE4D1), Color(0xFFEA580C)),
+    veryHigh = CrowdColor(Color(0xFFB11B1B), Color(0xFFFDE0E0), Color(0xFFDC2626)),
+    unknown = CrowdColor(Color(0xFF4B5563), Color(0xFFECEDEF), Color(0xFF9CA3AF)),
 )
-private val ExtraDark = Extra(
+
+private val DarkTokens = Tokens(
     dark = true,
-    low = CrowdColor(Color(0xFF86EFAC), Color(0xFF0F2E1B), Color(0xFF22C55E)),
-    moderate = CrowdColor(Color(0xFFFDE047), Color(0xFF332B07), Color(0xFFEAB308)),
-    high = CrowdColor(Color(0xFFFDBA74), Color(0xFF3A1D0B), Color(0xFFF97316)),
-    veryHigh = CrowdColor(Color(0xFFFCA5A5), Color(0xFF3B1010), Color(0xFFEF4444)),
-    unknown = CrowdColor(Color(0xFFBDBDBD), Color(0xFF262626), Color(0xFF6B7280)),
+    bg = Color(0xFF000000), surface = Color(0xFF1C1C1E), surface2 = Color(0xFF2C2C2E), card = Color(0xFF141414),
+    text = Color(0xFFFFFFFF), muted = Color(0xFFA1A1A6), border = Color(0xFF2C2C2E),
+    primary = Color(0xFFFFFFFF), onPrimary = Color(0xFF000000), accent = Color(0xFF2DD4BF), danger = Color(0xFFF87171),
+    low = CrowdColor(Color(0xFF4ADE80), Color(0xFF12301F), Color(0xFF22C55E)),
+    moderate = CrowdColor(Color(0xFFFACC15), Color(0xFF3A2F0B), Color(0xFFEAB308)),
+    high = CrowdColor(Color(0xFFFB923C), Color(0xFF3B2210), Color(0xFFF97316)),
+    veryHigh = CrowdColor(Color(0xFFF87171), Color(0xFF3D1515), Color(0xFFEF4444)),
+    unknown = CrowdColor(Color(0xFFCBD5E1), Color(0xFF2A313B), Color(0xFF6B7280)),
 )
 
-val LocalExtra = staticCompositionLocalOf { ExtraLight }
+/** Read tokens with `LocalExtra.current` (name kept for existing call sites). */
+val LocalExtra = staticCompositionLocalOf { LightTokens }
 
+/** Spacing and radii, same scale as the Expo app. */
+object Space { val xs = 4.dp; val sm = 8.dp; val md = 12.dp; val lg = 16.dp; val xl = 24.dp; val xxl = 32.dp }
+object Radius { val sm = 8.dp; val md = 12.dp; val lg = 16.dp; val xl = 24.dp }
+val MaxWidth = 560.dp
+
+/** h1 → headlineLarge, h2 → headlineSmall, h3 → titleMedium, body → bodyLarge, small → bodyMedium, tiny → labelSmall. */
 private val Type = Typography(
-    headlineLarge = TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold),
-    headlineSmall = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
+    headlineLarge = TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+    headlineSmall = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
     titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp),
+    bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
     labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold),
+    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium),
 )
 
-private val Shape = Shapes(
-    small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(22.dp),
+private fun scheme(t: Tokens) = if (t.dark) darkColorScheme(
+    primary = t.primary, onPrimary = t.onPrimary, secondary = t.accent,
+    background = t.bg, onBackground = t.text, surface = t.card, onSurface = t.text,
+    surfaceVariant = t.surface, onSurfaceVariant = t.muted, surfaceContainer = t.card, surfaceContainerHigh = t.surface2,
+    outline = t.border, error = t.danger,
+) else lightColorScheme(
+    primary = t.primary, onPrimary = t.onPrimary, secondary = t.accent,
+    background = t.bg, onBackground = t.text, surface = t.card, onSurface = t.text,
+    surfaceVariant = t.surface, onSurfaceVariant = t.muted, surfaceContainer = t.card, surfaceContainerHigh = t.surface2,
+    outline = t.border, error = t.danger,
 )
 
 @Composable
 fun DelhiRaahiTheme(dark: Boolean, content: @Composable () -> Unit) {
-    androidx.compose.runtime.CompositionLocalProvider(LocalExtra provides if (dark) ExtraDark else ExtraLight) {
-        MaterialTheme(colorScheme = if (dark) Dark else Light, typography = Type, shapes = Shape, content = content)
+    val t = if (dark) DarkTokens else LightTokens
+    CompositionLocalProvider(LocalExtra provides t) {
+        MaterialTheme(
+            colorScheme = scheme(t), typography = Type,
+            shapes = Shapes(small = RoundedCornerShape(Radius.sm), medium = RoundedCornerShape(Radius.md), large = RoundedCornerShape(Radius.xl)),
+            content = content,
+        )
     }
 }

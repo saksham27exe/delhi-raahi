@@ -1,30 +1,42 @@
 package app.delhiraahi.ui
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.outlined.ConfirmationNumber
-import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Sensors
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import app.delhiraahi.data.Lang
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,25 +49,27 @@ import app.delhiraahi.i18n.Strings
 import app.delhiraahi.ui.account.AccountScreen
 import app.delhiraahi.ui.home.HomeScreen
 import app.delhiraahi.ui.live.LiveScreen
+import app.delhiraahi.ui.theme.LocalExtra
 import app.delhiraahi.ui.tickets.TicketsScreen
 
-private data class Tab(val route: String, val icon: ImageVector, val label: (Strings) -> String)
+private data class Tab(val route: String, val icon: ImageVector, val iconOn: ImageVector, val label: (Strings) -> String)
 
 private val tabs = listOf(
-    Tab("home", Icons.Outlined.Home) { it.tabHome },
-    Tab("live", Icons.Outlined.DirectionsBus) { it.tabLive },
-    Tab("tickets", Icons.Outlined.ConfirmationNumber) { it.tabTickets },
-    Tab("account", Icons.Outlined.AccountCircle) { it.tabAccount },
+    Tab("home", Icons.Outlined.Home, Icons.Filled.Home) { it.tabHome },
+    Tab("live", Icons.Outlined.Sensors, Icons.Filled.Sensors) { it.tabLive },
+    Tab("tickets", Icons.Outlined.ConfirmationNumber, Icons.Filled.ConfirmationNumber) { it.tabTickets },
+    Tab("account", Icons.Outlined.Person, Icons.Filled.Person) { it.tabAccount },
 )
 
-/** Tablet (≥ 600 dp wide): navigation rail on the left. Phone: bottom bar. */
+/** Bottom tab bar on every screen size, like the Expo app: no indicator pill, active = text colour. */
 @Composable
 fun App(settings: Settings, store: SettingsStore) {
     val s = LocalStrings.current
+    val t = LocalExtra.current
     val nav = rememberNavController()
+    val scope = rememberCoroutineScope()
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
-    val wide = LocalConfiguration.current.screenWidthDp >= 600
     val go: (String) -> Unit = { route ->
         nav.navigate(route) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -64,42 +78,29 @@ fun App(settings: Settings, store: SettingsStore) {
         }
     }
 
-    val host: @Composable (Modifier) -> Unit = { m ->
-        NavHost(nav, startDestination = "home", modifier = m) {
-            composable("home") { HomeScreen(wide = LocalConfiguration.current.screenWidthDp >= 720) }
+    Column(Modifier.fillMaxSize().background(t.bg)) {
+        NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
+            composable("home") {
+                HomeScreen(lang = settings.lang, onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } }, onAddPlace = { go("account") })
+            }
             composable("live") { LiveScreen() }
             composable("tickets") { TicketsScreen() }
             composable("account") { AccountScreen(settings = settings, store = store) }
         }
-    }
-
-    if (wide) {
-        Row(Modifier.fillMaxSize()) {
-            NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
-                tabs.forEach { t ->
-                    NavigationRailItem(
-                        selected = current == t.route, onClick = { go(t.route) },
-                        icon = { Icon(t.icon, contentDescription = null) }, label = { Text(t.label(s)) },
-                        colors = NavigationRailItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    )
+        HorizontalDivider(thickness = 0.5.dp, color = t.border)
+        Row(Modifier.fillMaxWidth().background(t.card).windowInsetsPadding(WindowInsets.navigationBars).height(64.dp)) {
+            tabs.forEach { tab ->
+                val on = current == tab.route
+                val color = if (on) t.text else t.muted
+                Column(
+                    Modifier.weight(1f).fillMaxSize().selectable(selected = on, role = Role.Tab, onClick = { go(tab.route) }),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(if (on) tab.iconOn else tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+                    Text(tab.label(s), color = color, style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
                 }
             }
-            Box(Modifier.weight(1f)) { host(Modifier.fillMaxSize()) }
         }
-    } else {
-        Scaffold(
-            contentWindowInsets = WindowInsets(0),
-            bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    tabs.forEach { t ->
-                        NavigationBarItem(
-                            selected = current == t.route, onClick = { go(t.route) },
-                            icon = { Icon(t.icon, contentDescription = null) }, label = { Text(t.label(s)) },
-                            colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                        )
-                    }
-                }
-            },
-        ) { pad -> host(Modifier.padding(pad)) }
     }
 }
