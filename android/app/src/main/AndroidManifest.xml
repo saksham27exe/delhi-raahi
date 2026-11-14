@@ -15,9 +15,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DelhiRaahi">
 
-        <!-- Google Maps key comes from local.properties (MAPS_API_KEY), never from source. -->
-        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"

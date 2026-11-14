@@ -20,7 +20,6 @@ interface Strings {
     val system: String; val light: String; val dark: String
     val server: String; val serverHint: String; val test: String; val serverOk: String; val serverFail: String
     val about: String; val aboutText: String; val privacy: String
-    val mapNoKey: String
     val now: String; val addHome: String; val addWork: String; val insights: String; val insightsSub: String
     val switchLang: String; val otherLang: String; val locate: String
 }
@@ -46,7 +45,6 @@ object En : Strings {
     override val about = "About DelhiRaahi"
     override val aboutText = "Hackathon prototype. Timetable and live data: Delhi Transport open data. Crowding: modelled from October 2026 ONDC e-tickets. Tickets are demo only."
     override val privacy = "Everything you save stays on this device."
-    override val mapNoKey = "Map needs a Google Maps API key"
     override val now = "Now"; override val addHome = "Add Home"; override val addWork = "Add Work"
     override val insights = "When are buses quiet?"; override val insightsSub = "Crowd patterns, busiest stretches"
     override val switchLang = "हिंदी में बदलें"; override val otherLang = "हिंदी"; override val locate = "Show my location"
@@ -73,7 +71,6 @@ object Hi : Strings {
     override val about = "दिल्लीराही के बारे में"
     override val aboutText = "हैकथॉन प्रोटोटाइप। समय-सारणी और लाइव डेटा: दिल्ली परिवहन ओपन डेटा। भीड़: अक्टूबर 2026 के ONDC ई-टिकट से मॉडल किया गया। टिकट सिर्फ़ डेमो हैं।"
     override val privacy = "आप जो सहेजते हैं वह इसी डिवाइस पर रहता है।"
-    override val mapNoKey = "मैप के लिए Google Maps API key चाहिए"
     override val now = "अभी"; override val addHome = "घर जोड़ें"; override val addWork = "ऑफ़िस जोड़ें"
     override val insights = "बसें कब खाली रहती हैं?"; override val insightsSub = "भीड़ के पैटर्न, सबसे व्यस्त हिस्से"
     override val switchLang = "Switch to English"; override val otherLang = "English"; override val locate = "मेरी लोकेशन दिखाएँ"

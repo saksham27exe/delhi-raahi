@@ -7,7 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Machine-local values (git-ignored): backend address and Google Maps key. Never committed.
+// Machine-local values (git-ignored): backend address. Never committed.
 val local = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
@@ -23,8 +23,6 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE", "\"${local.getProperty("api.base", "http://10.0.2.2:8010")}\"")
-        manifestPlaceholders["MAPS_API_KEY"] = local.getProperty("MAPS_API_KEY", "")
-        buildConfigField("boolean", "HAS_MAPS_KEY", "${local.getProperty("MAPS_API_KEY", "").isNotBlank()}")
     }
 
     buildTypes {
@@ -60,6 +58,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    implementation("com.google.maps.android:maps-compose:6.4.1")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    // Map: MapLibre Native (open source) with OpenStreetMap-based styles; no API key.
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
 }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,49 +55,25 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.delhiraahi.BuildConfig
 import app.delhiraahi.data.Api
 import app.delhiraahi.data.DeviceLocation
 import app.delhiraahi.data.Lang
 import app.delhiraahi.data.NearbyStop
 import app.delhiraahi.i18n.LocalStrings
+import app.delhiraahi.ui.common.BusMap
 import app.delhiraahi.ui.common.Chip
+import app.delhiraahi.ui.common.MapController
+import app.delhiraahi.ui.common.MapPin
 import app.delhiraahi.ui.common.FloatingIconButton
 import app.delhiraahi.ui.common.ListRow
 import app.delhiraahi.ui.common.MapSheet
 import app.delhiraahi.ui.theme.LocalExtra
 import app.delhiraahi.ui.theme.Radius
 import app.delhiraahi.ui.theme.Space
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
 import kotlinx.coroutines.launch
 
-/** Connaught Place: used until we know where the user is. */
-private val DELHI = LatLng(28.6315, 77.2167)
 private const val PEEK = 0.46f
 
-private const val DARK_STYLE = """[
- {"elementType":"geometry","stylers":[{"color":"#1d1d1d"}]},
- {"elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
- {"elementType":"labels.text.stroke","stylers":[{"color":"#1d1d1d"}]},
- {"featureType":"poi","stylers":[{"visibility":"off"}]},
- {"featureType":"road","elementType":"geometry","stylers":[{"color":"#2c2c2c"}]},
- {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3a3a3a"}]},
- {"featureType":"transit","stylers":[{"visibility":"off"}]},
- {"featureType":"water","elementType":"geometry","stylers":[{"color":"#0e1626"}]}
-]"""
-private const val LIGHT_STYLE = """[
- {"featureType":"poi","stylers":[{"visibility":"off"}]},
- {"featureType":"transit","stylers":[{"visibility":"off"}]}
-]"""
 
 private sealed interface Nearby {
     data object NoPermission : Nearby
@@ -115,8 +90,8 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
     val t = LocalExtra.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(DELHI, 12f) }
-    var me by remember { mutableStateOf<LatLng?>(null) }
+    val map = remember { MapController() }
+    var me by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var nearby by remember { mutableStateOf<Nearby>(if (DeviceLocation.granted(ctx)) Nearby.Locating else Nearby.NoPermission) }
     var attempt by remember { mutableIntStateOf(0) }
     val screenH = LocalConfiguration.current.screenHeightDp
@@ -134,28 +109,20 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
         nearby = Nearby.Locating
         val loc = DeviceLocation.current(ctx)
         if (loc == null) { nearby = Nearby.NoFix; return@LaunchedEffect }
-        val here = LatLng(loc.latitude, loc.longitude)
-        me = here
-        camera.animate(CameraUpdateFactory.newLatLngZoom(here, 15.5f))
-        nearby = runCatching { Nearby.Loaded(Api.nearbyStops(here.latitude, here.longitude).results.take(5)) }.getOrElse { Nearby.Error }
+        me = loc.latitude to loc.longitude
+        map.moveTo(loc.latitude, loc.longitude)
+        nearby = runCatching { Nearby.Loaded(Api.nearbyStops(loc.latitude, loc.longitude, 1000).results.take(5)) }.getOrElse { Nearby.Error }
     }
 
     val soon = { Toast.makeText(ctx, s.comingSoon, Toast.LENGTH_SHORT).show() }
     val stops = (nearby as? Nearby.Loaded)?.stops.orEmpty()
 
     Box(Modifier.fillMaxSize()) {
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = camera,
-            properties = MapProperties(
-                isMyLocationEnabled = me != null && DeviceLocation.granted(ctx),
-                mapStyleOptions = MapStyleOptions(if (t.dark) DARK_STYLE else LIGHT_STYLE),
-            ),
-            uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
-            contentPadding = PaddingValues(bottom = (screenH * PEEK).dp),
-        ) {
-            stops.forEach { st -> Marker(state = rememberMarkerState(key = st.stop_id, position = LatLng(st.lat, st.lon)), title = st.name) }
-        }
+        BusMap(
+            modifier = Modifier.fillMaxSize(), controller = map, dark = t.dark,
+            pins = stops.map { MapPin(it.stop_id, it.lat, it.lon, it.name) },
+            bottomPadding = (screenH * PEEK).dp, showMyLocation = me != null,
+        )
 
         // Top bar over the map: language pill (left), locate (right).
         Row(
@@ -172,14 +139,9 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
                 }
             }
             Box(Modifier.weight(1f))
-            if (!BuildConfig.HAS_MAPS_KEY) {
-                Surface(shape = RoundedCornerShape(50), color = t.card, shadowElevation = 4.dp, modifier = Modifier.padding(end = Space.sm)) {
-                    Text(s.mapNoKey, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium, color = t.muted)
-                }
-            }
             FloatingIconButton(Icons.Outlined.MyLocation, s.locate) {
                 val here = me
-                if (here != null) scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(here, 15.5f)) }
+                if (here != null) map.moveTo(here.first, here.second)
                 else if (DeviceLocation.granted(ctx)) attempt++ else requestLocation()
             }
         }
@@ -222,7 +184,7 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit) {
                     is Nearby.Loaded -> if (n.stops.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                     else n.stops.forEach { st ->
                         ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) {
-                            scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(st.lat, st.lon), 17f)) }
+                            map.moveTo(st.lat, st.lon, 17.0)
                         }
                     }
                 }
