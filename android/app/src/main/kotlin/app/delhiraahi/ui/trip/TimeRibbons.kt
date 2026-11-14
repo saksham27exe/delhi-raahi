@@ -57,6 +57,23 @@ import app.delhiraahi.ui.theme.Space
 import app.delhiraahi.ui.theme.TabularNums
 import app.delhiraahi.ui.theme.Tokens
 import java.time.LocalTime
+import kotlin.math.roundToInt
+import app.delhiraahi.i18n.OptionText
+import app.delhiraahi.data.TrackResult
+import app.delhiraahi.data.Api
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Sensors
+import androidx.compose.material.icons.outlined.SyncAlt
+import androidx.compose.material.icons.outlined.DirectionsBus
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -256,40 +273,90 @@ private fun a11y(s: Strings, j: Journey, r: Ribbon): String = listOfNotNull(
 ).joinToString(", ")
 
 /** One row: leave → arrive, duration and fare, the ribbon, then what kind of trip it is. */
+/** Minutes from now until a "HH:MM" time today (wrapping round midnight), or null if unreadable. */
+internal fun minsFromNow(hhmm: String): Int? {
+    val m = clockMin(hhmm) ?: return null
+    val n = LocalTime.now().let { it.hour * 60 + it.minute }
+    var d = m - n
+    if (d < -720) d += 1440 else if (d > 720) d -= 1440
+    return d
+}
+
+/** One small icon + one plain line. */
 @Composable
-internal fun RibbonRow(j: Journey, r: Ribbon, axis: ClockAxis, selected: Boolean, onClick: () -> Unit) {
+private fun OptLine(icon: ImageVector, text: String, tag: String? = null, strong: Boolean = false, tint: Color? = null) {
+    val t = LocalExtra.current
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        Icon(icon, contentDescription = null, tint = tint ?: t.muted, modifier = Modifier.padding(top = 2.dp).size(16.dp))
+        Text(
+            buildAnnotatedString {
+                append(text)
+                if (tag != null) withStyle(SpanStyle(color = t.muted, fontWeight = FontWeight.Normal)) { append("  · $tag") }
+            },
+            style = MaterialTheme.typography.bodyMedium, color = tint ?: t.text,
+            fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * One trip: when to leave and when you arrive, its ribbon, then plain lines —
+ * how far to walk, which bus and when (timetable, plus the live bus if one is near), changes, and arrival.
+ */
+@Composable
+internal fun RibbonRow(j: Journey, r: Ribbon, axis: ClockAxis, selected: Boolean, toName: String?, live: TrackResult?, onClick: () -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
+    val o = OptionText.of(s === app.delhiraahi.i18n.Hi)
     val num = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = TabularNums)
+    val first = j.legs.firstOrNull()
+    val last = j.legs.lastOrNull()
     Row(
         Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(12.dp)).background(if (selected) t.card else Color.Transparent)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics(mergeDescendants = true) { this.selected = selected; contentDescription = a11y(s, j, r) },
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(if (selected) t.primary else Color.Transparent))
-        Column(Modifier.weight(1f).padding(horizontal = Space.md, vertical = Space.sm), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.weight(1f).padding(horizontal = Space.md, vertical = Space.sm), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            // Leave … Reach …, then length and fare
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${clockText(r.start)} → ${j.arrival}", style = num, color = t.text, modifier = Modifier.weight(1f))
-                Text(s.minutes(j.duration_minutes.mins()), style = num, color = t.text, fontWeight = FontWeight.Bold)
-                fareText(j)?.let {
-                    Spacer(Modifier.width(Space.md))
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = t.muted)
-                }
+                Text(o.leave(clockText(r.start)), style = num, color = t.text, modifier = Modifier.weight(1f))
+                Text(o.reach(j.arrival), style = num, color = t.text, fontWeight = FontWeight.Bold)
             }
-            RibbonBar(r, axis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 Text(
                     listOfNotNull(
-                        j.labels.takeIf { it.isNotEmpty() }?.joinToString(" · ") { s.label(it) },
+                        s.minutes(j.duration_minutes.mins()),
                         if (j.transfers == 0) s.direct else s.changes(j.transfers),
-                        j.walk_minutes.mins().takeIf { it >= 1 }?.let { s.walkMin(it) },
+                        fareText(j),
+                        j.labels.takeIf { it.isNotEmpty() }?.joinToString(" · ") { s.label(it) },
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = t.muted, modifier = Modifier.weight(1f), maxLines = 1,
                 )
                 CrowdBadge(j.crowd_level, short = true)
             }
-            j.connections.forEach { c ->
-                Text(s.changeDetail(c.board, c.walk_min.mins(), c.wait_min.mins()), style = MaterialTheme.typography.bodySmall, color = t.muted)
+            RibbonBar(r, axis)
+            if (first != null) {
+                // 1. Walk to the first stop
+                val walkMin = j.walk.origin_min.mins()
+                if (walkMin >= 1) OptLine(Icons.AutoMirrored.Outlined.DirectionsWalk, o.walkTo(walkMin, j.walk.origin_m?.roundToInt(), first.board_stop))
+                else OptLine(Icons.AutoMirrored.Outlined.DirectionsWalk, o.atStop(first.board_stop))
+                // 2. Each bus, with the change between them
+                j.legs.forEachIndexed { k, leg ->
+                    if (k > 0) j.connections.getOrNull(k - 1)?.let { c ->
+                        OptLine(Icons.Outlined.SyncAlt, o.change(c.board, c.walk_min.mins(), c.wait_min.mins()))
+                    }
+                    val inMin = if (k == 0) minsFromNow(leg.departure)?.takeIf { it in -1..120 } else null
+                    OptLine(Icons.Outlined.DirectionsBus, o.busAt(routeName(leg.route), leg.departure, inMin), tag = o.tagTimetable, strong = true)
+                    // Live: the real bus of this route nearest to the first stop
+                    if (k == 0 && live?.phase == "approaching" && live.eta_board_min != null) {
+                        val m = live.eta_board_min.roundToInt()
+                        OptLine(Icons.Outlined.Sensors, o.liveNext(routeName(leg.route), live.stops_away, m) + if (m < walkMin) o.liveTooSoon else "",
+                            tag = o.tagLive, tint = t.low.fg)
+                    }
+                }
+                // 3. Arrival
+                OptLine(Icons.Outlined.Place, o.reachAt(toName ?: last!!.alight_stop, j.arrival, j.walk.destination_min.mins(), last!!.alight_stop))
             }
         }
     }
@@ -324,9 +391,17 @@ internal fun WalkRibbonRow(w: WalkOption, axis: ClockAxis, start: Float, selecte
 @Composable
 fun TimeRibbons(
     journeys: List<Journey>, shown: List<Int>, selected: Int, onSelect: (Int) -> Unit,
-    walk: WalkOption?, walkSelected: Boolean, showWalk: Boolean, onWalk: () -> Unit,
+    walk: WalkOption?, walkSelected: Boolean, showWalk: Boolean, onWalk: () -> Unit, toName: String? = null,
 ) {
     val t = LocalExtra.current
+    // Live check for the first bus of each option, only when it leaves within the hour (not for later trips).
+    val live = remember(journeys) { mutableStateMapOf<String, TrackResult>() }
+    LaunchedEffect(journeys) {
+        journeys.filter { j -> j.legs.firstOrNull()?.let { minsFromNow(it.departure) }?.let { it in -5..60 } == true }.forEach { j ->
+            val l = j.legs.first()
+            runCatching { Api.track(l.route_id, l.board_stop_id, l.alight_stop_id, null, emptySet()) }.onSuccess { live[j.journey_id] = it }
+        }
+    }
     val ref = journeys.firstNotNullOfOrNull { clockMin(it.departure) } ?: LocalTime.now().let { it.hour * 60 + it.minute }
     val ribbons = remember(journeys, t) { journeys.map { ribbonOf(it, t, ref) } }
     val now = remember(ref) { nowOnScale(ref) }
@@ -338,7 +413,7 @@ fun TimeRibbons(
         RibbonLegend()
         Spacer(Modifier.height(Space.xs))
         Row { Spacer(Modifier.width(4.dp + Space.md)); Box(Modifier.weight(1f).padding(end = Space.md)) { AxisLabels(axis) } }
-        visible.forEach { (i, r) -> RibbonRow(journeys[i], r, axis, selected = !walkSelected && i == selected) { onSelect(i) } }
+        visible.forEach { (i, r) -> RibbonRow(journeys[i], r, axis, selected = !walkSelected && i == selected, toName = toName, live = live[journeys[i].journey_id]) { onSelect(i) } }
         if (walk != null && showWalk) WalkRibbonRow(walk, axis, walkStart, selected = walkSelected, onClick = onWalk)
     }
 }

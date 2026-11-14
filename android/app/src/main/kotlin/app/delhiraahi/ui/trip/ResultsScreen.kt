@@ -187,6 +187,7 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                         journeys = journeys, shown = idx, selected = trip.selected, onSelect = { trip.selected = it },
                         walk = walkOpt, walkSelected = walking, showWalk = trip.kind == TripKind.ALL || walking,
                         onWalk = { pick(TripKind.WALK) },
+                        toName = trip.to?.label,
                     )
                 }
             }
