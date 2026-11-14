@@ -35,6 +35,9 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -87,9 +90,6 @@ private sealed interface Nearby {
 }
 
 /** "now", "in 15 min", "tomorrow 08:30": the leave time as it reads inside the sentence. */
-private fun whenSlot(s: Strings, l: LeaveAt): String =
-    if (l == LeaveAt.Now) s.now.lowercase() else leaveLabel(s, l).replaceFirstChar { it.lowercase() }
-
 /**
  * Home is a sentence with blanks: "From [where I am] to [where?] leaving [now]".
  * It is the same sentence the voice assistant understands, so tapping and speaking feel alike.
@@ -149,18 +149,27 @@ fun HomeScreen(
                 }
             }
 
-            // The sentence
-            Column(Modifier.padding(top = Space.xxl).semantics { heading() }, verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                SentenceLine(s.sFromPre, s.yourLocation, s.sFromPost, filled = true, label = "${s.from}: ${s.yourLocation}", onClick = onWhereFrom)
-                SentenceLine(s.sToPre, s.whereQ, s.sToPost, filled = false, label = s.whereTo, onClick = onWhereTo, accent = true)
-                Box {
-                    SentenceLine(s.sWhenPre, whenSlot(s, leaveAt), s.sWhenPost, filled = true,
-                        label = leaveLabel(s, leaveAt), onClick = { whenOpen = true })
-                    DropdownMenu(expanded = whenOpen, onDismissRequest = { whenOpen = false }) {
-                        LeaveAt.options.forEach { o ->
-                            DropdownMenuItem(text = { Text(leaveLabel(s, o), style = MaterialTheme.typography.bodyLarge) },
-                                onClick = { onLeave(o); whenOpen = false })
-                        }
+            // Search box: From / To in one card, with "leaving" as a chip under it
+            SearchCard(
+                from = s.currentLocation, fromLabel = "${s.from}: ${s.currentLocation}", onFrom = onWhereFrom,
+                to = s.whereTo, onTo = onWhereTo,
+                modifier = Modifier.padding(top = Space.xl),
+            )
+            Box(Modifier.padding(top = Space.sm)) {
+                Row(
+                    Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(50)).border(1.dp, t.border, RoundedCornerShape(50))
+                        .clickable(role = Role.Button, onClickLabel = leaveLabel(s, leaveAt)) { whenOpen = true }
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Outlined.Schedule, contentDescription = null, tint = t.text, modifier = Modifier.size(18.dp))
+                    Text(leaveLabel(s, leaveAt), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = t.text)
+                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = null, tint = t.muted, modifier = Modifier.size(20.dp))
+                }
+                DropdownMenu(expanded = whenOpen, onDismissRequest = { whenOpen = false }) {
+                    LeaveAt.options.forEach { o ->
+                        DropdownMenuItem(text = { Text(leaveLabel(s, o), style = MaterialTheme.typography.bodyLarge) },
+                            onClick = { onLeave(o); whenOpen = false })
                     }
                 }
             }
@@ -192,8 +201,14 @@ fun HomeScreen(
 
             if (places.recent.isNotEmpty()) {
                 SectionHead(s.recentTrips, action = s.clearRecent, onAction = onClearRecent)
-                places.recent.forEach { r ->
-                    RecentRow(r.from?.label ?: s.yourLocation, r.to.label) { go(r.from?.picked(), r.to.picked()) }
+                // Own scroll: about four rows tall, so a long history doesn't push the rest of Home down.
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 232.dp).clip(RoundedCornerShape(Radius.lg)).background(t.surface)
+                        .verticalScroll(rememberScrollState()).padding(horizontal = Space.lg),
+                ) {
+                    places.recent.forEachIndexed { i, r ->
+                        RecentRow(r.from?.label ?: s.yourLocation, r.to.label, divider = i < places.recent.lastIndex) { go(r.from?.picked(), r.to.picked()) }
+                    }
                 }
             }
 
@@ -230,27 +245,40 @@ fun HomeScreen(
     }
 }
 
-/** One line of the sentence: small word, big tappable blank (underlined), small word. */
+/** From / To as one search box: a dot and a pin joined by a dotted line, each field tappable. */
 @Composable
-private fun SentenceLine(pre: String, slot: String, post: String, filled: Boolean, label: String, onClick: () -> Unit, accent: Boolean = false) {
+private fun SearchCard(from: String, fromLabel: String, onFrom: () -> Unit, to: String, onTo: () -> Unit, modifier: Modifier = Modifier) {
     val t = LocalExtra.current
-    val big = MaterialTheme.typography.displaySmall
-    val lineColor = if (accent) t.primary else t.text
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.sm)).clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
-            .semantics(mergeDescendants = true) { contentDescription = label }.padding(vertical = 2.dp),
-        verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.sm),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(Radius.lg))
+            .padding(start = Space.lg),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (pre.isNotEmpty()) Text(pre, style = big.copy(fontWeight = FontWeight.Normal), color = t.muted, modifier = Modifier.padding(bottom = 3.dp))
-        Column(Modifier.weight(1f, fill = false)) {
-            Text(slot, style = big, color = if (filled) t.text else t.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Canvas(Modifier.fillMaxWidth().height(3.dp)) {
-                drawLine(lineColor, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), strokeWidth = size.height,
-                    pathEffect = if (filled) PathEffect.dashPathEffect(floatArrayOf(10f, 8f)) else null)
+        // Rail: hollow dot (start), dotted line, filled pin (end)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(12.dp).clip(CircleShape).border(2.5.dp, t.text, CircleShape))
+            Canvas(Modifier.size(width = 2.dp, height = 30.dp)) {
+                drawLine(t.muted, Offset(size.width / 2, 4f), Offset(size.width / 2, size.height - 4f), strokeWidth = size.width,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
             }
+            Icon(Icons.Outlined.Place, contentDescription = null, tint = t.primary, modifier = Modifier.size(18.dp))
         }
-        if (post.isNotEmpty()) Text(post, style = big.copy(fontWeight = FontWeight.Normal), color = t.muted, modifier = Modifier.padding(bottom = 3.dp))
+        Column(Modifier.weight(1f).padding(start = Space.md)) {
+            Field(from, t.text, fromLabel, onFrom)
+            Spacer(Modifier.fillMaxWidth().height(1.dp).background(t.border))
+            Field(to, t.muted, to, onTo, bold = false)
+        }
     }
+}
+
+@Composable
+private fun Field(text: String, color: androidx.compose.ui.graphics.Color, label: String, onClick: () -> Unit, bold: Boolean = true) {
+    Text(
+        text, style = MaterialTheme.typography.titleMedium, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal, color = color,
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label }.padding(vertical = 17.dp, horizontal = Space.sm),
+    )
 }
 
 @Composable
@@ -265,7 +293,7 @@ private fun SectionHead(title: String, action: String? = null, onAction: () -> U
 
 /** A past trip, written as the sentence it came from: "Kalkaji Depot → Kalkaji Mandir". */
 @Composable
-private fun RecentRow(from: String, to: String, onClick: () -> Unit) {
+private fun RecentRow(from: String, to: String, divider: Boolean, onClick: () -> Unit) {
     val t = LocalExtra.current
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(Radius.md)).clickable(role = Role.Button, onClick = onClick)
@@ -278,5 +306,5 @@ private fun RecentRow(from: String, to: String, onClick: () -> Unit) {
         }
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = t.muted)
     }
-    Spacer(Modifier.fillMaxWidth().height(1.dp).background(t.border))
+    if (divider) Spacer(Modifier.fillMaxWidth().height(1.dp).background(t.border))
 }
