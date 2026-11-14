@@ -14,6 +14,7 @@ interface VoiceStrings {
     val micNeeded: String; val noRecognizer: String
     val greeting: String; val firstTip: String; val askWhere: String; val askFrom: String
     val approxLocation: String
+    val notSure: String; val sayItAgain: String; fun checkHeard(text: String): String; fun sure(pct: Int): String
     val sorry: String; val goingQuiet: String; val bye: String; val help: String; val hint: String
     val notUnderstood: String; val notUnderstoodNoTrip: String
     val widened: String; val noTrips: String; val noStopNearYou: String; val dataNote: String
@@ -82,6 +83,10 @@ object VoiceEn : VoiceStrings {
     override val askFrom = "I can't get your location. Where are you starting from?"
     override val approxLocation = "Your location is only approximate. To be exact, say where you're starting from."
     override val sorry = "Sorry, say that again?"
+    override val notSure = "I'm not sure I heard that right. Please say it again, a little slower."
+    override val sayItAgain = "Okay, please say it again."
+    override fun checkHeard(text: String) = "Did you say: $text?"
+    override fun sure(pct: Int) = "$pct% sure"
     override val goingQuiet = "Tap the microphone when you're ready."
     override val bye = "Okay, bye!"
     override val help = "Tell me where you want to go, for example: from Saket to AIIMS, least crowded, at 6 PM. " +
@@ -174,6 +179,10 @@ object VoiceHi : VoiceStrings {
     override val askFrom = "आपकी लोकेशन नहीं मिल रही। आप कहाँ से चलेंगे?"
     override val approxLocation = "आपकी लोकेशन सिर्फ़ अंदाज़न है। सही नतीजे के लिए बताइए आप कहाँ से चलेंगे।"
     override val sorry = "माफ़ कीजिए, फिर से बोलिए?"
+    override val notSure = "ठीक से सुनाई नहीं दिया। कृपया थोड़ा धीरे, फिर से बोलिए।"
+    override val sayItAgain = "ठीक है, कृपया फिर से बोलिए।"
+    override fun checkHeard(text: String) = "क्या आपने कहा: $text?"
+    override fun sure(pct: Int) = "$pct% भरोसा"
     override val goingQuiet = "तैयार हों तो माइक बटन दबाइए।"
     override val bye = "ठीक है, नमस्ते!"
     override val help = "बताइए कहाँ जाना है, जैसे: साकेत से एम्स, कम भीड़ वाली, शाम 6 बजे। " +

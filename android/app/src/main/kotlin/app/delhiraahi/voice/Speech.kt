@@ -89,7 +89,8 @@ class Speaker(ctx: Context) {
 private const val GOOGLE_TTS = "com.google.android.tts"
 
 sealed interface Heard {
-    data class Text(val options: List<String>) : Heard
+    /** [scores]: the recogniser's confidence for each guess, when it gives one. */
+    class Text(val options: List<String>, val scores: FloatArray? = null) : Heard
     data object Nothing : Heard
     data object NoPermission : Heard
     data class Failed(val code: Int) : Heard
@@ -111,7 +112,8 @@ class Listener(private val ctx: Context) {
             r.setRecognitionListener(object : RecognitionListener {
                 override fun onResults(b: Bundle?) {
                     val l = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty().filter { it.isNotBlank() }
-                    if (cont.isActive) cont.resume(if (l.isEmpty()) Heard.Nothing else Heard.Text(l))
+                    val sc = b?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                    if (cont.isActive) cont.resume(if (l.isEmpty()) Heard.Nothing else Heard.Text(l, sc))
                 }
                 override fun onError(error: Int) {
                     if (!cont.isActive) return

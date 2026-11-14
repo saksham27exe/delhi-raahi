@@ -157,7 +157,8 @@ fun VoiceOverlay(
     val hasMic = { ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED }
     LaunchedEffect(Unit) { if (hasMic()) start() else askMic.launch(Manifest.permission.RECORD_AUDIO) }
 
-    val lastUser = session.log.lastOrNull { it.user && !it.step }?.text
+    val lastUserLine = session.log.lastOrNull { it.user && !it.step }
+    val lastUser = lastUserLine?.let { l -> "“${l.text}”" + (l.sure?.let { " · " + vs.sure(it) } ?: "") }
     val lastReply = session.log.lastOrNull { !it.user && !it.step }?.text
     val lastStep = session.log.lastOrNull()?.takeIf { it.step }?.text
     val status = session.status
@@ -186,7 +187,7 @@ fun VoiceOverlay(
         Column(Modifier.weight(1f).heightIn(min = 72.dp), verticalArrangement = Arrangement.Center) {
             Text(heading, style = MaterialTheme.typography.labelMedium, color = t.primary, fontWeight = FontWeight.SemiBold)
             if (lastUser != null && status != VoiceStatus.LISTENING)
-                Text("“$lastUser”", style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(lastUser, style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val main = when {
                 micDenied -> vs.micNeeded
                 status == VoiceStatus.LISTENING -> session.partial.ifEmpty { if (session.log.isEmpty()) vs.greeting else "…" }

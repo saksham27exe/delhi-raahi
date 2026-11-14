@@ -32,7 +32,9 @@ private const val TAG = "DelhiRaahiVoice"
 enum class VoiceStatus { IDLE, SPEAKING, LISTENING, THINKING }
 
 /** A transcript line: the traveller, the assistant, or a working step (spinner until [done]). */
-data class VoiceLine(val user: Boolean, val text: String, val step: Boolean = false, val done: Boolean = true)
+data class VoiceLine(val user: Boolean, val text: String, val step: Boolean = false, val done: Boolean = true,
+                     /** For what the traveller said: how sure the assistant is it heard right (0-100). */
+                     val sure: Int? = null)
 
 /** The traveller said "stop" (or went quiet): end the conversation. */
 private class EndConversation : Exception()
@@ -93,16 +95,22 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         try { speaker.say(t, vs.locale) } finally { status = VoiceStatus.IDLE }
     }
 
-    private suspend fun hear(): List<String> {
+    private suspend fun hear(): Heard.Text {
         repeat(2) { attempt ->
             listener.beep()
             delay(if (attempt == 0 && log.isEmpty()) 60 else 120)
             status = VoiceStatus.LISTENING
             partial = ""
             val h = try { listener.listen(vs.languageTag) { partial = it } } finally { status = VoiceStatus.IDLE; partial = "" }
-            if (BuildConfig.DEBUG && h is Heard.Text) h.options.forEach { Log.d(TAG, "heard: $it -> ${Understand.parse(it)}") }
+            if (BuildConfig.DEBUG && h is Heard.Text) {
+                Log.d(TAG, "scores: ${h.scores?.joinToString()}")
+                h.options.forEach { Log.d(TAG, "heard: $it -> ${Understand.parse(it)}") }
+            }
             when (h) {
-                is Heard.Text -> { log += VoiceLine(true, h.options.first()); return h.options }
+                is Heard.Text -> {
+                    log += VoiceLine(true, h.options.first(), sure = Confidence.percent(Confidence.score(h.options, h.scores)))
+                    return h
+                }
                 Heard.NoPermission -> { say(vs.micNeeded); throw EndConversation() }
                 Heard.Nothing -> if (attempt == 0) say(vs.sorry)
                 is Heard.Failed -> if (attempt == 0) delay(400)
@@ -118,13 +126,34 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
             if (!listener.available()) { say(vs.noRecognizer); return }
             // Like Siri / Bixby: no spoken greeting. A quick sound, and the mic is open at once;
             // the greeting and an example are shown on screen instead.
+            var unsure = 0                  // unsure hearings in a row
             while (true) {
-                val heard = hear()
-                handle(heard, Understand.best(heard))
+                val h = hear()
+                val u = Understand.best(h.options)
+                val score = Confidence.score(h.options, h.scores)
+                when (Confidence.verdict(score, hasPlace = u.to != null || u.from != null, hasCommand = u.command != null)) {
+                    Confidence.Verdict.GO -> { unsure = 0; handle(h.options, u) }
+                    // Not sure: ask again once; if it is still unclear, check the best guess instead of looping.
+                    Confidence.Verdict.ASK_AGAIN -> if (unsure++ == 0) say(vs.notSure) else { unsure = 0; confirm(h, u) }
+                    Confidence.Verdict.CONFIRM -> { unsure = 0; confirm(h, u) }
+                }
             }
         } catch (_: EndConversation) {
         } finally {
             status = VoiceStatus.IDLE
+        }
+    }
+
+    /** "Did you say … ?" Yes → carry on with it. No → ask again. A new sentence (with a place) is used instead. */
+    private suspend fun confirm(h: Heard.Text, u: Understood) {
+        say(vs.checkHeard(h.options.first()))
+        val a = hear()
+        val ua = Understand.best(a.options)
+        when {
+            ua.to != null || ua.from != null -> handle(a.options, ua)
+            ua.command == Said.Yes -> handle(h.options, u)
+            ua.command == Said.Stop -> { say(vs.bye); throw EndConversation() }
+            else -> say(vs.sayItAgain)
         }
     }
 
