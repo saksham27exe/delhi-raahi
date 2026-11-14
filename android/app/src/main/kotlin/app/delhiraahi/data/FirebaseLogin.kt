@@ -54,7 +54,6 @@ object FirebaseLogin {
         if (password.length < 8) throw FirebaseAuthWeakPasswordException("weak", "short", "short")
         val u = auth.createUserWithEmailAndPassword(email.trim(), password).await().user!!
         u.updateProfile(userProfileChangeRequest { displayName = name.trim() }).await()
-        u.sendEmailVerification().await()            // a link to prove the email is really theirs
         u.getIdToken(true).await(); Unit
     }
 

@@ -44,6 +44,15 @@ class DeleteReq(BaseModel):
     password: str = Field(..., max_length=128)
 
 
+class LangReq(BaseModel):
+    lang: Literal["en", "hi"] = "en"
+
+
+class ResetReq(BaseModel):
+    email: str = Field(..., max_length=254)
+    lang: Literal["en", "hi"] = "en"
+
+
 class TopupReq(BaseModel):
     amount: float = Field(..., gt=0, le=100000)
 
@@ -89,6 +98,31 @@ def login(req: LoginReq, st: AppState = Depends(get_state)) -> dict:
 def logout(u: User = Depends(require_user), st: AppState = Depends(get_state)) -> dict:
     """Signs out everywhere: every token issued before now stops working."""
     _acc(st).logout(u.id)
+    return {"ok": True}
+
+
+@router.post("/auth/send-verification")
+def send_verification(req: LangReq, u: User = Depends(require_user), st: AppState = Depends(get_state)) -> dict:
+    """Email a 'confirm your email' link (DelhiRaahi's own email). 503 if this server can't send email."""
+    acc = _acc(st)
+    if not hasattr(acc, "send_verification"):
+        raise HTTPException(404, detail="Not used for these accounts.")
+    try:
+        return {"sent": acc.send_verification(u, req.lang)}
+    except AccountError as e:
+        raise _err(e) from None
+
+
+@router.post("/auth/send-reset")
+def send_reset(req: ResetReq, st: AppState = Depends(get_state)) -> dict:
+    """Email a password-reset link if the account exists; the answer is the same either way."""
+    acc = _acc(st)
+    if not hasattr(acc, "send_reset"):
+        raise HTTPException(404, detail="Not used for these accounts.")
+    try:
+        acc.send_reset(req.email, req.lang)
+    except AccountError as e:
+        raise _err(e) from None
     return {"ok": True}
 
 

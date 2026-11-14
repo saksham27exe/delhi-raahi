@@ -137,6 +137,11 @@ object Api {
         post("/auth/login", buildJsonObject { put("phone", phone); put("password", password) })
     suspend fun logout(): OkResponse = post("/auth/logout", buildJsonObject { })
     suspend fun me(): MeResponse = get("/me")
+    /** DelhiRaahi's own branded emails (the server makes the Firebase link and sends the email). */
+    suspend fun sendVerification(lang: String): kotlinx.serialization.json.JsonObject =
+        post("/auth/send-verification", buildJsonObject { put("lang", lang) })
+    suspend fun sendReset(email: String, lang: String): kotlinx.serialization.json.JsonObject =
+        post("/auth/send-reset", buildJsonObject { put("email", email.trim()); put("lang", lang) })
     suspend fun updateMe(name: String? = null, womanTraveller: Boolean? = null): UserResponse =
         post("/me", buildJsonObject { name?.let { put("name", it) }; womanTraveller?.let { put("woman_traveller", it) } }, method = "PATCH")
     suspend fun changePassword(old: String, new: String): TokenResponse =

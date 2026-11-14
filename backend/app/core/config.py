@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # Firebase service-account key (git-ignored). If the file exists, accounts use Firebase Auth + Firestore;
     # otherwise they use the local SQLite store.
     firebase_credentials: Path = REPO_ROOT / "backend" / "firebase-service-account.json"
+    # Branded account emails over SMTP (e.g. Gmail + app password). Empty user/password = not set up.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    mail_from_name: str = "DelhiRaahi"
     crowdwise_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ---- derived paths -------------------------------------------------

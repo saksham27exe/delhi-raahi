@@ -175,10 +175,19 @@ class FirebaseAccountStore:
 
     kind = "firebase"
 
-    def __init__(self, repo, verify: Callable[[str], dict], delete_auth: Callable[[str], None] = lambda uid: None):
+    def __init__(self, repo, verify: Callable[[str], dict], delete_auth: Callable[[str], None] = lambda uid: None,
+                 mailer=None, verify_link: Callable[[str], str] | None = None, reset_link: Callable[[str], str] | None = None,
+                 user_name: Callable[[str], str | None] = lambda email: None):
         self.repo = repo
         self._verify = verify
         self._delete_auth = delete_auth
+        # Our own branded emails: Firebase makes the one-time link, we send the email.
+        self.mailer = mailer
+        self._verify_link = verify_link
+        self._reset_link = reset_link
+        self._user_name = user_name
+        self._sent: dict[str, list[float]] = {}
+        self._mail_lock = threading.Lock()
 
     @staticmethod
     def _now() -> str:
@@ -236,6 +245,48 @@ class FirebaseAccountStore:
         """The app re-checks the password with Firebase first; here: delete data, then the sign-in."""
         self.repo.delete_user_data(uid)
         self._delete_auth(uid)
+
+    # ---------- branded account emails ----------
+    def _throttle(self, key: str) -> None:
+        """At most one email a minute and five an hour per address (stops abuse and spam flags)."""
+        now = time.time()
+        with self._mail_lock:
+            hist = [t for t in self._sent.get(key, []) if now - t < 3600]
+            if hist and now - hist[-1] < 60:
+                raise AccountError(f"An email was just sent. Try again in {int(60 - (now - hist[-1])) + 1} s.", 429)
+            if len(hist) >= 5:
+                raise AccountError("Too many emails to this address. Try again in an hour.", 429)
+            self._sent[key] = hist + [now]
+
+    def _need_mailer(self) -> None:
+        if self.mailer is None or self._verify_link is None:
+            raise AccountError("Email sending is not set up on this server.", 503)
+
+    def send_verification(self, u: FbUser, lang: str = "en") -> bool:
+        """Send the 'confirm your email' email. False if the address is already confirmed."""
+        from app.services.email_templates import render
+        self._need_mailer()
+        if u.verified:
+            return False
+        self._throttle("v:" + u.email.lower())
+        subject, html, text = render("verify", lang, u.name, u.email, self._verify_link(u.email))
+        self.mailer.send(u.email, subject, html, text)
+        return True
+
+    def send_reset(self, email: str, lang: str = "en") -> None:
+        """Send a reset link if an account exists. Never says whether it does (no account guessing)."""
+        from app.services.email_templates import render
+        self._need_mailer()
+        email = (email or "").strip()
+        if "@" not in email or len(email) > 254:
+            raise AccountError("Enter a valid email address.")
+        self._throttle("r:" + email.lower())
+        try:
+            link = self._reset_link(email)
+        except Exception:  # noqa: BLE001  (no such user): answer the same way
+            return
+        subject, html, text = render("reset", lang, self._user_name(email) or "", email, link)
+        self.mailer.send(email, subject, html, text)
 
     # ---------- DEMO wallet ----------
     def wallet(self, uid: str, limit: int = 50) -> dict:
@@ -295,11 +346,21 @@ class FirebaseAccountStore:
         self.repo.add_feedback({"user_id": uid, "text": text, "created_at": self._now()})
 
 
-def connect(credentials_path: str) -> FirebaseAccountStore:
+def connect(credentials_path: str, mailer=None) -> FirebaseAccountStore:
     """Start the Admin SDK with a service-account key file and return the Firestore-backed store."""
     import firebase_admin
     from firebase_admin import auth, credentials, firestore
     app = firebase_admin.get_app() if firebase_admin._apps else firebase_admin.initialize_app(credentials.Certificate(credentials_path))
+    def name_of(email: str) -> str | None:
+        try:
+            return auth.get_user_by_email(email, app=app).display_name
+        except Exception:  # noqa: BLE001
+            return None
+
     return FirebaseAccountStore(FirestoreRepo(firestore.client(app)),
                                 verify=lambda tok: auth.verify_id_token(tok, app=app),
-                                delete_auth=lambda uid: auth.delete_user(uid, app=app))
+                                delete_auth=lambda uid: auth.delete_user(uid, app=app),
+                                mailer=mailer,
+                                verify_link=lambda email: auth.generate_email_verification_link(email, app=app),
+                                reset_link=lambda email: auth.generate_password_reset_link(email, app=app),
+                                user_name=name_of)

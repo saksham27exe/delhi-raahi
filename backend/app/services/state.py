@@ -96,7 +96,11 @@ def load_state(settings: Settings | None = None) -> AppState:
     try:
         if s.firebase_credentials.is_file():
             from app.services.firebase_accounts import connect
-            st.accounts = connect(str(s.firebase_credentials))
+            mailer = None
+            if s.smtp_user and s.smtp_password:
+                from app.services.mailer import Mailer
+                mailer = Mailer(s.smtp_host, s.smtp_port, s.smtp_user, s.smtp_password, s.mail_from_name)
+            st.accounts = connect(str(s.firebase_credentials), mailer)
         else:
             st.accounts = AccountStore(acc_dir / "accounts.db", secret)
     except Exception as e:  # noqa: BLE001

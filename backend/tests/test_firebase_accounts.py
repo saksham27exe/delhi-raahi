@@ -104,3 +104,61 @@ def test_routes_with_firebase_store(net, crowd, tmp_path):  # noqa: F811
         assert r.status_code == 403 and r.json()["detail"]["code"] == "email_not_verified"
         assert c.post("/api/v1/passes/buy", json={"kind": "daily", "bus_type": "ac"}, headers=u).status_code == 403
         assert c.get("/api/v1/wallet", headers=u).status_code == 200
+
+
+class FakeMailer:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, to, subject, html, text):
+        self.sent.append((to, subject, html, text))
+
+
+def _reset_link(email):
+    if email != "asha@example.com":
+        raise ValueError("no user")
+    return "https://example.test/reset?oob=R1"
+
+
+def mail_store():
+    m = FakeMailer()
+    s = FirebaseAccountStore(MemoryRepo(), verify, mailer=m, verify_link=lambda e: f"https://example.test/verify?oob={e}",
+                             reset_link=_reset_link, user_name=lambda e: "Asha")
+    return s, m
+
+
+def test_branded_verification_email():
+    s, m = mail_store()
+    u = s.user_for_token("tok-u")                         # not verified
+    assert s.send_verification(u, "en") is True
+    to, subject, html, text = m.sent[-1]
+    assert to == "new@example.com" and subject == "Confirm your email for DelhiRaahi"
+    assert 'href="https://example.test/verify?oob=new@example.com"' in html and "DelhiRaahi" in html
+    assert "project-" not in html and "https://example.test/verify" in text
+    with pytest.raises(AccountError) as e:                # second email within a minute
+        s.send_verification(u, "en")
+    assert e.value.status == 429
+    assert s.send_verification(s.user_for_token("tok-a"), "en") is False   # already verified: nothing sent
+    assert len(m.sent) == 1
+
+
+def test_reset_email_never_reveals_accounts():
+    s, m = mail_store()
+    s.send_reset("asha@example.com", "hi")
+    to, subject, html, _ = m.sent[-1]
+    assert to == "asha@example.com" and "पासवर्ड" in subject and "नमस्ते Asha" in html
+    s.send_reset("nobody@example.com", "en")              # no such account: same answer, no email
+    assert len(m.sent) == 1
+
+
+def test_no_mailer_is_503():
+    s = FirebaseAccountStore(MemoryRepo(), verify)
+    with pytest.raises(AccountError) as e:
+        s.send_verification(s.user_for_token("tok-u"))
+    assert e.value.status == 503
+
+
+def test_template_escapes_user_text():
+    from app.services.email_templates import render
+    _, html, _ = render("verify", "en", "<script>x</script>", "a@b.in", "https://l.test/?a=1&b=2")
+    assert "<script>" not in html and "&lt;script&gt;" in html and "a=1&amp;b=2" in html

@@ -56,8 +56,15 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     }
     suspend fun registerEmail(name: String, email: String, password: String, hindi: Boolean) {
         FirebaseLogin.signUp(name, email, password, hindi); afterFirebase()
+        runCatching { resendVerification(hindi) }      // the "confirm your email" email
     }
-    suspend fun resendVerification(hindi: Boolean) = FirebaseLogin.resendVerification(hindi)
+
+    /** True when the server can't send our branded email: then Firebase's plain email is used instead. */
+    private fun noMailer(e: Throwable) = e is ApiException && (e.status == 503 || e.status == 404)
+    suspend fun resendVerification(hindi: Boolean) {
+        try { Api.sendVerification(if (hindi) "hi" else "en") }
+        catch (e: Exception) { if (noMailer(e)) FirebaseLogin.resendVerification(hindi) else throw e }
+    }
     /** True once the email link was opened; refreshes the profile so the app and server agree. */
     suspend fun checkVerified(hindi: Boolean): Boolean {
         val ok = FirebaseLogin.reloadVerified(hindi)
@@ -65,7 +72,10 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
         if (ok) syncAll()
         return ok
     }
-    suspend fun resetPassword(email: String, hindi: Boolean) = FirebaseLogin.sendReset(email, hindi)
+    suspend fun resetPassword(email: String, hindi: Boolean) {
+        try { Api.sendReset(email, if (hindi) "hi" else "en") }
+        catch (e: Exception) { if (noMailer(e)) FirebaseLogin.sendReset(email, hindi) else throw e }
+    }
 
     private suspend fun afterFirebase() {
         try { user = Api.me().user } catch (e: Exception) { FirebaseLogin.signOut(); throw e }
