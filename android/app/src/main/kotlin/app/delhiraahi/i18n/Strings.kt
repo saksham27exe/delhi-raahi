@@ -75,7 +75,7 @@ interface Strings {
     val profile: String; val womanTraveller: String; val womanTravellerSub: String; val changePassword: String
     val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
-    val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String
+    val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String; val alertSpoken: String; val alertSpokenSub: String; val hearChime: String
     val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
@@ -203,10 +203,12 @@ object En : Strings {
     override val deleteWarn = "This permanently deletes your account, wallet history, tickets and passes. Enter your password to confirm."
     override val cancel = "Cancel"; override val settings = "Settings"
     override val alertsTitle = "Ride alerts"; override val alertArrive = "Bus arriving"
-    override val alertArriveSub = "Speak and vibrate when your bus is close and when it arrives"
+    override val alertArriveSub = "A soft chime and vibration when your bus is arriving"
     override val alertGetOff = "Time to get off"
-    override val alertGetOffSub = "Speak and vibrate as your stop comes near and when you reach it"
-    override val alertsOffNote = "Some alerts are off in Settings, so they're shown here but not spoken"
+    override val alertGetOffSub = "A soft chime and vibration one stop before yours and when you reach it"
+    override val alertSpoken = "Speak alerts aloud"; override val hearChime = "Hear the chime"
+    override val alertSpokenSub = "Also say each alert in words (uses the speaker; earphones recommended)"
+    override val alertsOffNote = "Some alerts are off in Settings, so they're only shown here"
     override val help = "Help & feedback"
     override val faq = listOf(
         "Are these real tickets?" to "No. Tickets and passes are demos: not valid for travel and no money is taken.",
@@ -345,10 +347,12 @@ object Hi : Strings {
     override val deleteWarn = "इससे आपका अकाउंट, वॉलेट का इतिहास, टिकट और पास हमेशा के लिए मिट जाएँगे। पुष्टि के लिए पासवर्ड डालें।"
     override val cancel = "रद्द करें"; override val settings = "सेटिंग्स"
     override val alertsTitle = "यात्रा अलर्ट"; override val alertArrive = "बस आ रही है"
-    override val alertArriveSub = "बस पास आने और पहुँचने पर बोलकर और वाइब्रेट करके बताया जाए"
+    override val alertArriveSub = "बस आने पर हल्की घंटी और वाइब्रेशन"
     override val alertGetOff = "उतरने का समय"
-    override val alertGetOffSub = "आपका स्टॉप पास आने और पहुँचने पर बोलकर और वाइब्रेट करके बताया जाए"
-    override val alertsOffNote = "कुछ अलर्ट सेटिंग्स में बंद हैं, इसलिए वे यहाँ दिखेंगे पर बोले नहीं जाएँगे"
+    override val alertGetOffSub = "आपके स्टॉप से एक स्टॉप पहले और पहुँचने पर हल्की घंटी और वाइब्रेशन"
+    override val alertSpoken = "अलर्ट बोलकर भी बताएँ"; override val hearChime = "घंटी सुनें"
+    override val alertSpokenSub = "हर अलर्ट शब्दों में भी सुनाया जाए (ईयरफ़ोन बेहतर रहेंगे)"
+    override val alertsOffNote = "कुछ अलर्ट सेटिंग्स में बंद हैं, इसलिए वे सिर्फ़ यहाँ दिखेंगे"
     override val help = "मदद और सुझाव"
     override val faq = listOf(
         "क्या ये असली टिकट हैं?" to "नहीं। टिकट और पास डेमो हैं: यात्रा के लिए मान्य नहीं और कोई पैसा नहीं लिया जाता।",

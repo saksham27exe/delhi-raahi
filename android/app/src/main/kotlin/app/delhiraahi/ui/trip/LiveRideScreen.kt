@@ -78,7 +78,7 @@ private const val MISSED_BUS_M = 300f       // bus passed your stop while you we
  * for each leg in turn. Speaks and vibrates at the moments that matter.
  */
 @Composable
-fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: Boolean, getOffOn: Boolean, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
+fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: Boolean, getOffOn: Boolean, spoken: Boolean, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -108,7 +108,9 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: B
 
     val queue = remember { Channel<String>(Channel.UNLIMITED) }
     // Alerts switched off in Settings are still written on screen, just not spoken or vibrated.
-    fun speak(x: String, on: Boolean = true) { line = x; if (on) queue.trySend(x) }
+    // Default: a soft chime at the key moments; words are spoken only if chosen in Settings.
+    fun speak(x: String, on: Boolean = true) { line = x; if (on && spoken) queue.trySend(x) }
+    fun ding(kind: app.delhiraahi.voice.Chime.Kind, long: Boolean) { if (!spoken) app.delhiraahi.voice.Chime.play(kind); buzz(ctx, long) }
     fun once(key: String, block: () -> Unit) { if (key !in said) { said = said + key; block() } }
     LaunchedEffect(Unit) { for (x in queue) runCatching { speaker.say(x, locale) } }
     DisposableEffect(Unit) {
@@ -127,7 +129,7 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: B
                 val min = (r.eta_board_min ?: 0.0).roundToInt()
                 once("a:first") { speak(lt.approaching(leg.route, r.stops_away, min), arriveOn) }
                 if (min in 2..5) once("a:5") { speak(lt.fiveMin(leg.route), arriveOn) }
-                if (r.stops_away == 0 || (r.eta_board_min ?: 99.0) <= 1.5) once("a:now") { speak(lt.arrivingNow(leg.route), arriveOn); if (arriveOn) buzz(ctx, long = false) }
+                if (r.stops_away == 0 || (r.eta_board_min ?: 99.0) <= 1.5) once("a:now") { speak(lt.arrivingNow(leg.route), arriveOn); if (arriveOn) ding(app.delhiraahi.voice.Chime.Kind.SOFT, false) }
             }
             "on_board", "arrived" -> {
                 // The followed bus has passed the boarding stop. If the phone was clearly elsewhere, the rider missed it.
@@ -141,9 +143,9 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: B
                 }
                 once("board") { speak(lt.boarded(leg.route, r.stops_left, leg.alight_stop), getOffOn) }
                 if (r.phase == "on_board" && r.stops_left == 2) once("two") { speak(rt.say(RideCue.TwoLeft(r.next_stop ?: "", false)), getOffOn) }
-                if (r.phase == "on_board" && r.stops_left == 1) once("one") { speak(rt.say(RideCue.NextIsYours(leg.alight_stop, false)), getOffOn); if (getOffOn) buzz(ctx, long = false) }
+                if (r.phase == "on_board" && r.stops_left == 1) once("one") { speak(rt.say(RideCue.NextIsYours(leg.alight_stop, false)), getOffOn); if (getOffOn) ding(app.delhiraahi.voice.Chime.Kind.SOFT, false) }
                 if (r.phase == "arrived") once("arrive") {
-                    speak(rt.say(RideCue.Arrive(leg.alight_stop, false)), getOffOn); if (getOffOn) buzz(ctx, long = true)
+                    speak(rt.say(RideCue.Arrive(leg.alight_stop, false)), getOffOn); if (getOffOn) ding(app.delhiraahi.voice.Chime.Kind.ARRIVE, true)
                     val next = legs.getOrNull(legIdx + 1)
                     if (next != null) {
                         speak(rt.changeHere(next.route, next.board_stop, 0), getOffOn)

@@ -82,7 +82,7 @@ internal fun buzz(ctx: Context, long: Boolean) {
  * Uses GPS while the screen is open; when GPS is weak it follows the timetable and says so.
  */
 @Composable
-fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffOn: Boolean, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
+fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffOn: Boolean, spoken: Boolean, onBack: () -> Unit, onGuide: (Double, Double, String) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -101,7 +101,7 @@ fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffO
     var arrived by remember { mutableStateOf(false) }
 
     val queue = remember { Channel<String>(Channel.UNLIMITED) }
-    fun speak(x: String) { line = x; if (getOffOn) queue.trySend(x) }   // off in Settings: shown, not spoken
+    fun speak(x: String) { line = x; if (getOffOn && spoken) queue.trySend(x) }   // default: chime, words only if chosen
     LaunchedEffect(Unit) { for (x in queue) runCatching { speaker.say(x, locale) } }
     DisposableEffect(Unit) {
         view.keepScreenOn = true
@@ -127,9 +127,9 @@ fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffO
         for (c in cues) {
             speak(rt.say(c))
             when (c) {
-                is RideCue.NextIsYours -> if (getOffOn) buzz(ctx, long = false)
+                is RideCue.NextIsYours -> if (getOffOn) { if (!spoken) app.delhiraahi.voice.Chime.play(app.delhiraahi.voice.Chime.Kind.SOFT); buzz(ctx, long = false) }
                 is RideCue.Arrive -> {
-                    if (getOffOn) buzz(ctx, long = true); arrived = true
+                    if (getOffOn) { if (!spoken) app.delhiraahi.voice.Chime.play(app.delhiraahi.voice.Chime.Kind.ARRIVE); buzz(ctx, long = true) }; arrived = true
                     after?.let { speak(it.say); next = it }
                 }
                 else -> {}

@@ -154,10 +154,14 @@ fun AccountScreen(
             ListRow(Icons.AutoMirrored.Outlined.HelpOutline, s.help, subtitle = s.privacyTitle, chevron = true, onClick = onHelp)
 
             SectionTitle(s.settings)
-            Text(s.alertsTitle, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.padding(bottom = Space.xs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(s.alertsTitle, style = MaterialTheme.typography.labelLarge, color = x.text, modifier = Modifier.weight(1f))
+                TextButton(onClick = { app.delhiraahi.voice.Chime.play(app.delhiraahi.voice.Chime.Kind.SOFT) }) { Text("▶ " + s.hearChime, color = x.primary) }
+            }
             listOf(
                 Triple(s.alertArrive, s.alertArriveSub, settings.alertArrive) to { on: Boolean -> scope.launch { store.setAlertArrive(on) }; Unit },
                 Triple(s.alertGetOff, s.alertGetOffSub, settings.alertGetOff) to { on: Boolean -> scope.launch { store.setAlertGetOff(on) }; Unit },
+                Triple(s.alertSpoken, s.alertSpokenSub, settings.alertSpoken) to { on: Boolean -> scope.launch { store.setAlertSpoken(on) }; Unit },
             ).forEach { (txt, set) ->
                 Row(Modifier.fillMaxWidth().padding(vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(end = Space.md)) {

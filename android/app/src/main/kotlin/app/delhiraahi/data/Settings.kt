@@ -20,6 +20,8 @@ data class Settings(
     val alertArrive: Boolean = true,
     /** Spoken + vibration alerts on the bus: stops left, "next stop is yours", "get off here". */
     val alertGetOff: Boolean = true,
+    /** Off (default): alerts are a soft chime + vibration. On: they are also spoken aloud. */
+    val alertSpoken: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -31,6 +33,7 @@ class SettingsStore(private val context: Context) {
     private val kBase = stringPreferencesKey("api_base")
     private val kArrive = booleanPreferencesKey("alert_arrive")
     private val kGetOff = booleanPreferencesKey("alert_get_off")
+    private val kSpoken = booleanPreferencesKey("alert_spoken")
 
     val settings: Flow<Settings> = context.dataStore.data
         .catch { emit(androidx.datastore.preferences.core.emptyPreferences()) }
@@ -41,6 +44,7 @@ class SettingsStore(private val context: Context) {
                 apiBase = p[kBase].orEmpty(),
                 alertArrive = p[kArrive] ?: true,
                 alertGetOff = p[kGetOff] ?: true,
+                alertSpoken = p[kSpoken] ?: false,
             )
         }
 
@@ -48,5 +52,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setTheme(t: ThemePref) = context.dataStore.edit { it[kTheme] = t.name }
     suspend fun setAlertArrive(on: Boolean) = context.dataStore.edit { it[kArrive] = on }
     suspend fun setAlertGetOff(on: Boolean) = context.dataStore.edit { it[kGetOff] = on }
+    suspend fun setAlertSpoken(on: Boolean) = context.dataStore.edit { it[kSpoken] = on }
     suspend fun setApiBase(b: String) = context.dataStore.edit { it[kBase] = b.trim() }
 }
