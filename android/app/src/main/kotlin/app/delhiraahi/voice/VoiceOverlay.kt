@@ -153,9 +153,9 @@ fun VoiceOverlay(
             j.invokeOnCompletion { scope.launch { if (job === j) { job = null; delay(1500); if (job == null && !micDenied) onClose() } } }
         }
     }
-    val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> micDenied = !ok; if (ok) start(300) }
+    val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> micDenied = !ok; if (ok) start() }
     val hasMic = { ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED }
-    LaunchedEffect(Unit) { if (hasMic()) start(250) else askMic.launch(Manifest.permission.RECORD_AUDIO) }
+    LaunchedEffect(Unit) { if (hasMic()) start() else askMic.launch(Manifest.permission.RECORD_AUDIO) }
 
     val lastUser = session.log.lastOrNull { it.user && !it.step }?.text
     val lastReply = session.log.lastOrNull { !it.user && !it.step }?.text
@@ -189,12 +189,15 @@ fun VoiceOverlay(
                 Text("“$lastUser”", style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val main = when {
                 micDenied -> vs.micNeeded
-                status == VoiceStatus.LISTENING -> session.partial.ifEmpty { "…" }
+                status == VoiceStatus.LISTENING -> session.partial.ifEmpty { if (session.log.isEmpty()) vs.greeting else "…" }
                 status == VoiceStatus.THINKING && lastStep != null -> lastStep
                 else -> lastReply ?: ""
             }
             Text(main, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal), color = t.text,
                 maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            // First listen: an example of what to say, shown (not spoken).
+            if (status == VoiceStatus.LISTENING && session.log.isEmpty() && session.partial.isEmpty())
+                Text(vs.firstTip, style = MaterialTheme.typography.bodySmall, color = t.muted, maxLines = 3)
         }
         Box(
             Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button) { job?.cancel(); job = null; onClose() }

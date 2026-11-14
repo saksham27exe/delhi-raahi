@@ -15,31 +15,31 @@ import kotlin.math.sin
  * Plays on the notification stream, so it follows the phone's notification volume and silent mode.
  */
 object Chime {
-    enum class Kind(val notes: DoubleArray) {
+    enum class Kind(val notes: DoubleArray, val gapS: Double = 0.16, val noteS: Double = 0.9, val decayS: Double = 0.22) {
         /** Bus arriving, or "your stop is next": two notes. */
         SOFT(doubleArrayOf(784.0, 1046.5)),
         /** You've arrived: three notes. */
         ARRIVE(doubleArrayOf(659.3, 784.0, 1046.5)),
+        /** The assistant's microphone just opened: a quick, light two-note "ding". */
+        LISTEN(doubleArrayOf(880.0, 1318.5), gapS = 0.07, noteS = 0.3, decayS = 0.08),
     }
 
     private const val RATE = 22_050
-    private const val GAP_S = 0.16        // next note starts this long after the previous one
-    private const val NOTE_S = 0.9        // each note rings out this long
     private const val LEVEL = 0.32        // well below full scale: soft
 
     /** 16-bit mono samples for [kind]; never clips. */
     fun samples(kind: Kind, rate: Int = RATE): ShortArray {
-        val total = ((GAP_S * (kind.notes.size - 1) + NOTE_S) * rate).toInt()
+        val total = ((kind.gapS * (kind.notes.size - 1) + kind.noteS) * rate).toInt()
         val mix = DoubleArray(total)
         kind.notes.forEachIndexed { k, f ->
-            val start = (k * GAP_S * rate).toInt()
-            val len = (NOTE_S * rate).toInt()
+            val start = (k * kind.gapS * rate).toInt()
+            val len = (kind.noteS * rate).toInt()
             for (i in 0 until len) {
                 val idx = start + i
                 if (idx >= total) break
                 val tt = i.toDouble() / rate
                 val attack = (tt / 0.008).coerceAtMost(1.0)                 // no click at the start
-                val env = attack * exp(-tt / 0.22)                           // bell-like fade
+                val env = attack * exp(-tt / kind.decayS)                    // bell-like fade
                 // A pure tone with a faint overtone: rounder than a beep.
                 mix[idx] += env * (sin(2 * PI * f * tt) + 0.18 * sin(2 * PI * 2 * f * tt))
             }
@@ -53,12 +53,13 @@ object Chime {
         }
     }
 
-    fun play(kind: Kind) {
+    /** [assistant]: play on the assistant stream (media volume) rather than notifications, like Siri's sound. */
+    fun play(kind: Kind, assistant: Boolean = false) {
         runCatching {
             val pcm = samples(kind)
             val track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                    .setUsage(if (assistant) AudioAttributes.USAGE_ASSISTANT else AudioAttributes.USAGE_NOTIFICATION_EVENT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 .setAudioFormat(AudioFormat.Builder().setSampleRate(RATE).setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())

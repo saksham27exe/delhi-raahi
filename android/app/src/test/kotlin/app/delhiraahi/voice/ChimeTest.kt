@@ -23,4 +23,9 @@ class ChimeTest {
     @Test fun arriveIsLongerThanSoft() {
         assertTrue(Chime.samples(Chime.Kind.ARRIVE).size > Chime.samples(Chime.Kind.SOFT).size)
     }
+
+    @Test fun listenDingIsQuick() {
+        val sec = Chime.samples(Chime.Kind.LISTEN, 22_050).size / 22_050.0
+        assertTrue("length $sec", sec < 0.45)          // the mic opens right after it
+    }
 }

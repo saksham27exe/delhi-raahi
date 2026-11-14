@@ -3,8 +3,6 @@ package app.delhiraahi.voice
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -101,12 +99,11 @@ sealed interface Heard {
 class Listener(private val ctx: Context) {
     private val main = Handler(Looper.getMainLooper())
     private var rec: SpeechRecognizer? = null
-    private val tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 70) }.getOrNull()
 
     fun available() = SpeechRecognizer.isRecognitionAvailable(ctx)
 
-    /** A short beep tells the listener the microphone is now open. */
-    fun beep() { runCatching { tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 120) } }
+    /** A quick soft "ding" tells you the microphone is now open (like Siri / Bixby). */
+    fun beep() { Chime.play(Chime.Kind.LISTEN, assistant = true) }
 
     suspend fun listen(languageTag: String, onPartial: (String) -> Unit): Heard = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->
@@ -154,6 +151,5 @@ class Listener(private val ctx: Context) {
 
     fun destroy() {
         main.post { runCatching { rec?.destroy() }; rec = null }
-        runCatching { tone?.release() }
     }
 }

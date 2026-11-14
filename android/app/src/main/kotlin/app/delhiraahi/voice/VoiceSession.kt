@@ -96,7 +96,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     private suspend fun hear(): List<String> {
         repeat(2) { attempt ->
             listener.beep()
-            delay(120)
+            delay(if (attempt == 0 && log.isEmpty()) 60 else 120)
             status = VoiceStatus.LISTENING
             partial = ""
             val h = try { listener.listen(vs.languageTag) { partial = it } } finally { status = VoiceStatus.IDLE; partial = "" }
@@ -116,8 +116,8 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     suspend fun run() {
         try {
             if (!listener.available()) { say(vs.noRecognizer); return }
-            say(if (tipGiven) vs.greeting else vs.greeting + " " + vs.firstTip)
-            tipGiven = true
+            // Like Siri / Bixby: no spoken greeting. A quick sound, and the mic is open at once;
+            // the greeting and an example are shown on screen instead.
             while (true) {
                 val heard = hear()
                 handle(heard, Understand.best(heard))
