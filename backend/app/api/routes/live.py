@@ -41,6 +41,8 @@ def vehicle(id: str = Query(..., min_length=1, max_length=64), st: AppState = De
     d = st.live.vehicle_detail(id)
     if d is None:
         raise HTTPException(404, detail="That bus is not in the live feed right now.")
+    if st.fares and d.get("route_id"):
+        d["bus_type"] = st.fares.bus_type(str(d["route_id"]))[0]   # estimated per route from e-ticket sales
     return d
 
 

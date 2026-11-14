@@ -117,19 +117,6 @@ fun AccountScreen(
                             Text(if (user.email.isNotBlank()) user.email else "+91 ${user.phone_masked}", style = MaterialTheme.typography.bodyMedium, color = x.muted)
                         }
                     }
-                    Divider()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(s.womanTraveller, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = x.text)
-                            Text(s.womanTravellerSub, style = MaterialTheme.typography.bodyMedium, color = x.muted)
-                        }
-                        Switch(
-                            checked = user.woman_traveller,
-                            onCheckedChange = { on -> scope.launch { runCatching { session.setWomanTraveller(on) } } },
-                            colors = SwitchDefaults.colors(checkedTrackColor = x.primary, checkedThumbColor = x.onPrimary),
-                            modifier = Modifier.semantics { contentDescription = s.womanTraveller },
-                        )
-                    }
                 }
             }
 

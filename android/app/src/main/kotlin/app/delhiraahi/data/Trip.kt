@@ -36,6 +36,9 @@ data class PickedPlace(val label: String, val stopName: String? = null, val lat:
 /** Results filter. WALK shows the walk-the-whole-way option. */
 enum class TripKind { ALL, DIRECT, CHANGE, WALK }
 
+/** Bus type filter (AC / non-AC is estimated per route from e-ticket sales). */
+enum class BusFilter { ANY, AC, NON_AC }
+
 enum class Preference(val wire: String) { FASTEST("fastest"), BALANCED("balanced"), LEAST_CROWDED("least_crowded") }
 
 /** When to leave: now, an offset from now, or a fixed time tomorrow. */
@@ -76,6 +79,7 @@ class TripViewModel : ViewModel() {
         private set
     var selected by mutableIntStateOf(0)
     var kind by mutableStateOf(TripKind.ALL)
+    var busFilter by mutableStateOf(BusFilter.ANY)
     /** Longest straight-line walk to a boarding stop; raised to 1500 m when nothing is nearer. */
     var radiusM by mutableIntStateOf(600)
         private set
@@ -106,7 +110,15 @@ class TripViewModel : ViewModel() {
     val walkOption: WalkOption? get() = (result as? Load.Ok)?.value?.walk_option
 
     /** Indices into [journeys] that match the current filter. */
-    fun shown(k: TripKind = kind): List<Int> = journeys.indices.filter { i ->
-        when (k) { TripKind.ALL -> true; TripKind.DIRECT -> journeys[i].transfers == 0; TripKind.CHANGE -> journeys[i].transfers > 0; TripKind.WALK -> false }
+    fun shown(k: TripKind = kind, bus: BusFilter = busFilter): List<Int> = journeys.indices.filter { i ->
+        val kindOk = when (k) { TripKind.ALL -> true; TripKind.DIRECT -> journeys[i].transfers == 0; TripKind.CHANGE -> journeys[i].transfers > 0; TripKind.WALK -> false }
+        kindOk && busOk(journeys[i], bus)
+    }
+
+    /** AC: every bus on the trip is an AC route. Non-AC: every bus is non-AC. Mixed/unknown routes only under Any. */
+    private fun busOk(j: Journey, bus: BusFilter): Boolean = when (bus) {
+        BusFilter.ANY -> true
+        BusFilter.AC -> j.legs.isNotEmpty() && j.legs.all { it.fare?.bus_type == "ac" }
+        BusFilter.NON_AC -> j.legs.isNotEmpty() && j.legs.all { it.fare?.bus_type == "non_ac" }
     }
 }

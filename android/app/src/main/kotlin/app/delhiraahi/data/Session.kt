@@ -136,7 +136,6 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
         refreshWallet()
     }
 
-    suspend fun setWomanTraveller(on: Boolean) { user = Api.updateMe(womanTraveller = on).user }
     suspend fun setName(name: String) { user = Api.updateMe(name = name).user }
 
     suspend fun changePassword(old: String, new: String, hindi: Boolean = false) {

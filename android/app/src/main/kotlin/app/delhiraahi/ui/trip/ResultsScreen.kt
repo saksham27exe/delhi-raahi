@@ -70,6 +70,20 @@ import app.delhiraahi.ui.theme.LocalExtra
 import app.delhiraahi.ui.theme.Radius
 import app.delhiraahi.ui.theme.Space
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.delhiraahi.data.BusFilter
 
 fun leaveLabel(s: Strings, l: LeaveAt): String = when (l) {
     LeaveAt.Now -> s.leaveNow
@@ -121,27 +135,32 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(top = Space.md, bottom = Space.lg),
             verticalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                LeaveAt.options.forEach { o ->
-                    Chip(leaveLabel(s, o), if (o == LeaveAt.Now) Icons.Outlined.Schedule else null, selected = trip.leaveAt == o) {
-                        trip.leaveAt = o; trip.search()
-                    }
+            // Filters: one row of labelled drop-downs (when · sort · bus type) …
+            val pick: (TripKind) -> Unit = { k -> trip.kind = k; trip.shown(k).firstOrNull()?.let { trip.selected = it } }
+            val prefs = listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded)
+            val buses = listOf(BusFilter.ANY to s.busAny, BusFilter.AC to s.busAc, BusFilter.NON_AC to s.busNonAc)
+            val ready = trip.result is Load.Ok
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                FilterPill(Icons.Outlined.Schedule, s.filterWhen, leaveLabel(s, trip.leaveAt),
+                    LeaveAt.options.map { it to leaveLabel(s, it) }, trip.leaveAt, Modifier.weight(1f)) { trip.leaveAt = it; trip.search() }
+                FilterPill(Icons.AutoMirrored.Outlined.Sort, s.filterSort, prefs.first { it.first == trip.preference }.second,
+                    prefs, trip.preference, Modifier.weight(1f)) { trip.preference = it; trip.search() }
+                FilterPill(Icons.Outlined.AcUnit, s.filterBus, buses.first { it.first == trip.busFilter }.second,
+                    buses.map { (k, n) -> k to (if (ready) "$n (${trip.shown(TripKind.ALL, k).size})" else n) }, trip.busFilter, Modifier.weight(1f)) {
+                    trip.busFilter = it
+                    if (trip.kind != TripKind.WALK) trip.shown().firstOrNull()?.let { i -> trip.selected = i }
                 }
             }
-            Segmented(
-                listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded),
-                trip.preference, { trip.preference = it; trip.search() }, s.preference,
+            // … then tabs for the kind of trip, with how many of each.
+            if (ready && (journeys.isNotEmpty() || walkOpt != null)) KindTabs(
+                buildList {
+                    add(Triple(TripKind.ALL, s.filterAll, "${trip.shown(TripKind.ALL).size}"))
+                    add(Triple(TripKind.DIRECT, s.filterDirect, "${trip.shown(TripKind.DIRECT).size}"))
+                    add(Triple(TripKind.CHANGE, s.filterChange, "${trip.shown(TripKind.CHANGE).size}"))
+                    if (walkOpt != null) add(Triple(TripKind.WALK, s.filterWalk, s.minutes(walkOpt.minutes.mins())))
+                },
+                trip.kind, pick,
             )
-            val pick: (TripKind) -> Unit = { k -> trip.kind = k; trip.shown(k).firstOrNull()?.let { trip.selected = it } }
-            if (trip.result is Load.Ok && (journeys.isNotEmpty() || walkOpt != null)) Row(
-                Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm),
-            ) {
-                Chip("${s.filterAll} ${journeys.size}", selected = trip.kind == TripKind.ALL) { pick(TripKind.ALL) }
-                Chip("${s.filterDirect} ${trip.shown(TripKind.DIRECT).size}", selected = trip.kind == TripKind.DIRECT) { pick(TripKind.DIRECT) }
-                Chip("${s.filterChange} ${trip.shown(TripKind.CHANGE).size}", selected = trip.kind == TripKind.CHANGE) { pick(TripKind.CHANGE) }
-                if (walkOpt != null) Chip("${s.filterWalk} ${s.minutes(walkOpt.minutes.mins())}", Icons.AutoMirrored.Outlined.DirectionsWalk,
-                    selected = walking) { pick(TripKind.WALK) }
-            }
 
             // A small sketch of the selected route, not a full-screen map.
             if (lines.isNotEmpty()) Box(
@@ -181,7 +200,11 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                     Text(s.noTripsHint, color = t.muted)
                 } else {
                     val idx = if (walking) emptyList() else trip.shown()
-                    if (!walking && idx.isEmpty()) Text(s.noneOfKind, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))
+                    if (!walking && idx.isEmpty()) Column(Modifier.padding(vertical = Space.lg), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                        Text(s.noneOfKind, color = t.muted)
+                        if (trip.busFilter != BusFilter.ANY) Text("${s.filterBus}: ${s.busAny}", color = t.primary, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.busFilter = BusFilter.ANY }.padding(vertical = Space.sm))
+                    }
                     Spacer(Modifier.height(Space.xs))
                     TimeRibbons(
                         journeys = journeys, shown = idx, selected = trip.selected, onSelect = { trip.selected = it },
@@ -192,10 +215,69 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                 }
             }
             Text(s.crowdNote, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
+            Text(s.busTypeNote, style = MaterialTheme.typography.labelSmall, color = t.muted)
         }
         sel?.let { j ->
             Box(Modifier.fillMaxWidth().background(t.bg).windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = Space.lg, vertical = Space.md)) {
                 PrimaryButton(s.choose(j.legs.joinToString(" + ") { routeName(it.route) })) { onOpen(trip.selected) }
+            }
+        }
+    }
+}
+
+/** A labelled drop-down: small caption ("Leave"), the current value ("In 30 min") and a ▾. */
+@Composable
+private fun <K> FilterPill(
+    icon: ImageVector, label: String, value: String, options: List<Pair<K, String>>, current: K,
+    modifier: Modifier = Modifier, onPick: (K) -> Unit,
+) {
+    val t = LocalExtra.current
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(Radius.md)).background(t.surface)
+                .clickable(role = Role.Button) { open = true }.semantics(mergeDescendants = true) { contentDescription = "$label: $value" }
+                .padding(start = 10.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(icon, contentDescription = null, tint = t.muted, modifier = Modifier.size(18.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = t.text,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null, tint = t.muted, modifier = Modifier.size(20.dp))
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            options.forEach { (k, name) ->
+                val on = k == current
+                DropdownMenuItem(
+                    text = { Text(name, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal) },
+                    leadingIcon = { Icon(Icons.Outlined.Check, contentDescription = null, tint = if (on) t.primary else Color.Transparent) },
+                    onClick = { open = false; if (!on) onPick(k) },
+                )
+            }
+        }
+    }
+}
+
+/** All · Direct · With change · Walk, each with its count, underlined when chosen. Empty tabs are greyed out. */
+@Composable
+private fun KindTabs(tabs: List<Triple<TripKind, String, String>>, current: TripKind, onPick: (TripKind) -> Unit) {
+    val t = LocalExtra.current
+    Row(Modifier.fillMaxWidth().selectableGroup()) {
+        tabs.forEach { (k, name, count) ->
+            val on = k == current
+            val empty = count == "0"
+            Column(
+                Modifier.weight(1f).selectable(selected = on, enabled = !empty || on, role = Role.Tab) { onPick(k) }
+                    .padding(top = Space.sm),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
+                    color = when { on -> t.primary; empty -> t.muted.copy(alpha = 0.5f); else -> t.text }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(count, style = MaterialTheme.typography.labelMedium, color = if (on) t.primary else t.muted.copy(alpha = if (empty) 0.5f else 1f))
+                Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(if (on) 3.dp else 1.dp).background(if (on) t.primary else t.border))
             }
         }
     }

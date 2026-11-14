@@ -284,7 +284,7 @@ internal fun minsFromNow(hhmm: String): Int? {
 
 /** One small icon + one plain line. */
 @Composable
-private fun OptLine(icon: ImageVector, text: String, tag: String? = null, strong: Boolean = false, tint: Color? = null) {
+private fun OptLine(icon: ImageVector, text: String, tag: String? = null, strong: Boolean = false, tint: Color? = null, busType: String? = null) {
     val t = LocalExtra.current
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         Icon(icon, contentDescription = null, tint = tint ?: t.muted, modifier = Modifier.padding(top = 2.dp).size(16.dp))
@@ -294,8 +294,9 @@ private fun OptLine(icon: ImageVector, text: String, tag: String? = null, strong
                 if (tag != null) withStyle(SpanStyle(color = t.muted, fontWeight = FontWeight.Normal)) { append("  · $tag") }
             },
             style = MaterialTheme.typography.bodyMedium, color = tint ?: t.text,
-            fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f),
+            fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f, fill = busType == null),
         )
+        if (busType != null) app.delhiraahi.ui.common.BusTypeTag(busType, Modifier.weight(1f, fill = false).padding(top = 1.dp))
     }
 }
 
@@ -347,7 +348,8 @@ internal fun RibbonRow(j: Journey, r: Ribbon, axis: ClockAxis, selected: Boolean
                         OptLine(Icons.Outlined.SyncAlt, o.change(c.board, c.walk_min.mins(), c.wait_min.mins()))
                     }
                     val inMin = if (k == 0) minsFromNow(leg.departure)?.takeIf { it in -1..120 } else null
-                    OptLine(Icons.Outlined.DirectionsBus, o.busAt(routeName(leg.route), leg.departure, inMin), tag = o.tagTimetable, strong = true)
+                    OptLine(Icons.Outlined.DirectionsBus, o.busAt(routeName(leg.route), leg.departure, inMin), tag = o.tagTimetable, strong = true,
+                        busType = leg.fare?.bus_type)
                     // Live: the real bus of this route nearest to the first stop
                     if (k == 0 && live?.phase == "approaching" && live.eta_board_min != null) {
                         val m = live.eta_board_min.roundToInt()

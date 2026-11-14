@@ -79,8 +79,8 @@ fun BookScreen(trip: TripViewModel, index: Int, session: SessionViewModel, onClo
     val needsType = remember(j) { j.legs.map { (it.fare?.bus_type ?: "unknown") !in listOf("ac", "non_ac") } }
     var chosenType by remember { mutableStateOf("ac") }
     var passengers by remember { mutableIntStateOf(1) }
-    // Profile setting "woman traveller" pre-fills one free (women) passenger; it can still be changed.
-    var women by remember { mutableIntStateOf(if (session.user?.woman_traveller == true) 1 else 0) }
+    // Women travelling free (Delhi scheme): chosen per booking.
+    var women by remember { mutableIntStateOf(0) }
     var needMoney by remember { mutableStateOf(false) }
     var quote by remember { mutableStateOf<Quote?>(null) }
     var error by remember { mutableStateOf<String?>(null) }

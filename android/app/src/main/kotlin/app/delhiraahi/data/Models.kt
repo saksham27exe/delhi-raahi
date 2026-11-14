@@ -260,6 +260,8 @@ data class LiveStop(
 data class VehicleDetail(
     val vehicle: Vehicle, val route_id: String = "", val route: String = "", val route_long_name: String? = null,
     val towards: String? = null, val stops: List<LiveStop> = emptyList(), val matched: Boolean = false,
+    /** "ac" / "non_ac" / "mixed" / "unknown", estimated per route from e-ticket sales. */
+    val bus_type: String? = null,
 )
 
 /** GET /live/track: phase is approaching / on_board / arrived / no_live / unknown_route. */

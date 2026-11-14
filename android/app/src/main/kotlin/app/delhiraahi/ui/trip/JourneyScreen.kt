@@ -275,7 +275,9 @@ private fun LegDetail(leg: Leg, s: Strings) {
     var open by remember { mutableStateOf(false) }
     Row(Modifier.padding(top = Space.xs), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         RoutePill(leg.route)
-        Text(leg.route_desc, style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1)
+        app.delhiraahi.ui.common.BusTypeTag(leg.fare?.bus_type)
+        Text(leg.route_desc, style = MaterialTheme.typography.bodyMedium, color = t.muted, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
     Text(s.ride(leg.stops, leg.in_vehicle_minutes.mins()), style = MaterialTheme.typography.bodyMedium, color = t.text, modifier = Modifier.padding(top = Space.xs))
     Text(

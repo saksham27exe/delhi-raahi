@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -138,6 +139,8 @@ fun HomeScreen(
             // Top line: app name + language
             Row(Modifier.fillMaxWidth().padding(top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
                 Text("DelhiRaahi", style = MaterialTheme.typography.titleMedium, color = t.primary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                SosButton(lang)
+                Spacer(Modifier.width(Space.sm))
                 Row(
                     Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(50)).border(1.dp, t.border, RoundedCornerShape(50))
                         .clickable(role = Role.Button, onClick = onToggleLang).semantics { contentDescription = s.switchLang }

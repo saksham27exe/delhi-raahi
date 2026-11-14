@@ -72,7 +72,9 @@ interface Strings {
     val passes: String; val myPasses: String; val buyPass: String; val noPasses: String; val passTitle: String
     val officialPrice: String; val unverifiedPrice: String; fun checkedOn(d: String): String; fun buyFor(price: String): String
     fun holder(h: String): String; val source: String; val buying: String
-    val profile: String; val womanTraveller: String; val womanTravellerSub: String; val changePassword: String
+    val profile: String; val changePassword: String
+    val filterWhen: String; val filterSort: String; val filterBus: String; val busAny: String
+    val busAc: String; val busNonAc: String; val busMixed: String; val busTypeNote: String
     val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
     val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String; val alertSpoken: String; val alertSpokenSub: String; val hearChime: String
@@ -196,8 +198,10 @@ object En : Strings {
     override val passTitle = "Bus pass"; override val officialPrice = "Official DTC fare"; override val unverifiedPrice = "Price not confirmed by DTC"
     override fun checkedOn(d: String) = "Prices checked $d"; override fun buyFor(price: String) = "Buy for $price"
     override fun holder(h: String) = "Holder $h"; override val source = "Source"; override val buying = "Buying…"
-    override val profile = "Profile"; override val womanTraveller = "Woman traveller"
-    override val womanTravellerSub = "Pre-fills free travel for women when booking (Delhi scheme)."
+    override val profile = "Profile"
+    override val filterWhen = "When"; override val filterSort = "Sort by"; override val filterBus = "Bus type"; override val busAny = "Any bus"
+    override val busAc = "AC"; override val busNonAc = "Non-AC"; override val busMixed = "AC / non-AC"
+    override val busTypeNote = "AC / non-AC is estimated for each route from its e-ticket sales; the bus that comes may differ."
     override val changePassword = "Change password"; override val currentPassword = "Current password"; override val newPassword = "New password"
     override val save = "Save"; override val saved = "Saved"; override val logout = "Log out"; override val logoutSub = "Signs you out on all devices."
     override val deleteAccount = "Delete account"
@@ -343,8 +347,10 @@ object Hi : Strings {
     override val passTitle = "बस पास"; override val officialPrice = "DTC का आधिकारिक किराया"; override val unverifiedPrice = "कीमत DTC से पुष्ट नहीं"
     override fun checkedOn(d: String) = "कीमतें $d को जाँची गईं"; override fun buyFor(price: String) = "$price में खरीदें"
     override fun holder(h: String) = "धारक $h"; override val source = "स्रोत"; override val buying = "खरीद रहे हैं…"
-    override val profile = "प्रोफ़ाइल"; override val womanTraveller = "महिला यात्री"
-    override val womanTravellerSub = "बुकिंग में महिलाओं की मुफ़्त यात्रा पहले से भर देता है (दिल्ली योजना)।"
+    override val profile = "प्रोफ़ाइल"
+    override val filterWhen = "कब"; override val filterSort = "क्रम"; override val filterBus = "बस का प्रकार"; override val busAny = "कोई भी बस"
+    override val busAc = "एसी"; override val busNonAc = "नॉन-एसी"; override val busMixed = "एसी / नॉन-एसी"
+    override val busTypeNote = "एसी / नॉन-एसी हर रूट की ई-टिकट बिक्री से अनुमानित है; आने वाली बस अलग हो सकती है।"
     override val changePassword = "पासवर्ड बदलें"; override val currentPassword = "मौजूदा पासवर्ड"; override val newPassword = "नया पासवर्ड"
     override val save = "सहेजें"; override val saved = "सहेजा गया"; override val logout = "लॉग आउट"; override val logoutSub = "सभी डिवाइस से लॉग आउट करता है।"
     override val deleteAccount = "अकाउंट मिटाएँ"
