@@ -347,3 +347,18 @@ data class PassCatalog(
     val coverage: Map<String, Map<String, String>> = emptyMap(),
     val passes: List<PassType> = emptyList(),
 )
+
+
+/** One manoeuvre of a walking route (OSRM foot). bearing_after: degrees, 0 = north. */
+@Serializable
+data class WalkStep(
+    val type: String = "continue", val modifier: String = "", val name: String = "",
+    val distance_m: Double = 0.0, val lat: Double, val lon: Double, val bearing_after: Int = 0,
+)
+
+/** GET /walk/directions */
+@Serializable
+data class WalkDirections(
+    val distance_m: Double = 0.0, val duration_s: Double = 0.0,
+    val path: List<List<Double>> = emptyList(), val steps: List<WalkStep> = emptyList(),
+)

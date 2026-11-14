@@ -70,7 +70,8 @@ import kotlinx.coroutines.launch
  * live region, so TalkBack does not read over the assistant's voice.
  */
 @Composable
-fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (Int) -> Unit) {
+fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (Int) -> Unit,
+    onGuide: (Double, Double, String) -> Unit = { _, _, _ -> }) {
     val vs = voiceStrings(lang)
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -82,6 +83,7 @@ fun VoiceScreen(trip: TripViewModel, lang: Lang, onBack: () -> Unit, onShow: (In
 
     DisposableEffect(session) { onDispose { job?.cancel(); session.close() } }
     session.onShow = onShow
+    session.onGuide = onGuide
 
     fun start(greetingDelay: Long = 0) {
         job?.cancel()

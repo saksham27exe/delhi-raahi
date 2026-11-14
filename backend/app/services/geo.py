@@ -21,6 +21,31 @@ log = logging.getLogger(__name__)
 
 PHOTON_URL = "https://photon.komoot.io/api/"
 FOOT_URL = "https://routing.openstreetmap.de/routed-foot"
+
+
+def parse_steps(data: dict | None) -> dict | None:
+    """OSRM route response (steps=true) -> {distance_m, duration_s, path, steps}. None if unusable."""
+    if not data or data.get("code") != "Ok" or not data.get("routes"):
+        return None
+    rt = data["routes"][0]
+    coords = rt.get("geometry", {}).get("coordinates", [])
+    step = max(1, len(coords) // 400)           # detailed enough to notice a wrong turn
+    path = [[round(y, 6), round(x, 6)] for x, y in coords[::step]]
+    if coords and path[-1] != [round(coords[-1][1], 6), round(coords[-1][0], 6)]:
+        path.append([round(coords[-1][1], 6), round(coords[-1][0], 6)])
+    steps = []
+    for leg in rt.get("legs", []):
+        for s in leg.get("steps", []):
+            m = s.get("maneuver", {})
+            loc = m.get("location") or [None, None]
+            if loc[0] is None:
+                continue
+            steps.append({
+                "type": m.get("type", "continue"), "modifier": m.get("modifier", ""),
+                "name": s.get("name", "") or "", "distance_m": round(float(s.get("distance", 0.0)), 1),
+                "lat": round(loc[1], 6), "lon": round(loc[0], 6), "bearing_after": int(m.get("bearing_after", 0) or 0),
+            })
+    return {"distance_m": float(rt.get("distance", 0.0)), "duration_s": float(rt.get("duration", 0.0)), "path": path, "steps": steps}
 USER_AGENT = "DelhiRaahi/0.9 (hackathon transit-planner demo)"
 NCR_BBOX = (76.84, 28.40, 77.55, 28.90)          # minLon, minLat, maxLon, maxLat
 TIMEOUT_S = 4.0
@@ -116,6 +141,25 @@ class OsmGeo:
         row = data["distances"][0][1:]
         out = [None if d is None else float(d) for d in row]
         self._tables.put(key, out)
+        return out
+
+    def walk_steps(self, a: tuple[float, float], b: tuple[float, float]) -> dict | None:
+        """Turn-by-turn walking directions: distance, a detailed path and one entry per manoeuvre.
+
+        Each step: type (depart/turn/continue/new name/roundabout/arrive/...), modifier (left, slight right, ...),
+        name (street, may be ""), distance_m (length of the stretch after the manoeuvre), lat/lon of the
+        manoeuvre and bearing_after (degrees, 0 = north). Text is built on the phone so it can be spoken in Hindi.
+        """
+        key = ("steps", (_r(a[0]), _r(a[1])), (round(b[0], 5), round(b[1], 5)))
+        hit = self._routes.get(key)
+        if hit is not None:
+            return hit
+        (la, lo), (lb, lob) = key[1], key[2]
+        data = self._get(f"{FOOT_URL}/route/v1/driving/{lo},{la};{lob},{lb}",
+                         {"overview": "full", "geometries": "geojson", "steps": "true"})
+        out = parse_steps(data)
+        if out is not None:
+            self._routes.put(key, out)
         return out
 
     def walk_path(self, a: tuple[float, float], b: tuple[float, float]) -> dict | None:

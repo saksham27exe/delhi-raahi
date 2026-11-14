@@ -11,6 +11,7 @@ sealed interface Said {
     data object LeastCrowded : Said
     data object Balanced : Said
     data object Show : Said
+    data object Guide : Said
     data object Help : Said
     data object NewTrip : Said
     data object Stop : Said
@@ -31,6 +32,8 @@ object VoiceParser {
         "बंद करो", "बंद", "बस", "रुको", "रुक जाओ")
 
     private val COMMANDS: List<Pair<Said, List<String>>> = listOf(
+        Said.Guide to listOf("guide me", "guide", "navigate", "take me there", "start walking", "walk me", "walk me there",
+            "directions", "walking directions", "rasta batao", "rasta bataiye", "le chalo", "रास्ता बताओ", "रास्ता बताइए", "ले चलो", "रास्ता दिखाओ"),
         Said.DirectOnly to listOf("direct", "direct bus", "direct only", "direct buses", "no change", "without change", "without changing",
             "seedhi", "seedhi bus", "sidhi bus", "सीधी", "सीधी बस", "बिना बदले", "सीधे"),
         Said.WithChange to listOf("with change", "with changes", "with a change", "connecting", "connecting bus", "connecting buses",

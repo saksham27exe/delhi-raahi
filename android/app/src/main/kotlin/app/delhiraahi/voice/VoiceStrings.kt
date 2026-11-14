@@ -38,6 +38,8 @@ interface VoiceStrings {
     fun noneOf(kindDirect: Boolean): String
     fun walkOnly(min: Int, m: Int, approx: Boolean): String
     val noWalk: String
+    fun guiding(stop: String): String
+    val noGuide: String
     fun getOff(stop: String, walkMin: Int): String
     fun arrive(time: String, total: Int): String
     fun crowd(cat: String): String
@@ -132,6 +134,8 @@ object VoiceEn : VoiceStrings {
     override fun walkOnly(min: Int, m: Int, approx: Boolean) =
         "Walking the whole way takes about ${mins(min, true)}, ${if (m >= 1000) "%.1f kilometres".format(m / 1000.0) else "$m metres"}${if (approx) ", roughly" else " along the roads"}."
     override val noWalk = "It's too far to walk, more than two kilometres."
+    override fun guiding(stop: String) = "Okay, I'll guide you on foot to $stop."
+    override val noGuide = "First ask me for a trip, then say guide me."
     override fun getOff(stop: String, walkMin: Int) = "Get off at $stop" + (if (walkMin >= 1) ", then walk ${mins(walkMin, true)}." else ".")
     override fun arrive(time: String, total: Int) = "You'll arrive at $time, $total minutes in all."
     override fun crowd(cat: String) = when (cat) {
@@ -221,6 +225,8 @@ object VoiceHi : VoiceStrings {
     override fun walkOnly(min: Int, m: Int, approx: Boolean) =
         "पूरा रास्ता पैदल लगभग ${mins(min, false)}, ${if (m >= 1000) "%.1f किलोमीटर".format(m / 1000.0) else "$m मीटर"}${if (approx) ", अंदाज़न" else ", सड़क के रास्ते"}।"
     override val noWalk = "पैदल के लिए बहुत दूर है, दो किलोमीटर से ज़्यादा।"
+    override fun guiding(stop: String) = "ठीक है, $stop तक पैदल रास्ता बताया जा रहा है।"
+    override val noGuide = "पहले कोई यात्रा पूछिए, फिर कहिए रास्ता बताओ।"
     override fun getOff(stop: String, walkMin: Int) = "$stop पर उतरिए" + (if (walkMin >= 1) ", फिर ${mins(walkMin, false)} पैदल।" else "।")
     override fun arrive(time: String, total: Int) = "आप $time पहुँचेंगे, कुल $total मिनट।"
     override fun crowd(cat: String) = when (cat) {

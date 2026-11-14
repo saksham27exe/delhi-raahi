@@ -147,4 +147,6 @@ object Api {
     suspend fun searchStops(q: String): StopSearchResponse = get("/stops/search", mapOf("q" to q, "limit" to 8))
     suspend fun searchPlaces(q: String): PlaceSearchResponse = get("/places/search", mapOf("q" to q, "limit" to 6))
     suspend fun liveStatus(): LiveStatus = get("/live/status")
+    suspend fun walkDirections(fromLat: Double, fromLon: Double, toLat: Double, toLon: Double): WalkDirections =
+        get("/walk/directions", mapOf("from_lat" to fromLat, "from_lon" to fromLon, "to_lat" to toLat, "to_lon" to toLon))
 }

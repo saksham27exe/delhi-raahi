@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,10 +77,13 @@ import kotlin.math.roundToInt
 private class Moment(
     val time: Float, val title: String, val detail: String?, val after: Piece?,
     val leg: Leg? = null, val end: Boolean = false,
+    /** Where a walking stretch leads (lat, lon, name), for spoken directions. */
+    val guide: Triple<Double, Double, String>? = null,
 )
 
 /** Turn the trip's ribbon pieces into moments: start, board, get off, change, arrive. */
-private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabel: String): List<Moment> {
+private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabel: String, to: Pair<Double, Double>?): List<Moment> {
+    fun boardOf(l: Leg?) = l?.segments?.firstOrNull()?.let { Triple(it.lat, it.lon, l.board_stop) }
     fun walkText(min: Float, m: Double?, basis: String?) =
         (if (m != null) s.walkToM(min.roundToInt(), m.toInt()) else s.walkTo(min.roundToInt())) + if (basis == "straight_line_estimate") " (${s.approx})" else ""
     val out = mutableListOf<Moment>()
@@ -95,9 +99,11 @@ private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabe
                 Moment(p.a, s.board(leg.board_stop), null, p, leg = leg)
             }
             is WalkPiece -> when {
-                k == 0 -> Moment(p.a, fromLabel, walkText(len, j.walk.origin_m, j.walk.basis?.origin), p)
-                legIdx == j.legs.size -> Moment(p.a, s.alight(prevLeg?.alight_stop.orEmpty()), walkText(len, j.walk.destination_m, j.walk.basis?.destination), p)
-                else -> Moment(p.a, s.alight(prevLeg?.alight_stop.orEmpty()), s.walkTo(len.roundToInt()) + (nextLeg?.let { " → ${it.board_stop}" } ?: ""), p)
+                k == 0 -> Moment(p.a, fromLabel, walkText(len, j.walk.origin_m, j.walk.basis?.origin), p, guide = boardOf(nextLeg))
+                legIdx == j.legs.size -> Moment(p.a, s.alight(prevLeg?.alight_stop.orEmpty()), walkText(len, j.walk.destination_m, j.walk.basis?.destination), p,
+                    guide = to?.let { Triple(it.first, it.second, toLabel) })
+                else -> Moment(p.a, s.alight(prevLeg?.alight_stop.orEmpty()), s.walkTo(len.roundToInt()) + (nextLeg?.let { " → ${it.board_stop}" } ?: ""), p,
+                    guide = boardOf(nextLeg))
             }
             is WaitPiece -> when {
                 k == 0 -> Moment(p.a, nextLeg?.board_stop ?: fromLabel, s.waitFor(len.roundToInt()), p)
@@ -113,7 +119,10 @@ private fun moments(j: Journey, r: Ribbon, s: Strings, fromLabel: String, toLabe
 }
 
 @Composable
-fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Unit, onBook: () -> Unit, onTrack: (String, String) -> Unit) {
+fun JourneyScreen(
+    trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Unit, onBook: () -> Unit, onTrack: (String, String) -> Unit,
+    onGuide: (Double, Double, String) -> Unit = { _, _, _ -> },
+) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val j = trip.journeys.getOrNull(index) ?: run { onBack(); return }
@@ -151,8 +160,9 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
             // The ribbon, turned vertical: one moment per row, the stretch after it drawn on the rail
             Spacer(Modifier.height(Space.xl))
             if (ribbon != null) {
-                val ms = remember(j, ribbon, s) { moments(j, ribbon, s, trip.from?.label ?: s.yourLocation, trip.to?.label.orEmpty()) }
-                ms.forEach { m -> MomentRow(m) }
+                val toPt = trip.to?.let { d -> d.lat?.let { it to d.lon!! } }
+                val ms = remember(j, ribbon, s) { moments(j, ribbon, s, trip.from?.label ?: s.yourLocation, trip.to?.label.orEmpty(), toPt) }
+                ms.forEach { m -> MomentRow(m, guideLabel = app.delhiraahi.voice.GuideText.of(lang == Lang.HI).title, onGuide = onGuide) }
             }
 
             Text(s.why, style = MaterialTheme.typography.titleMedium, color = t.text, modifier = Modifier.padding(top = Space.xl, bottom = Space.xs).semantics { heading() })
@@ -170,7 +180,7 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
 }
 
 @Composable
-private fun MomentRow(m: Moment) {
+private fun MomentRow(m: Moment, guideLabel: String, onGuide: (Double, Double, String) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val minutes = m.after?.let { it.b - it.a } ?: 0f
@@ -190,6 +200,16 @@ private fun MomentRow(m: Moment) {
             Text(m.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = t.text)
             m.detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.muted) }
             m.leg?.let { leg -> LegDetail(leg, s) }
+            m.guide?.let { (la, lo, nm) ->
+                Row(
+                    Modifier.padding(top = Space.xs).clip(RoundedCornerShape(50)).border(1.dp, t.primary, RoundedCornerShape(50))
+                        .clickable(role = Role.Button) { onGuide(la, lo, nm) }.heightIn(min = 40.dp).padding(horizontal = Space.md),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Outlined.RecordVoiceOver, contentDescription = null, tint = t.primary, modifier = Modifier.size(18.dp))
+                    Text(guideLabel, style = MaterialTheme.typography.labelLarge, color = t.primary)
+                }
+            }
         }
     }
 }

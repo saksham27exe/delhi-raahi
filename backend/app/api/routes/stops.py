@@ -34,6 +34,22 @@ def place_search(q: str = Query(..., min_length=2, max_length=100), limit: int =
     return {"query": q, "results": res, "source": "OpenStreetMap (Photon)"}
 
 
+@router.get("/walk/directions")
+def walk_directions(from_lat: float = Query(..., ge=27.5, le=29.5), from_lon: float = Query(..., ge=76.5, le=78.0),
+                    to_lat: float = Query(..., ge=27.5, le=29.5), to_lon: float = Query(..., ge=76.5, le=78.0),
+                    st: AppState = Depends(get_state)) -> dict:
+    """Turn-by-turn walking directions along roads (OpenStreetMap, OSRM foot profile), up to 5 km."""
+    from app.services.geo_util import straight_m
+    if straight_m(from_lat, from_lon, to_lat, to_lon) > 5000:
+        raise HTTPException(422, detail="Too far to walk; directions are given for up to 5 km.")
+    if st.geo is None:
+        raise HTTPException(503, detail="Walking directions are turned off on this server.")
+    res = st.geo.walk_steps((from_lat, from_lon), (to_lat, to_lon))
+    if res is None:
+        raise HTTPException(503, detail="Walking directions service is not responding.")
+    return {**res, "source": "OpenStreetMap (OSRM foot)"}
+
+
 @router.get("/stops/nearby")
 def stops_nearby(lat: float = Query(..., ge=27.5, le=29.5), lon: float = Query(..., ge=76.5, le=78.0),
                  radius_m: int = Query(600, ge=50, le=2000), st: AppState = Depends(get_state)) -> dict:

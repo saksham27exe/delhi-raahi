@@ -184,9 +184,20 @@ fun App(settings: Settings, store: SettingsStore) {
                 app.delhiraahi.voice.VoiceScreen(trip, settings.lang, onBack = { nav.popBackStack() }, onShow = { i ->
                     nav.navigate("results") { popUpTo("voice") { inclusive = true } }
                     nav.navigate("journey/$i")
+                }, onGuide = { la, lo, nm ->
+                    nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") { popUpTo("voice") { inclusive = true } }
                 })
             }
             composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
+            composable("guide?lat={lat}&lon={lon}&name={name}", arguments = listOf(
+                navArgument("lat") { type = NavType.StringType }, navArgument("lon") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+            )) { e ->
+                val a = e.arguments
+                app.delhiraahi.ui.trip.WalkGuideScreen(
+                    a?.getString("lat")?.toDoubleOrNull() ?: 0.0, a?.getString("lon")?.toDoubleOrNull() ?: 0.0,
+                    a?.getString("name").orEmpty(), settings.lang, onBack = { nav.popBackStack() })
+            }
             composable("insights") { InsightsScreen(settings.lang, onBack = { nav.popBackStack() }) }
             composable("pickplace/{slot}") { e ->
                 val slot = runCatching { Slot.valueOf(e.arguments?.getString("slot").orEmpty()) }.getOrDefault(Slot.HOME)
@@ -203,7 +214,8 @@ fun App(settings: Settings, store: SettingsStore) {
             composable("journey/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType })) { e ->
                 val idx = e.arguments?.getInt("idx") ?: 0
                 JourneyScreen(trip, idx, settings.lang, onBack = { nav.popBackStack() },
-                    onBook = { if (session.loggedIn) nav.navigate("book/$idx") else login("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) })
+                    onBook = { if (session.loggedIn) nav.navigate("book/$idx") else login("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) },
+                    onGuide = { la, lo, nm -> nav.navigate("guide?lat=$la&lon=$lo&name=${Uri.encode(nm)}") })
             }
         }
         if (showTabs) {

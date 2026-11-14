@@ -9,6 +9,11 @@ import android.location.LocationManager
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
+import androidx.core.location.LocationListenerCompat
+import androidx.core.location.LocationRequestCompat
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -38,5 +43,20 @@ object DeviceLocation {
                 if (cont.isActive) cont.resume(loc)
             }
         }
+    }
+
+    /** Continuous fixes (about every 2 s) while collected: GPS outdoors, network as a fallback. */
+    @SuppressLint("MissingPermission")
+    fun updates(ctx: Context): Flow<Location> = callbackFlow {
+        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (!granted(ctx)) { close(); return@callbackFlow }
+        val listener = LocationListenerCompat { trySend(it) }
+        val req = LocationRequestCompat.Builder(2_000).setMinUpdateDistanceMeters(2f)
+            .setQuality(LocationRequestCompat.QUALITY_HIGH_ACCURACY).build()
+        val exec = ContextCompat.getMainExecutor(ctx)
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+            .forEach { runCatching { LocationManagerCompat.requestLocationUpdates(lm, it, req, exec, listener) } }
+        awaitClose { LocationManagerCompat.removeUpdates(lm, listener) }
     }
 }
