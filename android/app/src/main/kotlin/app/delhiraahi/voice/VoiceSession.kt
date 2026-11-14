@@ -52,6 +52,8 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     var onShow: (Int) -> Unit = {}
     var onGuide: (Double, Double, String) -> Unit = { _, _, _ -> }
     var onRide: (Int) -> Unit = {}
+    /** Buses found: put the results page on screen while the options are read out. */
+    var onResults: () -> Unit = {}
 
     private val speaker = Speaker(ctx)
     private val listener = Listener(ctx)
@@ -387,6 +389,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
                     vs.summary(options.count { it.transfers == 0 }, options.count { it.transfers > 0 }, walkOption?.minutes?.roundToInt())
                 val hint = if (!hintGiven && options.size > 1) " " + vs.hint else ""
                 hintGiven = true
+                onResults()
                 say(intro + " " + describe(0) + hint)
             }
         }
@@ -396,6 +399,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
 
     private fun describe(i: Int): String {
         val j = options.getOrNull(view.getOrNull(i) ?: return "") ?: return ""
+        trip.selected = view[i]          // the option being read out is the one highlighted on screen
         if (j.legs.isEmpty()) return ""
         val parts = mutableListOf(vs.option(i + 1, view.size))
         val walkO = j.walk.origin_min.roundToInt()

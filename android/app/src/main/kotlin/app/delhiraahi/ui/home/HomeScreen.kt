@@ -174,21 +174,6 @@ fun HomeScreen(
                 }
             }
 
-            // …or say it
-            Row(
-                Modifier.padding(top = Space.xl).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).border(1.5.dp, t.primary, RoundedCornerShape(Radius.lg))
-                    .clickable(role = Role.Button, onClick = onVoice).padding(horizontal = Space.lg, vertical = Space.md),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
-            ) {
-                Box(Modifier.size(44.dp).clip(CircleShape).background(t.primary), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Mic, contentDescription = null, tint = t.onPrimary)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(s.sayIt, style = MaterialTheme.typography.titleMedium, color = t.text)
-                    Text(s.sayItSub, style = MaterialTheme.typography.bodyMedium, color = t.muted)
-                }
-            }
-
             // Saved places fill the "to" blank in one tap
             Row(Modifier.padding(top = Space.lg).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 val home = places.home
