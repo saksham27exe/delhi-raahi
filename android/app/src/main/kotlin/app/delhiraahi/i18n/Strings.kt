@@ -9,6 +9,9 @@ import app.delhiraahi.data.Lang
  */
 interface Strings {
     val tabHome: String; val tabLive: String; val tabTickets: String; val tabAccount: String
+    /** Home sentence: each line is prefix + [slot] + suffix, so Hindi can put the word after the blank. */
+    val sFromPre: String; val sFromPost: String; val sToPre: String; val sToPost: String; val sWhenPre: String; val sWhenPost: String
+    val yourLocation: String; val whereQ: String; val sayIt: String; val sayItSub: String; fun waitFor(min: Int): String; val recentTrips: String
     val greeting: String; val whereTo: String; val nearby: String; val locating: String
     val noLocation: String; val allowLocation: String; val noStopsNearby: String
     fun metres(m: Int): String
@@ -80,6 +83,11 @@ interface Strings {
 
 object En : Strings {
     override val tabHome = "Home"; override val tabLive = "Live"; override val tabTickets = "Tickets"; override val tabAccount = "Account"
+    override val sFromPre = "From"; override val sFromPost = ""; override val sToPre = "to"; override val sToPost = ""
+    override val sWhenPre = "leaving"; override val sWhenPost = ""
+    override val yourLocation = "where I am"; override val whereQ = "where?"
+    override val sayIt = "Say it instead"; override val sayItSub = "Speak the same sentence, in English or Hindi"
+    override fun waitFor(min: Int) = "Wait $min min"; override val recentTrips = "Again?"
     override val greeting = "Where are you going?"; override val whereTo = "Where to?"
     override val nearby = "Bus stops near you"; override val locating = "Finding stops near you…"
     override val noLocation = "Turn on location to see nearby stops."; override val allowLocation = "Allow location"
@@ -211,6 +219,11 @@ object En : Strings {
 
 object Hi : Strings {
     override val tabHome = "होम"; override val tabLive = "लाइव"; override val tabTickets = "टिकट"; override val tabAccount = "अकाउंट"
+    override val sFromPre = ""; override val sFromPost = "से"; override val sToPre = ""; override val sToPost = "तक"
+    override val sWhenPre = ""; override val sWhenPost = "निकलना है"
+    override val yourLocation = "मेरी जगह"; override val whereQ = "कहाँ?"
+    override val sayIt = "बोलकर बताइए"; override val sayItSub = "यही वाक्य बोलिए, हिंदी या अंग्रेज़ी में"
+    override fun waitFor(min: Int) = "$min मिनट इंतज़ार"; override val recentTrips = "फिर से?"
     override val greeting = "कहाँ जाना है?"; override val whereTo = "कहाँ जाना है?"
     override val nearby = "आपके पास के बस स्टॉप"; override val locating = "पास के स्टॉप ढूँढ रहे हैं…"
     override val noLocation = "पास के स्टॉप देखने के लिए लोकेशन चालू करें।"; override val allowLocation = "लोकेशन की अनुमति दें"

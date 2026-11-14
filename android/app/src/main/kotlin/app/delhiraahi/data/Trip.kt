@@ -69,6 +69,8 @@ class TripViewModel : ViewModel() {
     var from by mutableStateOf<PickedPlace?>(null)
     var to by mutableStateOf<PickedPlace?>(null)
     var leaveAt by mutableStateOf<LeaveAt>(LeaveAt.Now)
+    /** Open the search screen on the From field (set when the user taps the From blank on Home). */
+    var editFrom by mutableStateOf(false)
     var preference by mutableStateOf(Preference.BALANCED)
     var result by mutableStateOf<Load<JourneyResult>>(Load.Idle)
         private set

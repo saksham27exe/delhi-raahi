@@ -79,7 +79,7 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
-    var field by remember { mutableStateOf(if (trip.to != null && trip.from == null) Field.FROM else Field.TO) }
+    var field by remember { mutableStateOf(if (trip.editFrom || (trip.to != null && trip.from == null)) Field.FROM else Field.TO).also { trip.editFrom = false } }
     var fromText by remember { mutableStateOf(trip.from?.label.orEmpty()) }
     var toText by remember { mutableStateOf(trip.to?.label.orEmpty()) }
     var hits by remember { mutableStateOf<List<StopHit>>(emptyList()) }

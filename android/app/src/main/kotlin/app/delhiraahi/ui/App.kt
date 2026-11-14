@@ -131,6 +131,9 @@ fun App(settings: Settings, store: SettingsStore) {
                     onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } },
                     onSetPlace = { nav.navigate("pickplace/${it.name}") },
                     onWhereTo = { trip.to = null; nav.navigate("search") },
+                    onWhereFrom = { trip.editFrom = true; nav.navigate("search") },
+                    leaveAt = trip.leaveAt, onLeave = { trip.leaveAt = it },
+                    onPickFrom = { trip.from = it; trip.to = null; nav.navigate("search") },
                     onGo = { from, to ->
                         trip.from = from; trip.to = to
                         if (from != null) { trip.search(); nav.navigate("results") } else nav.navigate("search")
