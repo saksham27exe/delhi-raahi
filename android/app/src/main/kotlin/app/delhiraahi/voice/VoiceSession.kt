@@ -71,6 +71,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     private var alternatives: List<Candidate> = emptyList()
     private var awaitingChoice = false
     private var pendingTo: Candidate? = null      // destination known, waiting for an origin
+    private var lastHeard: List<String> = emptyList()
 
     /** The big button: cut speech short, or finish listening early. Returns false when there is nothing to do. */
     fun tap(): Boolean = when (status) {
@@ -166,6 +167,9 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     }
 
     private suspend fun handle(heard: List<String>, u: Understood) {
+        lastHeard = heard
+        // Not a travel request at all: say what the assistant can do and listen again.
+        if (heard.all { Understand.offTopic(it) }) { say(vs.offTopic); return }
         if (u.to != null || u.from != null || u.preference != null || u.leave != null)
             note(vs.understood(u.from ?: if (u.fromHere) vs.currentLocation else null, u.to,
                 listOfNotNull(u.preference?.let { vs.prefName(it) }, u.leave?.let { leaveSpecText(it) })))
@@ -333,7 +337,14 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
             Candidate(listOfNotNull(h.name, area).joinToString(", "), PickedPlace.place(h), isStop = false)
         }
         val stopsFirst = p.isEmpty() || stops.any { it.name.contains(q, ignoreCase = true) }
-        (if (stopsFirst) stopC + placeC else placeC + stopC).take(4)
+        // Keep only results whose name really matches what was said (the search finds something for
+        // almost any text), best match first; ties keep the search's order.
+        (if (stopsFirst) stopC + placeC else placeC + stopC)
+            .map { it to PlaceMatch.score(q, it.spoken) }
+            .filter { it.second >= PlaceMatch.ACCEPT }
+            .sortedByDescending { it.second }
+            .map { it.first }
+            .take(4)
     }
 
     /** First of the recogniser's readings that finds a place; the rest of its matches become "wrong place" alternatives. */
@@ -352,7 +363,9 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
             }
         }
         status = VoiceStatus.IDLE
-        say(vs.notFound(names.first()))
+        // Nothing matched. A sentence that never sounded like a trip gets "I help with bus trips" instead.
+        say(if (lastHeard.none { VoiceParser.looksLikeTrip(it) } && names.first().split(" ").size >= 3) vs.offTopic
+            else vs.notFound(names.first()))
         return null
     }
 

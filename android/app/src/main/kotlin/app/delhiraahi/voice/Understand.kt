@@ -146,6 +146,22 @@ object Understand {
         return Understood(from = from, fromHere = fromHere, to = to, preference = pref, leave = leave, wrongPlace = wrong)
     }
 
+    private val OFF_START = setOf("write", "generate", "create", "make", "code", "tell", "explain", "what", "whats", "who",
+        "why", "play", "sing", "calculate", "translate", "define", "call", "send", "remind", "kya", "kaun", "kyun", "likho")
+    private val OFF_END = setOf("likho", "sunao", "banao", "gao", "samjhao")
+    private val TRAVEL = Regex("""\b(bus|buses|route|stop|metro|reach|go|going|get|way|travel|ride|ticket|pass|fare|crowd|crowded|alert|jana|jaana|rasta|raasta)\b""")
+
+    /**
+     * Clearly not a travel request ("write a Python function", "tell me a joke"): the assistant says what
+     * it can help with and asks again, instead of treating the sentence as a place name.
+     */
+    fun offTopic(text: String): Boolean {
+        val t = VoiceParser.norm(text)
+        if (t.isBlank() || VoiceParser.looksLikeTrip(t) || TRAVEL.containsMatchIn(t)) return false
+        val w = t.split(" ")
+        return w.first() in OFF_START || w.last() in OFF_END
+    }
+
     /** Best reading among the recogniser's guesses: prefer one with a destination, then a command. */
     fun best(heard: List<String>): Understood {
         val all = heard.map { parse(it) }

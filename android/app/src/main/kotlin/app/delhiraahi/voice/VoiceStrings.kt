@@ -27,6 +27,7 @@ interface VoiceStrings {
     fun prefName(p: String): String
     val firstOption: String; val lastOption: String; val sayPlaceAgain: String
     fun notFound(name: String): String
+    val offTopic: String
     fun planning(from: String?, to: String, leave: String?): String
     fun searchFailed(msg: String): String
     fun found(n: Int): String
@@ -117,6 +118,7 @@ object VoiceEn : VoiceStrings {
     override val lastOption = "That's the last option."
     override val sayPlaceAgain = "Okay, say the place again."
     override fun notFound(name: String) = "I couldn't find $name. Try another name."
+    override val offTopic = "Sorry, I can only help with bus trips in Delhi. Tell me where you want to go, for example: to India Gate."
     override fun planning(from: String?, to: String, leave: String?) =
         "Looking for buses${from?.let { " from $it" } ?: ""} to $to${leave?.let { ", $it" } ?: ""}."
     override fun searchFailed(msg: String) = "Sorry, the search didn't work. $msg"
@@ -213,6 +215,7 @@ object VoiceHi : VoiceStrings {
     override val lastOption = "यह आख़िरी विकल्प है।"
     override val sayPlaceAgain = "ठीक है, जगह फिर से बोलिए।"
     override fun notFound(name: String) = "$name नहीं मिला। कोई और नाम बोलिए।"
+    override val offTopic = "माफ़ कीजिए, यहाँ सिर्फ़ दिल्ली की बस यात्रा में मदद मिलती है। बताइए कहाँ जाना है, जैसे: इंडिया गेट।"
     override fun planning(from: String?, to: String, leave: String?) =
         "${from?.let { "$it से " } ?: ""}$to के लिए बसें देख रहे हैं${leave?.let { ", $it" } ?: ""}।"
     override fun searchFailed(msg: String) = "माफ़ कीजिए, खोज नहीं हो पाई। $msg"
