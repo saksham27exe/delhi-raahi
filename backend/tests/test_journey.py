@@ -192,5 +192,56 @@ def test_no_stop_nearby_has_code_and_wider_radius_works(net):
     with pytest.raises(PlaceError) as e:
         js.plan(far, stop("D"), datetime(2026, 11, 20, 7, 50), radius_m=300)
     assert e.value.code == "no_stop_nearby" and e.value.detail()["radius_m"] == 300
+    assert e.value.detail()["side"] == "origin"
     r = js.plan(far, stop("D"), datetime(2026, 11, 20, 7, 50), radius_m=1500)
     assert r["query"]["origin"]["radius_m"] == 1500
+
+
+@pytest.fixture
+def chain_net(tmp_path):
+    """P -10- Q -11- S -12- U: only reachable with two changes."""
+    stops = [("P", "Papa", 28.60, 77.30), ("Q", "Quebec", 28.61, 77.30), ("S", "Sierra", 28.62, 77.30), ("U", "Uniform", 28.63, 77.30)]
+    trips, st = [], []
+
+    def add(tid, route, seq, start):
+        trips.append((tid, route))
+        for i, s in enumerate(seq):
+            st.append((tid, _hm(start + 10 * i), s, i))
+
+    add("a", "10", "PQ", 8 * 60)
+    add("b", "11", "QS", 8 * 60 + 15)
+    add("c", "12", "SU", 8 * 60 + 30)
+    feed = write_gtfs(tmp_path / "gtfs", stops, trips, st)
+    P = tmp_path / "processed"
+    load_gtfs(feed, P)
+    return load_network(P, use_cache=False)
+
+
+def test_two_changes_with_connections(chain_net):
+    js = JourneyService(chain_net, None)
+    assert js.plan(stop("P"), stop("U"), datetime(2026, 11, 20, 7, 55), max_transfers=1)["journeys"] == []
+    r = js.plan(stop("P"), stop("U"), datetime(2026, 11, 20, 7, 55), max_transfers=2)
+    j = r["journeys"][0]
+    assert j["transfers"] == 2 and j["kind"] == "transfer"
+    assert [l["route"] for l in j["legs"]] == ["R10UP", "R11UP", "R12UP"]
+    assert [(c["alight"], c["board"]) for c in j["connections"]] == [("Quebec", "Quebec"), ("Sierra", "Sierra")]
+    assert j["connections"][0]["wait_min"] == 5.0 and j["connections"][0]["from_route"] == "R10UP"
+    assert r["counts"] == {"direct": 0, "one_change": 0, "two_changes": 1}
+
+
+def test_best_direct_is_always_kept(net):
+    js = JourneyService(net, FakeCrowd())
+    r = js.plan(stop("A"), stop("F"), datetime(2026, 11, 20, 8, 0))
+    assert any(j["transfers"] == 0 for j in r["journeys"])
+    assert all(j["kind"] == ("direct" if j["transfers"] == 0 else "transfer") for j in r["journeys"])
+
+
+def test_walk_option_for_short_trips(net):
+    near_a, near_b = coord(28.6003, 77.2003), coord(28.6097, 77.2001)   # ~1 km apart
+    r = JourneyService(net, None, geo=FakeGeo(net)).plan(near_a, near_b, datetime(2026, 11, 20, 7, 50))
+    w = r["walk_option"]
+    assert w["basis"] == "osm_road" and w["distance_m"] == 321 and w["path"]
+    r2 = JourneyService(net, None).plan(near_a, near_b, datetime(2026, 11, 20, 7, 50))
+    assert r2["walk_option"]["basis"] == "straight_line_estimate" and r2["walk_option"]["path"] is None
+    far = JourneyService(net, None).plan(stop("A"), stop("D"), datetime(2026, 11, 20, 7, 50))
+    assert far["walk_option"] is None                                    # A to D is ~3.3 km

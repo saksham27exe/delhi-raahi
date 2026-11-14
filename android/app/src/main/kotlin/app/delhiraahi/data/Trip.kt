@@ -33,6 +33,9 @@ data class PickedPlace(val label: String, val stopName: String? = null, val lat:
     }
 }
 
+/** Results filter. WALK shows the walk-the-whole-way option. */
+enum class TripKind { ALL, DIRECT, CHANGE, WALK }
+
 enum class Preference(val wire: String) { FASTEST("fastest"), BALANCED("balanced"), LEAST_CROWDED("least_crowded") }
 
 /** When to leave: now, an offset from now, or a fixed time tomorrow. */
@@ -70,6 +73,7 @@ class TripViewModel : ViewModel() {
     var result by mutableStateOf<Load<JourneyResult>>(Load.Idle)
         private set
     var selected by mutableIntStateOf(0)
+    var kind by mutableStateOf(TripKind.ALL)
     /** Longest straight-line walk to a boarding stop; raised to 1500 m when nothing is nearer. */
     var radiusM by mutableIntStateOf(600)
         private set
@@ -81,6 +85,7 @@ class TripViewModel : ViewModel() {
         job?.cancel()
         result = Load.Loading
         selected = 0
+        kind = TripKind.ALL
         radiusM = radius
         val departure = leaveAt.resolve().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         val body = buildJsonObject {
@@ -96,4 +101,10 @@ class TripViewModel : ViewModel() {
     }
 
     val journeys: List<Journey> get() = (result as? Load.Ok)?.value?.journeys.orEmpty()
+    val walkOption: WalkOption? get() = (result as? Load.Ok)?.value?.walk_option
+
+    /** Indices into [journeys] that match the current filter. */
+    fun shown(k: TripKind = kind): List<Int> = journeys.indices.filter { i ->
+        when (k) { TripKind.ALL -> true; TripKind.DIRECT -> journeys[i].transfers == 0; TripKind.CHANGE -> journeys[i].transfers > 0; TripKind.WALK -> false }
+    }
 }

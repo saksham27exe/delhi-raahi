@@ -19,6 +19,7 @@ from app.services.crowd_service import CATEGORIES, CrowdService
 IST = ZoneInfo("Asia/Kolkata")
 ACCESS_RADIUS_M = 600
 MAX_ACCESS_RADIUS_M = 1500
+WALK_ONLY_MAX_M = 2000      # offer "walk the whole way" up to this road distance
 DETOUR = 1.3
 
 
@@ -26,12 +27,12 @@ MAX_SCORED_CANDIDATES = 60
 
 
 class PlaceError(ValueError):
-    def __init__(self, message: str, code: str = "invalid_place", radius_m: int | None = None):
+    def __init__(self, message: str, code: str = "invalid_place", radius_m: int | None = None, side: str | None = None):
         super().__init__(message)
-        self.code, self.radius_m = code, radius_m
+        self.code, self.radius_m, self.side = code, radius_m, side
 
     def detail(self) -> dict:
-        return {"message": str(self), "code": self.code, "radius_m": self.radius_m}
+        return {"message": str(self), "code": self.code, "radius_m": self.radius_m, "side": self.side}
 
 
 def ci_category(ci: float | None) -> str:
@@ -136,8 +137,8 @@ class JourneyService:
             raise PlaceError(f"preference must be one of {list(CONFIG['modes'])}")
         when = when.astimezone(IST) if when.tzinfo else when.replace(tzinfo=IST)
         radius_m = int(min(max(radius_m, 200), MAX_ACCESS_RADIUS_M))
-        o, o_info = self.resolve(origin, radius_m)
-        dd, d_info = self.resolve(destination, radius_m)
+        o, o_info = self._resolve_side(origin, radius_m, "origin")
+        dd, d_info = self._resolve_side(destination, radius_m, "destination")
         d = when.date()
         t0 = when.hour * 3600 + when.minute * 60 + when.second
         cands = prune_candidates(self.search_engine.search(o, dd, d, t0, max_transfers))
@@ -153,6 +154,7 @@ class JourneyService:
                              f"learned from data up to {self.crowd.forecasts.window_end}.")
         notes.append("Times are GTFS scheduled times, not live arrivals.")
         journeys = [self._public(j) for j in ranked]
+        walk_option = self._walk_option(o_info, d_info)
         for info in (o_info, d_info):
             if info["type"] == "coord" and info["walk_basis"] != "osm_road":
                 notes.append(f"Walking times to and from {info['name']} are straight-line estimates "
@@ -164,6 +166,10 @@ class JourneyService:
             "query": {"origin": o_info, "destination": d_info, "departure": when.isoformat(),
                       "preference": preference, "max_transfers": max_transfers},
             "journeys": journeys,
+            "walk_option": walk_option,
+            "counts": {"direct": sum(j["transfers"] == 0 for j in journeys),
+                       "one_change": sum(j["transfers"] == 1 for j in journeys),
+                       "two_changes": sum(j["transfers"] == 2 for j in journeys)},
             "candidates_considered": len(cands),
             "notes": notes,
             "metric": {"name": "demand_per_scheduled_departure",
@@ -203,7 +209,28 @@ class JourneyService:
                 rec = {"offset_min": 0, "reason": "No nearby departure time is meaningfully less crowded without a much longer trip."}
         return {"departures": rows, "recommendation": rec}
 
+    def _resolve_side(self, place: dict, radius_m: int, side: str):
+        try:
+            return self.resolve(place, radius_m)
+        except PlaceError as e:
+            e.side = side
+            raise
+
     # ---- walking paths --------------------------------------------------------------
+    def _walk_option(self, o_info: dict, d_info: dict) -> dict | None:
+        """Walking the whole way, offered when it is at most WALK_ONLY_MAX_M along roads."""
+        straight = float(haversine_m(o_info["lat"], o_info["lon"], d_info["lat"], d_info["lon"]))
+        if straight > WALK_ONLY_MAX_M:
+            return None
+        route = self.geo.walk_path((o_info["lat"], o_info["lon"]), (d_info["lat"], d_info["lon"])) if self.geo else None
+        if route is not None:
+            dist, path, basis = route["distance_m"], route["path"], "osm_road"
+        else:
+            dist, path, basis = straight * DETOUR, None, "straight_line_estimate"
+        if dist > WALK_ONLY_MAX_M:
+            return None
+        return {"distance_m": round(dist), "minutes": round(dist / WALK_SPEED_MPS / 60, 1), "path": path, "basis": basis}
+
     def _stop_pt(self, sid: str) -> tuple[float, float]:
         return float(self.net.stops.at[sid, "stop_lat"]), float(self.net.stops.at[sid, "stop_lon"])
 
@@ -297,13 +324,22 @@ class JourneyService:
         else:
             evidence = "LOW"
         wait_first = c.legs[0].dep_s - (c.start_s + c.walk_origin_s)
-        transfer_wait = (c.legs[1].dep_s - c.legs[0].arr_s - c.walk_transfer_s) if len(c.legs) > 1 else 0.0
+        walks = c.transfer_walks or [c.walk_transfer_s] * (len(c.legs) - 1)
+        connections = []
+        for i, (a, b) in enumerate(c.transfer_stops):
+            w = walks[i] if i < len(walks) else 0.0
+            wait = c.legs[i + 1].dep_s - c.legs[i].arr_s - w
+            connections.append({"alight": self.net.stop_name(a), "board": self.net.stop_name(b),
+                                "walk_min": round(w / 60, 1), "wait_min": round(max(wait, 0.0) / 60, 1),
+                                "from_route": legs[i]["route"], "to_route": legs[i + 1]["route"]})
+        transfer_wait = sum(x["wait_min"] for x in connections) * 60
         payload = {
             "legs": legs, "departure": hhmm(c.legs[0].dep_s), "arrival": hhmm(c.arrive_s),
             "start": hhmm(c.start_s), "walk_origin_min": round(c.walk_origin_s / 60, 1),
             "walk_transfer_min": round(c.walk_transfer_s / 60, 1), "walk_dest_min": round(c.walk_dest_s / 60, 1),
             "wait_min": round(wait_first / 60, 1), "transfer_wait_min": round(transfer_wait / 60, 1),
             "transfer_stops": [{"alight": self.net.stop_name(a), "board": self.net.stop_name(b)} for a, b in c.transfer_stops],
+            "connections": connections,
             "evidence_quality": evidence, "high_demand_segments": int(high),
             "evidence_time_share": {k: round(v / total, 3) for k, v in evid_time.items()},
             "fare": self.fares.journey_fare([l["fare"] for l in legs]) if self.fares else None,
@@ -328,6 +364,7 @@ class JourneyService:
             "evidence_time_share": p["evidence_time_share"], "walk": {"origin_min": p["walk_origin_min"],
             "transfer_min": p["walk_transfer_min"], "destination_min": p["walk_dest_min"]},
             "transfer_stops": p["transfer_stops"], "explanation": j.explanation, "legs": p["legs"], "fare": p["fare"],
+            "kind": "direct" if j.transfers == 0 else "transfer", "connections": p["connections"],
         }
 
 

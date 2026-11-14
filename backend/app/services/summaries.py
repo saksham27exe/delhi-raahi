@@ -28,14 +28,14 @@ def journey(j: dict) -> dict[str, str]:
     for lang in LANGS:
         c = CROWD_WORD[lang][crowd]
         if lang == "en":
-            how = f"Take bus {routes[0]}" + (f", then change to {routes[1]} at {j['legs'][1]['board_stop']}" if len(routes) > 1 else "")
+            how = f"Take bus {routes[0]}" + "".join(f", then change to {l['route']} at {l['board_stop']}" for l in j["legs"][1:])
             s = f"{how}. Leave {j['departure']}, arrive {j['arrival']} ({dur} min). Expected crowding: {c}."
             if fare and fare.get("total_digital_max"):
                 s += f" E-ticket fare {_rupees(fare['total_digital_min'], fare['total_digital_max'])} (cash {_rupees(fare['total_min'], fare['total_max'])})."
             elif fare:
                 s += f" Fare {_rupees(fare['total_min'], fare['total_max'])}."
         else:
-            how = f"बस {routes[0]} लें" + (f", फिर {j['legs'][1]['board_stop']} पर बस {routes[1]} बदलें" if len(routes) > 1 else "")
+            how = f"बस {routes[0]} लें" + "".join(f", फिर {l['board_stop']} पर बस {l['route']} बदलें" for l in j["legs"][1:])
             s = f"{how}। {j['departure']} पर निकलें, {j['arrival']} पर पहुँचें ({dur} मिनट)। अनुमानित भीड़: {c}।"
             if fare and fare.get("total_digital_max"):
                 s += f" ई-टिकट किराया {_rupees(fare['total_digital_min'], fare['total_digital_max'])} (नकद {_rupees(fare['total_min'], fare['total_max'])})।"

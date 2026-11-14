@@ -23,7 +23,7 @@ def search(req: JourneySearchRequest, st: AppState = Depends(get_state)) -> dict
     for j in res["journeys"]:
         j["summary"] = summaries.journey(j)
     if not res["journeys"]:
-        res["notes"].insert(0, "No scheduled bus journey with at most one transfer was found within 3 hours. "
+        res["notes"].insert(0, "No scheduled bus journey with at most two changes was found within 3 hours. "
                                "Try a different time or a nearby stop.")
     return res
 

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
@@ -91,7 +92,7 @@ private sealed interface Nearby {
 @Composable
 fun HomeScreen(
     lang: Lang, places: Places, onToggleLang: () -> Unit, onSetPlace: (Slot) -> Unit, onWhereTo: () -> Unit,
-    onGo: (PickedPlace?, PickedPlace) -> Unit, onClearRecent: () -> Unit, onInsights: () -> Unit,
+    onGo: (PickedPlace?, PickedPlace) -> Unit, onClearRecent: () -> Unit, onInsights: () -> Unit, onVoice: () -> Unit,
 ) {
     val s = LocalStrings.current
     val t = LocalExtra.current
@@ -160,8 +161,9 @@ fun HomeScreen(
             peek = PEEK, full = 0.88f,
             header = {
                 Text(s.greeting, style = MaterialTheme.typography.headlineSmall, color = t.text, modifier = Modifier.semantics { heading() })
+                Row(Modifier.padding(top = Space.md).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 Row(
-                    Modifier.padding(top = Space.md).fillMaxWidth().height(56.dp).clip(RoundedCornerShape(Radius.md)).background(t.surface)
+                    Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(Radius.md)).background(t.surface)
                         .clickable(role = Role.Button, onClickLabel = s.whereTo, onClick = onWhereTo).padding(start = Space.lg, end = Space.sm),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
                 ) {
@@ -174,6 +176,13 @@ fun HomeScreen(
                         Icon(Icons.Outlined.Schedule, contentDescription = null, tint = t.text, modifier = Modifier.size(16.dp))
                         Text(s.now, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = t.text)
                     }
+                }
+                // Voice assistant: hands-free planning (for blind and low-vision travellers).
+                val voiceLabel = app.delhiraahi.voice.voiceStrings(lang).open
+                Surface(onClick = onVoice, shape = RoundedCornerShape(Radius.md), color = t.text,
+                    modifier = Modifier.size(56.dp).semantics { contentDescription = voiceLabel }) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Mic, contentDescription = null, tint = t.bg, modifier = Modifier.size(26.dp)) }
+                }
                 }
             },
         ) {

@@ -71,6 +71,10 @@ def rank(items: list[ScoredJourney], mode: str) -> list[ScoredJourney]:
     chosen = sorted(front, key=lambda j: j.score)
     rest = sorted((j for j in items if j not in front), key=lambda j: j.score)
     chosen = (chosen + rest)[: CONFIG["max_results"]]
+    # Always show the best direct trip, the best with one change and the best with two, when they exist.
+    for k in sorted({j.transfers for j in items}):
+        if not any(j.transfers == k for j in chosen):
+            chosen.append(min((j for j in items if j.transfers == k), key=lambda j: j.score))
     score(chosen, mode)  # re-normalise within the shown set
     _label(chosen)
     _explain(chosen)

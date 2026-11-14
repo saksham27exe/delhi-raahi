@@ -137,6 +137,7 @@ fun App(settings: Settings, store: SettingsStore) {
                     },
                     onClearRecent = { scope.launch { placesStore.clearRecent() } },
                     onInsights = { nav.navigate("insights") },
+                    onVoice = { nav.navigate("voice") },
                 )
             }
             composable("live") { LiveScreen(onOpenStop = { openStop(it, null) }) }
@@ -176,6 +177,12 @@ fun App(settings: Settings, store: SettingsStore) {
                     onOpen = { nav.navigate("pass/${Uri.encode(it)}") }, onWallet = { nav.navigate("wallet") })
             }
             composable("pass/{id}") { e -> PassScreen(session, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() }) }
+            composable("voice") {
+                app.delhiraahi.voice.VoiceScreen(trip, settings.lang, onBack = { nav.popBackStack() }, onShow = { i ->
+                    nav.navigate("results") { popUpTo("voice") { inclusive = true } }
+                    nav.navigate("journey/$i")
+                })
+            }
             composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
             composable("insights") { InsightsScreen(settings.lang, onBack = { nav.popBackStack() }) }
             composable("pickplace/{slot}") { e ->

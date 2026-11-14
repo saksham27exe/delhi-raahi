@@ -126,11 +126,29 @@ data class Journey(
     val legs: List<Leg> = emptyList(),
     val walk: WalkParts = WalkParts(),
     val fare: JourneyFare? = null,
+    val kind: String = "direct",
+    val connections: List<Connection> = emptyList(),
     val summary: Map<String, String> = emptyMap(),
 )
 
 @Serializable
-data class JourneyResult(val journeys: List<Journey> = emptyList(), val notes: List<String> = emptyList())
+data class JourneyResult(
+    val journeys: List<Journey> = emptyList(),
+    val notes: List<String> = emptyList(),
+    val candidates_considered: Int = 0,
+    val walk_option: WalkOption? = null,
+)
+
+/** Walking the whole way (offered for trips up to 2 km). basis: "osm_road" or "straight_line_estimate". */
+@Serializable
+data class WalkOption(val distance_m: Double, val minutes: Double, val path: List<List<Double>>? = null, val basis: String = "osm_road")
+
+/** One change of bus: where you get off, where you board, the walk between and the wait. */
+@Serializable
+data class Connection(
+    val alight: String, val board: String, val walk_min: Double = 0.0, val wait_min: Double = 0.0,
+    val from_route: String = "", val to_route: String = "",
+)
 
 // ---- Fares, demo tickets ----
 

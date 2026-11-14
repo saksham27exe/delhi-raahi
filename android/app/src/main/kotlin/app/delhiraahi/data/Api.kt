@@ -16,7 +16,8 @@ import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-class ApiException(val status: Int, message: String, val reason: String? = null) : Exception(message)
+/** [reason] is a machine-readable code such as "no_stop_nearby"; [side] says which end ("origin" / "destination"). */
+class ApiException(val status: Int, message: String, val reason: String? = null, val side: String? = null) : Exception(message)
 
 /**
  * Thin client for the backend. The base URL defaults to `api.base` from local.properties
@@ -59,6 +60,11 @@ object Api {
         ((d as? kotlinx.serialization.json.JsonObject)?.get("code") as? kotlinx.serialization.json.JsonPrimitive)?.content
     }.getOrNull()
 
+    private fun detailField(body: String, key: String): String? = runCatching {
+        val d = json.parseToJsonElement(body).let { (it as kotlinx.serialization.json.JsonObject)["detail"] }
+        ((d as? kotlinx.serialization.json.JsonObject)?.get(key) as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }.getOrNull()
+
     private suspend inline fun <reified T> get(path: String, query: Map<String, Any?> = emptyMap()): T =
         withContext(Dispatchers.IO) {
             val url = "$base/api/v1$path".toHttpUrlOrNull()?.newBuilder()?.apply {
@@ -84,7 +90,7 @@ object Api {
             val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
             response.use {
                 val text = it.body?.string().orEmpty()
-                if (!it.isSuccessful) throw ApiException(it.code, detail(text), reason(text))
+                if (!it.isSuccessful) throw ApiException(it.code, detail(text), reason(text), detailField(text, "side"))
                 json.decodeFromString<T>(text)
             }
         }

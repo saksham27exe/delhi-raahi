@@ -2,6 +2,9 @@ package app.delhiraahi.ui.trip
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.ui.graphics.toArgb
+import app.delhiraahi.data.TripKind
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -81,16 +84,28 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
     val map = remember { MapController() }
     val screenH = LocalConfiguration.current.screenHeightDp
     val journeys = trip.journeys
-    val sel = journeys.getOrNull(trip.selected)
-    val (lines, pins) = remember(sel, t) {
-        if (sel == null) emptyList<app.delhiraahi.ui.common.MapLine>() to emptyList()
-        else journeyMap(sel, t, trip.from?.let { f -> f.lat?.let { it to f.lon!! } }, trip.to?.let { d -> d.lat?.let { it to d.lon!! } })
+    val walking = trip.kind == TripKind.WALK
+    val sel = if (walking) null else journeys.getOrNull(trip.selected)
+    val fromPt = trip.from?.let { f -> f.lat?.let { it to f.lon!! } }
+    val toPt = trip.to?.let { d -> d.lat?.let { it to d.lon!! } }
+    val walkOpt = trip.walkOption
+    val (lines, pins) = remember(sel, walking, walkOpt, t) {
+        when {
+            walking && walkOpt != null && fromPt != null && toPt != null -> {
+                val path = walkOpt.path?.filter { it.size >= 2 }?.map { it[0] to it[1] }?.takeIf { it.size >= 2 } ?: listOf(fromPt, toPt)
+                listOf(app.delhiraahi.ui.common.MapLine(listOf(fromPt) + path + listOf(toPt), t.text.toArgb(), 4f, dashed = true)) to
+                    listOf(app.delhiraahi.ui.common.MapPin("from", fromPt.first, fromPt.second, trip.from?.label.orEmpty(), app.delhiraahi.ui.common.MapPin.Kind.FROM),
+                        app.delhiraahi.ui.common.MapPin("to", toPt.first, toPt.second, trip.to?.label.orEmpty(), app.delhiraahi.ui.common.MapPin.Kind.TO))
+            }
+            sel == null -> emptyList<app.delhiraahi.ui.common.MapLine>() to emptyList()
+            else -> journeyMap(sel, t, fromPt, toPt)
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
         BusMap(
             modifier = Modifier.fillMaxSize(), controller = map, dark = t.dark, pins = pins, lines = lines,
-            bottomPadding = (screenH * PEEK).dp, showMyLocation = false, fitKey = sel?.journey_id,
+            bottomPadding = (screenH * PEEK).dp, showMyLocation = false, fitKey = if (walking) "walk" else sel?.journey_id,
         )
         Row(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(Space.lg)) {
             FloatingIconButton(Icons.AutoMirrored.Outlined.ArrowBack, s.back, onClick = onBack)
@@ -115,6 +130,17 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                     listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded),
                     trip.preference, { trip.preference = it; trip.search() }, s.preference,
                 )
+                // Direct / with change / walk
+                if (trip.result is Load.Ok && (journeys.isNotEmpty() || walkOpt != null)) Row(
+                    Modifier.padding(top = Space.sm).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm),
+                ) {
+                    fun pick(k: TripKind) { trip.kind = k; trip.shown(k).firstOrNull()?.let { trip.selected = it } }
+                    Chip("${s.filterAll} ${journeys.size}", selected = trip.kind == TripKind.ALL) { pick(TripKind.ALL) }
+                    Chip("${s.filterDirect} ${trip.shown(TripKind.DIRECT).size}", selected = trip.kind == TripKind.DIRECT) { pick(TripKind.DIRECT) }
+                    Chip("${s.filterChange} ${trip.shown(TripKind.CHANGE).size}", selected = trip.kind == TripKind.CHANGE) { pick(TripKind.CHANGE) }
+                    if (walkOpt != null) Chip("${s.filterWalk} ${s.minutes(walkOpt.minutes.mins())}", Icons.AutoMirrored.Outlined.DirectionsWalk,
+                        selected = walking) { pick(TripKind.WALK) }
+                }
                 Row(Modifier.padding(top = Space.sm).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                     LeaveAt.options.forEach { o ->
                         Chip(leaveLabel(s, o), if (o == LeaveAt.Now) Icons.Outlined.Schedule else null, selected = trip.leaveAt == o) {
@@ -152,8 +178,19 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                     is Load.Ok -> if (r.value.journeys.isEmpty()) Column(Modifier.padding(vertical = Space.xl), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
                         Text(s.noTrips, style = MaterialTheme.typography.titleMedium, color = t.text)
                         Text(s.noTripsHint, color = t.muted)
-                    } else r.value.journeys.forEachIndexed { i, j ->
-                        JourneyCard(j, selected = i == trip.selected) { trip.selected = i }
+                    } else if (walking) walkOpt?.let { w ->
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).border(2.dp, t.text, RoundedCornerShape(Radius.lg))
+                                .padding(Space.lg).semantics(mergeDescendants = true) {},
+                            verticalArrangement = Arrangement.spacedBy(Space.xs),
+                        ) {
+                            Text(s.walkWhole, style = MaterialTheme.typography.titleMedium, color = t.text)
+                            Text(s.walkDetail(w.minutes.mins(), w.distance_m.toInt(), w.basis != "osm_road"), color = t.muted)
+                        }
+                    } else {
+                        val idx = trip.shown()
+                        if (idx.isEmpty()) Text(s.noneOfKind, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))
+                        idx.forEach { i -> JourneyCard(journeys[i], selected = i == trip.selected) { trip.selected = i } }
                     }
                 }
                 Text(s.crowdNote, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(top = Space.sm))
@@ -192,6 +229,9 @@ private fun JourneyCard(j: Journey, selected: Boolean, onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { LegChain(j) }
             CrowdBadge(j.crowd_level, short = true)
+        }
+        j.connections.forEach { c ->
+            Text(s.changeDetail(c.board, c.walk_min.mins(), c.wait_min.mins()), style = MaterialTheme.typography.bodyMedium, color = t.muted)
         }
         CrowdStrip(j)
     }

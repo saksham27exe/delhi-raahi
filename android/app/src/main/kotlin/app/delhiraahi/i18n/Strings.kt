@@ -29,6 +29,9 @@ interface Strings {
     val fastest: String; val balanced: String; val leastCrowded: String; val preference: String
     fun label(key: String): String
     val direct: String; fun changes(n: Int): String; fun choose(routes: String): String
+    val filterAll: String; val filterDirect: String; val filterChange: String; val filterWalk: String
+    val walkWhole: String; fun walkDetail(min: Int, m: Int, approx: Boolean): String; fun changeDetail(stop: String, walk: Int, wait: Int): String
+    val noneOfKind: String
     val noTrips: String; val noTripsHint: String; fun walkMin(m: Int): String; fun minutes(m: Int): String
     val yourTrip: String; fun board(stop: String): String; fun alight(stop: String): String
     fun ride(stops: Int, min: Int): String; fun walkTo(min: Int): String; val changeBus: String
@@ -109,7 +112,13 @@ object En : Strings {
     override fun label(key: String) = when (key) { "fastest" -> "Fastest"; "balanced" -> "Best balance"; "least_crowded" -> "Least crowded"; else -> key }
     override val direct = "Direct"; override fun changes(n: Int) = if (n == 1) "1 change" else "$n changes"
     override fun choose(routes: String) = "Choose $routes"
-    override val noTrips = "No bus trip found"; override val noTripsHint = "Try another time or a nearby stop. We search direct buses and trips with one change."
+    override val noTrips = "No bus trip found"; override val noTripsHint = "Try another time or a nearby stop. We search direct buses and trips with up to two changes."
+    override val filterAll = "All"; override val filterDirect = "Direct"; override val filterChange = "With change"; override val filterWalk = "Walk"
+    override val walkWhole = "Walk the whole way"
+    override fun walkDetail(min: Int, m: Int, approx: Boolean) = "$min min · ${if (m >= 1000) "%.1f km".format(m / 1000.0) else "$m m"}" + if (approx) " (approx.)" else " along roads"
+    override fun changeDetail(stop: String, walk: Int, wait: Int) =
+        "Change at $stop" + listOfNotNull(walk.takeIf { it >= 1 }?.let { "$it min walk" }, wait.takeIf { it >= 1 }?.let { "$it min wait" }).joinToString(", ", " (", ")").takeIf { walk >= 1 || wait >= 1 }.orEmpty()
+    override val noneOfKind = "No trip of this kind for this search."
     override fun walkMin(m: Int) = "$m min walk"; override fun minutes(m: Int) = "$m min"
     override val yourTrip = "Your trip"; override fun board(stop: String) = "Board at $stop"; override fun alight(stop: String) = "Get off at $stop"
     override fun ride(stops: Int, min: Int) = "Ride $stops stops · $min min"; override fun walkTo(min: Int) = "Walk $min min"; override val changeBus = "Change bus"
@@ -232,7 +241,13 @@ object Hi : Strings {
     override fun label(key: String) = when (key) { "fastest" -> "सबसे तेज़"; "balanced" -> "सबसे संतुलित"; "least_crowded" -> "सबसे कम भीड़"; else -> key }
     override val direct = "सीधी बस"; override fun changes(n: Int) = "$n बदलाव"
     override fun choose(routes: String) = "$routes चुनें"
-    override val noTrips = "कोई बस यात्रा नहीं मिली"; override val noTripsHint = "कोई और समय या पास का स्टॉप आज़माएँ। हम सीधी बस और एक बदलाव वाली यात्राएँ खोजते हैं।"
+    override val noTrips = "कोई बस यात्रा नहीं मिली"; override val noTripsHint = "कोई और समय या पास का स्टॉप आज़माएँ। हम सीधी बस और दो बदलाव तक वाली यात्राएँ खोजते हैं।"
+    override val filterAll = "सभी"; override val filterDirect = "सीधी"; override val filterChange = "बदलाव वाली"; override val filterWalk = "पैदल"
+    override val walkWhole = "पूरा रास्ता पैदल"
+    override fun walkDetail(min: Int, m: Int, approx: Boolean) = "$min मिनट · ${if (m >= 1000) "%.1f किमी".format(m / 1000.0) else "$m मी"}" + if (approx) " (अनुमान)" else " सड़क से"
+    override fun changeDetail(stop: String, walk: Int, wait: Int) =
+        "$stop पर बदलें" + listOfNotNull(walk.takeIf { it >= 1 }?.let { "$it मिनट पैदल" }, wait.takeIf { it >= 1 }?.let { "$it मिनट इंतज़ार" }).joinToString(", ", " (", ")").takeIf { walk >= 1 || wait >= 1 }.orEmpty()
+    override val noneOfKind = "इस खोज में इस तरह की कोई यात्रा नहीं।"
     override fun walkMin(m: Int) = "$m मिनट पैदल"; override fun minutes(m: Int) = "$m मिनट"
     override val yourTrip = "आपकी यात्रा"; override fun board(stop: String) = "$stop से चढ़ें"; override fun alight(stop: String) = "$stop पर उतरें"
     override fun ride(stops: Int, min: Int) = "$stops स्टॉप · $min मिनट"; override fun walkTo(min: Int) = "$min मिनट पैदल"; override val changeBus = "बस बदलें"

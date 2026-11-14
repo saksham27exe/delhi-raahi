@@ -121,7 +121,12 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
                     (if (m != null) s.walkToM(min.mins(), m.toInt()) else s.walkTo(min.mins())) + if (basis == "straight_line_estimate") " (${s.approx})" else ""
                 if (j.walk.origin_min >= 1) Step(Icons.AutoMirrored.Outlined.DirectionsWalk, s.walkStart, walkText(j.walk.origin_min, j.walk.origin_m, j.walk.basis?.origin), dotted = true)
                 j.legs.forEachIndexed { i, leg ->
-                    if (i > 0) Step(Icons.Outlined.SyncAlt, s.changeBus, if (j.walk.transfer_min >= 1) s.walkTo(j.walk.transfer_min.mins()) else null, dotted = true)
+                    if (i > 0) {
+                        val c = j.connections.getOrNull(i - 1)
+                        Step(Icons.Outlined.SyncAlt, s.changeBus,
+                            c?.let { s.changeDetail(it.board, it.walk_min.mins(), it.wait_min.mins()) }
+                                ?: if (j.walk.transfer_min >= 1) s.walkTo(j.walk.transfer_min.mins()) else null, dotted = true)
+                    }
                     LegBlock(leg, last = i == j.legs.lastIndex && j.walk.destination_min < 1)
                 }
                 if (j.walk.destination_min >= 1) {
