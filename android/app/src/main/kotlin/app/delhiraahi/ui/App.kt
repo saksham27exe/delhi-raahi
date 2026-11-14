@@ -40,6 +40,15 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import android.net.Uri
+import app.delhiraahi.data.TicketStore
+import app.delhiraahi.ui.live.StopScreen
+import app.delhiraahi.ui.tickets.BookScreen
+import app.delhiraahi.ui.tickets.TicketScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -78,6 +87,11 @@ fun App(settings: Settings, store: SettingsStore) {
     val entry by nav.currentBackStackEntryAsState()
     val current = entry?.destination?.route
     val trip: TripViewModel = viewModel()
+    val ctx = LocalContext.current
+    val tickets = remember { TicketStore(ctx.applicationContext) }
+    val openStop: (String, String?) -> Unit = { id, route ->
+        nav.navigate("stop/${Uri.encode(id)}" + (route?.let { "?route=${Uri.encode(it)}" } ?: ""))
+    }
     val showTabs = current == null || tabs.any { it.route == current }
     val go: (String) -> Unit = { route ->
         nav.navigate(route) {
@@ -92,8 +106,22 @@ fun App(settings: Settings, store: SettingsStore) {
             composable("home") {
                 HomeScreen(lang = settings.lang, onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } }, onAddPlace = { go("account") }, onWhereTo = { nav.navigate("search") })
             }
-            composable("live") { LiveScreen() }
-            composable("tickets") { TicketsScreen() }
+            composable("live") { LiveScreen(onOpenStop = { openStop(it, null) }) }
+            composable("tickets") {
+                TicketsScreen(tickets, settings.lang, onOpen = { nav.navigate("ticket/${Uri.encode(it)}") }, onPlan = { nav.navigate("search") })
+            }
+            composable("ticket/{id}") { e ->
+                TicketScreen(tickets, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() })
+            }
+            composable("stop/{id}?route={route}", arguments = listOf(navArgument("route") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
+                StopScreen(e.arguments?.getString("id").orEmpty(), e.arguments?.getString("route"), settings.lang, onBack = { nav.popBackStack() })
+            }
+            dialog("book/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType }),
+                dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { e ->
+                BookScreen(trip, e.arguments?.getInt("idx") ?: 0, tickets, onClose = { nav.popBackStack() }, onBooked = { tk ->
+                    nav.navigate("ticket/${Uri.encode(tk.ticket_id)}") { popUpTo("home") }
+                })
+            }
             composable("account") { AccountScreen(settings = settings, store = store) }
             composable("search") {
                 SearchScreen(trip, onBack = { nav.popBackStack() }, onDone = {
@@ -104,7 +132,9 @@ fun App(settings: Settings, store: SettingsStore) {
                 ResultsScreen(trip, onBack = { nav.popBackStack() }, onOpen = { i -> nav.navigate("journey/$i") })
             }
             composable("journey/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType })) { e ->
-                JourneyScreen(trip, e.arguments?.getInt("idx") ?: 0, settings.lang, onBack = { nav.popBackStack() })
+                val idx = e.arguments?.getInt("idx") ?: 0
+                JourneyScreen(trip, idx, settings.lang, onBack = { nav.popBackStack() },
+                    onBook = { nav.navigate("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) })
             }
         }
         if (showTabs) {

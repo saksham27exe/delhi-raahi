@@ -10,6 +10,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -68,6 +71,24 @@ object Api {
         }
 
     suspend fun journeys(body: JsonObject): JourneyResult = post("/journeys/search", body)
+
+    private fun ticketBody(legs: List<LegRef>, passengers: Int, womenFree: Int, busTypes: List<String?>?) = buildJsonObject {
+        put("legs", json.encodeToJsonElement(legs))
+        put("passengers", passengers)
+        put("women_free", womenFree)
+        if (busTypes != null) put("bus_types", json.encodeToJsonElement(busTypes))
+    }
+
+    suspend fun quote(legs: List<LegRef>, passengers: Int, womenFree: Int, busTypes: List<String?>?): Quote =
+        post("/fares/quote", ticketBody(legs, passengers, womenFree, busTypes))
+    suspend fun book(legs: List<LegRef>, passengers: Int, womenFree: Int, busTypes: List<String?>?): DemoTicket =
+        post("/tickets/book", ticketBody(legs, passengers, womenFree, busTypes))
+    suspend fun verify(qr: String): VerifyResult = post("/tickets/verify", buildJsonObject { put("qr_payload", qr) })
+
+    suspend fun stop(id: String): StopDetail = get("/stops/${java.net.URLEncoder.encode(id, "UTF-8")}")
+    suspend fun arrivals(stopId: String): ArrivalsBoard = get("/live/arrivals/${java.net.URLEncoder.encode(stopId, "UTF-8")}")
+    suspend fun vehicles(routeId: String? = null, bbox: String? = null): VehiclesResponse =
+        get("/live/vehicles", mapOf("route_id" to routeId, "bbox" to bbox))
 
     suspend fun health(): Health = get("/health")
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =

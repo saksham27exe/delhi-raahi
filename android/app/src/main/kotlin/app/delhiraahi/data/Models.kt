@@ -115,3 +115,96 @@ data class Journey(
 
 @Serializable
 data class JourneyResult(val journeys: List<Journey> = emptyList(), val notes: List<String> = emptyList())
+
+// ---- Fares, demo tickets ----
+
+@Serializable
+data class LegRef(val route_id: String, val board_stop_id: String, val alight_stop_id: String)
+
+@Serializable
+data class QuoteLeg(
+    val route: String,
+    val board_stop: String,
+    val alight_stop: String,
+    val distance_km: Double = 0.0,
+    val bus_type: String = "non_ac",
+    val leg_total: Double = 0.0,
+    val note: String? = null,
+)
+
+@Serializable
+data class Quote(
+    val legs: List<QuoteLeg> = emptyList(),
+    val passengers: Int = 1,
+    val women_free: Int = 0,
+    val total: Double = 0.0,
+    val watermark: Map<String, String> = emptyMap(),
+    val summary: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class TicketLeg(
+    val route: String,
+    val board_stop: String,
+    val alight_stop: String,
+    val bus_type: String = "",
+    val leg_total: Double = 0.0,
+)
+
+/** Demo ticket as issued by the server (HMAC-signed QR payload). Never a real ticket. */
+@Serializable
+data class DemoTicket(
+    val ticket_id: String,
+    val issued_at: String,
+    val valid_until: String,
+    val passengers: Int = 1,
+    val women_free: Int = 0,
+    val total: Double = 0.0,
+    val legs: List<TicketLeg> = emptyList(),
+    val qr_payload: String,
+    val watermark: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class VerifyResult(val valid_signature: Boolean = false, val status: String = "")
+
+// ---- Live ----
+
+@Serializable
+data class Arrival(
+    val route_id: String,
+    val route: String,
+    val towards: String = "",
+    val eta: String,
+    val eta_min: Double = 0.0,
+    val basis: String = "scheduled",
+    val vehicle_id: String? = null,
+    val delay_min: Double? = null,
+)
+
+@Serializable
+data class ArrivalsBoard(
+    val stop_id: String,
+    val stop: String,
+    val live_feed: Boolean = false,
+    val arrivals: List<Arrival> = emptyList(),
+    val summary: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class Vehicle(
+    val vehicle_id: String,
+    val route_id: String = "",
+    val route: String? = null,
+    val lat: Double,
+    val lon: Double,
+    val stale: Boolean = false,
+    val next_stop: String? = null,
+    val delay_min: Double? = null,
+)
+
+@Serializable
+data class VehiclesResponse(val live: Boolean = false, val vehicles: List<Vehicle> = emptyList())
+
+@Serializable
+data class StopDetail(val stop_id: String, val name: String, val lat: Double, val lon: Double)

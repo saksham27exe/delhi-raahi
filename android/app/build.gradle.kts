@@ -60,4 +60,6 @@ dependencies {
 
     // Map: MapLibre Native (open source) with OpenStreetMap-based styles; no API key.
     implementation("org.maplibre.gl:android-sdk:11.8.0")
+    // QR codes for demo tickets
+    implementation("com.google.zxing:core:3.5.3")
 }

@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -96,6 +97,8 @@ fun BusMap(
     lines: List<MapLine> = emptyList(),
     fitKey: Any? = null,
     onPinClick: ((MapPin) -> Unit)? = null,
+    /** Called when the camera stops moving: bbox "latS,lonW,latN,lonE" and zoom. */
+    onCameraIdle: ((String, Double) -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
@@ -105,6 +108,8 @@ fun BusMap(
         MapView(ctx).apply { onCreate(Bundle()) }
     }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
+    val idleCb by rememberUpdatedState(onCameraIdle)
+    val pinCb by rememberUpdatedState(onPinClick)
     var style by remember { mutableStateOf<Style?>(null) }
     val icons = remember {
         mapOf(
@@ -144,6 +149,10 @@ fun BusMap(
             m.uiSettings.isTiltGesturesEnabled = false
             map = m
             controller.map = m
+            m.addOnCameraIdleListener {
+                val b = m.projection.visibleRegion.latLngBounds
+                idleCb?.invoke("${b.latitudeSouth},${b.longitudeWest},${b.latitudeNorth},${b.longitudeEast}", m.cameraPosition.zoom)
+            }
         }
     }
 
@@ -170,7 +179,7 @@ fun BusMap(
         val byMarker = pins.associateBy { pin ->
             m.addMarker(MarkerOptions().position(LatLng(pin.lat, pin.lon)).title(pin.title).icon(icons.getValue(pin.kind))).id
         }
-        m.setOnMarkerClickListener { mk -> byMarker[mk.id]?.let { onPinClick?.invoke(it) }; false }
+        m.setOnMarkerClickListener { mk -> byMarker[mk.id]?.let { pinCb?.invoke(it) }; false }
     }
 
     // Fit the camera to everything drawn whenever fitKey changes (e.g. another trip selected).

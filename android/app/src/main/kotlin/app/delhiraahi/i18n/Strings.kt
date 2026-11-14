@@ -37,6 +37,16 @@ interface Strings {
     fun crowd(cat: String): String; fun crowdShort(cat: String): String
     val searching: String; val walkStart: String; val walkEnd: String; fun departsAt(t: String): String
     val showStretches: String; val hideStretches: String; val eTicketFare: String
+    // K3: booking, tickets, live
+    val bookTitle: String; val passengers: String; val womenFree: String; val womenNote: String
+    val busType: String; val ac: String; val nonAc: String; val totalDigital: String
+    val confirmDemo: String; val confirming: String; val demoBanner: String; val close: String
+    val ticketTitle: String; val ticketActive: String; val ticketExpired: String; fun validUntil(t: String): String
+    fun passengersN(n: Int): String; val verify: String; fun verified(status: String): String; val notVerified: String
+    val removeTicket: String; val storedOnDevice: String; val emptyHint: String; val planTrip: String
+    val searchStop: String; val nearbyStops: String; val allBuses: String; fun inMin(m: Int): String; val nowArriving: String
+    fun late(m: Int): String; fun early(m: Int): String; val onTime: String; fun towards(stop: String): String
+    val noArrivals: String; fun basis(b: String): String; val zoomIn: String; fun busesShown(n: Int): String; val refresh: String
 }
 
 object En : Strings {
@@ -86,6 +96,22 @@ object En : Strings {
     override fun crowdShort(cat: String) = when (cat) { "LOW" -> "Low"; "MODERATE" -> "Moderate"; "HIGH" -> "High"; "VERY_HIGH" -> "Very high"; else -> "Unknown" }
     override val searching = "Finding buses…"; override val walkStart = "Walk to the stop"; override val walkEnd = "Walk to your destination"
     override fun departsAt(t: String) = "Departs $t"; override val showStretches = "Show crowding by stretch"; override val hideStretches = "Hide stretches"; override val eTicketFare = "e-ticket fare"
+    override val bookTitle = "Book demo ticket"; override val passengers = "Passengers"; override val womenFree = "Women travelling free"
+    override val womenNote = "Free on DTC and cluster buses (pink ticket / Saheli card). Check current rules."
+    override val busType = "Bus type"; override val ac = "AC"; override val nonAc = "Non-AC"; override val totalDigital = "Total (digital fare)"
+    override val confirmDemo = "Confirm demo booking"; override val confirming = "Issuing ticket…"
+    override val demoBanner = "DEMO TICKET — not valid for travel, no payment taken"; override val close = "Close"
+    override val ticketTitle = "Ticket"; override val ticketActive = "Active · demo"; override val ticketExpired = "Expired"
+    override fun validUntil(t: String) = "Valid until $t"; override fun passengersN(n: Int) = if (n == 1) "1 passenger" else "$n passengers"
+    override val verify = "Verify ticket"; override fun verified(status: String) = "Signature valid · $status"; override val notVerified = "Signature not valid"
+    override val removeTicket = "Delete ticket"; override val storedOnDevice = "Tickets are stored only on this device."
+    override val emptyHint = "Plan a trip and book a demo ticket."; override val planTrip = "Plan a trip"
+    override val searchStop = "Search a stop"; override val nearbyStops = "Nearby stops"; override val allBuses = "All buses"
+    override fun inMin(m: Int) = "$m min"; override val nowArriving = "Now"
+    override fun late(m: Int) = "$m min late"; override fun early(m: Int) = "$m min early"; override val onTime = "On time"
+    override fun towards(stop: String) = "to $stop"; override val noArrivals = "No buses in the next hour."
+    override fun basis(b: String) = when (b) { "live_estimate" -> "Live"; "live_estimate_typical_running_time" -> "Live · approx."; else -> "Scheduled" }
+    override val zoomIn = "Zoom in to see live buses"; override fun busesShown(n: Int) = "$n buses on map"; override val refresh = "Refresh"
 }
 
 object Hi : Strings {
@@ -135,6 +161,22 @@ object Hi : Strings {
     override fun crowdShort(cat: String) = when (cat) { "LOW" -> "कम"; "MODERATE" -> "मध्यम"; "HIGH" -> "ज़्यादा"; "VERY_HIGH" -> "बहुत ज़्यादा"; else -> "अज्ञात" }
     override val searching = "बसें खोज रहे हैं…"; override val walkStart = "स्टॉप तक पैदल"; override val walkEnd = "मंज़िल तक पैदल"
     override fun departsAt(t: String) = "$t पर रवाना"; override val showStretches = "हिस्सों के हिसाब से भीड़ देखें"; override val hideStretches = "हिस्से छिपाएँ"; override val eTicketFare = "ई-टिकट किराया"
+    override val bookTitle = "डेमो टिकट बुक करें"; override val passengers = "यात्री"; override val womenFree = "मुफ़्त यात्रा करने वाली महिलाएँ"
+    override val womenNote = "डीटीसी और क्लस्टर बसों में मुफ़्त (पिंक टिकट / सहेली कार्ड)। मौजूदा नियम देख लें।"
+    override val busType = "बस का प्रकार"; override val ac = "एसी"; override val nonAc = "नॉन-एसी"; override val totalDigital = "कुल (डिजिटल किराया)"
+    override val confirmDemo = "डेमो बुकिंग पक्की करें"; override val confirming = "टिकट जारी हो रहा है…"
+    override val demoBanner = "डेमो टिकट — यात्रा के लिए मान्य नहीं, कोई भुगतान नहीं लिया गया"; override val close = "बंद करें"
+    override val ticketTitle = "टिकट"; override val ticketActive = "सक्रिय · डेमो"; override val ticketExpired = "समाप्त"
+    override fun validUntil(t: String) = "$t तक मान्य"; override fun passengersN(n: Int) = "$n यात्री"
+    override val verify = "टिकट जाँचें"; override fun verified(status: String) = "हस्ताक्षर सही · $status"; override val notVerified = "हस्ताक्षर सही नहीं"
+    override val removeTicket = "टिकट हटाएँ"; override val storedOnDevice = "टिकट सिर्फ़ इसी डिवाइस पर रखे जाते हैं।"
+    override val emptyHint = "यात्रा खोजें और डेमो टिकट बुक करें।"; override val planTrip = "यात्रा खोजें"
+    override val searchStop = "स्टॉप खोजें"; override val nearbyStops = "पास के स्टॉप"; override val allBuses = "सभी बसें"
+    override fun inMin(m: Int) = "$m मिनट"; override val nowArriving = "अभी"
+    override fun late(m: Int) = "$m मिनट देर"; override fun early(m: Int) = "$m मिनट जल्दी"; override val onTime = "समय पर"
+    override fun towards(stop: String) = "$stop की ओर"; override val noArrivals = "अगले एक घंटे में कोई बस नहीं।"
+    override fun basis(b: String) = when (b) { "live_estimate" -> "लाइव"; "live_estimate_typical_running_time" -> "लाइव · अनुमान"; else -> "समय-सारणी" }
+    override val zoomIn = "लाइव बसें देखने के लिए ज़ूम करें"; override fun busesShown(n: Int) = "मैप पर $n बसें"; override val refresh = "ताज़ा करें"
 }
 
 fun stringsFor(lang: Lang): Strings = if (lang == Lang.HI) Hi else En

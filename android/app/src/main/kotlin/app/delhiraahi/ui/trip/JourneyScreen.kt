@@ -71,7 +71,7 @@ import app.delhiraahi.ui.theme.Space
 private const val PEEK = 0.6f
 
 @Composable
-fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Unit) {
+fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Unit, onBook: () -> Unit, onTrack: (String, String) -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -81,7 +81,6 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
     val (lines, pins) = remember(j, t) {
         journeyMap(j, t, trip.from?.let { f -> f.lat?.let { it to f.lon!! } }, trip.to?.let { d -> d.lat?.let { it to d.lon!! } })
     }
-    val soon = { Toast.makeText(ctx, s.nextBuildBooking, Toast.LENGTH_SHORT).show() }
 
     Box(Modifier.fillMaxSize()) {
         BusMap(Modifier.fillMaxSize(), map, pins, t.dark, (screenH * PEEK).dp, showMyLocation = false, lines = lines, fitKey = j.journey_id)
@@ -93,8 +92,8 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
             peek = PEEK, full = 0.9f,
             footer = {
                 Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(Space.lg), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    SecondaryButton(s.track, Modifier.weight(1f), onClick = soon)
-                    PrimaryButton(fareText(j)?.let { s.book(it) } ?: s.bookNoFare, Modifier.weight(1.6f), onClick = soon)
+                    SecondaryButton(s.track, Modifier.weight(1f)) { j.legs.firstOrNull()?.let { onTrack(it.board_stop_id, it.route_id) } }
+                    PrimaryButton(fareText(j)?.let { s.book(it) } ?: s.bookNoFare, Modifier.weight(1.6f), onClick = onBook)
                 }
             },
             header = {
