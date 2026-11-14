@@ -89,6 +89,11 @@ class User:
     woman_traveller: bool
     created_at: str
 
+    @property
+    def holder(self) -> str:
+        """How the holder is shown on a ticket or pass (masked)."""
+        return mask_phone(self.phone)
+
     def public(self) -> dict:
         return {"id": self.id, "phone": self.phone, "phone_masked": mask_phone(self.phone), "name": self.name,
                 "woman_traveller": self.woman_traveller, "created_at": self.created_at}

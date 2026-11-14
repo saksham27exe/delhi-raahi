@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import current_user, get_state, require_user
 from app.services import passes
-from app.services.accounts import AccountError, User, mask_phone
+from app.services.accounts import AccountError, User
 from app.services.state import AppState
 from app.services.ticket_service import BookingError
 
@@ -159,7 +159,7 @@ def buy_pass(req: PassReq, u: User = Depends(require_user), st: AppState = Depen
     price = passes.CATALOG[req.kind]["price"][req.bus_type]
     try:
         return _acc(st).purchase(u.id, "pass", price,
-                                 lambda: st.tickets.issue_pass(req.kind, req.bus_type, mask_phone(u.phone)))
+                                 lambda: st.tickets.issue_pass(req.kind, req.bus_type, u.holder))
     except AccountError as e:
         raise _err(e) from None
     except BookingError as e:

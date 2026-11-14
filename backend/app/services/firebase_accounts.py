@@ -37,6 +37,11 @@ class FbUser:
     woman_traveller: bool
     created_at: str
 
+    @property
+    def holder(self) -> str:
+        """How the holder is shown on a ticket or pass (masked email)."""
+        return mask_email(self.email)
+
     def public(self) -> dict:
         # phone fields kept (empty) so older app builds still parse the response
         return {"id": self.id, "email": self.email, "email_masked": mask_email(self.email), "phone": "", "phone_masked": "",

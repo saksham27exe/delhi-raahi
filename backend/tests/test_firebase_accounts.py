@@ -2,6 +2,8 @@ import pytest
 
 from app.services.accounts import AccountError
 from app.services.firebase_accounts import FirebaseAccountStore, MemoryRepo, mask_email
+from tests.test_journey import net  # noqa: F401
+from tests.test_ml import crowd  # noqa: F401
 
 TOKENS = {"tok-a": {"uid": "A", "email": "asha@example.com", "name": "Asha"},
           "tok-b": {"uid": "B", "email": "bilal@example.com"}}
@@ -69,3 +71,27 @@ def test_old_phone_login_is_refused(store):
 
 def test_mask_email():
     assert mask_email("ab@x.in") == "ab•@x.in" and mask_email("nope") == "nope"
+
+
+def test_routes_with_firebase_store(net, crowd, tmp_path):  # noqa: F811
+    """Booking a pass through the API with Firebase accounts (holder comes from the email, not a phone)."""
+    from fastapi.testclient import TestClient
+    from app.core.config import get_settings
+    from app.fare_engine.fares import FareService
+    from app.main import create_app
+    from app.services.journey_service import JourneyService
+    from app.services.live_service import LiveTracker
+    from app.services.state import AppState
+    from app.services.ticket_service import TicketService
+    fares = FareService(net, tmp_path)
+    st = AppState(settings=get_settings(), network=net, crowd=crowd, fares=fares, tickets=TicketService(fares, "k"),
+                  journeys=JourneyService(net, crowd, fares), live=LiveTracker(net),
+                  accounts=FirebaseAccountStore(MemoryRepo(), verify))
+    h = {"Authorization": "Bearer tok-a"}
+    with TestClient(create_app(st, live=False)) as c:
+        assert c.get("/api/v1/health").json()["accounts_store"] == "firebase"
+        assert c.get("/api/v1/me", headers=h).json()["user"]["email"] == "asha@example.com"
+        assert c.post("/api/v1/wallet/topup", json={"amount": 200}, headers=h).status_code == 200
+        p = c.post("/api/v1/passes/buy", json={"kind": "daily", "bus_type": "ac"}, headers=h).json()
+        assert p["pass_id"] and c.get("/api/v1/passes/mine", headers=h).json()["passes"][0]["pass_id"] == p["pass_id"]
+        assert c.get("/api/v1/me", headers={"Authorization": "Bearer nope"}).status_code == 401

@@ -7,7 +7,7 @@ from app.fare_engine.fares import RULES
 from app.schemas.api import FareQuoteRequest, TicketVerifyRequest
 from app.services import summaries
 from app.services.state import AppState, _json
-from app.services.accounts import AccountError, User, mask_phone
+from app.services.accounts import AccountError, User
 from app.services.ticket_service import BookingError
 
 router = APIRouter(prefix="/api/v1", tags=["fares & demo tickets"])
@@ -42,7 +42,7 @@ def book(req: FareQuoteRequest, st: AppState = Depends(get_state), u: User = Dep
     try:
         price = st.tickets.quote(**_args(req))["total"]
         return st.accounts.purchase(u.id, "ticket", price,
-                                    lambda: st.tickets.book(**_args(req), holder=mask_phone(u.phone)))
+                                    lambda: st.tickets.book(**_args(req), holder=u.holder))
     except BookingError as e:
         raise HTTPException(422, detail=str(e)) from None
     except AccountError as e:
