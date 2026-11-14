@@ -23,6 +23,8 @@ VALID_MINUTES = 120
 MAX_PASSENGERS = 6
 WATERMARK = {"en": "DEMO TICKET — not valid for travel, no payment taken",
              "hi": "डेमो टिकट — यात्रा के लिए मान्य नहीं, कोई भुगतान नहीं लिया गया"}
+PASS_WATERMARK = {"en": "DEMO PASS — not valid for travel, no real money",
+                  "hi": "डेमो पास — यात्रा के लिए मान्य नहीं, असली पैसे नहीं"}
 
 
 class BookingError(ValueError):
@@ -111,7 +113,7 @@ class TicketService:
                 "price_verified": c["verified"], "holder": holder,
                 "issued_at": now.isoformat(timespec="seconds"),
                 "valid_until": passes.validity(kind, now).isoformat(timespec="seconds")}
-        return {**body, "qr_payload": self._sign(body), "watermark": WATERMARK, "payment": "demo wallet (no real money)"}
+        return {**body, "qr_payload": self._sign(body), "watermark": PASS_WATERMARK, "payment": "demo wallet (no real money)"}
 
     def _sign(self, body: dict) -> str:
         raw = json.dumps(body, separators=(",", ":"), ensure_ascii=False, sort_keys=True).encode()

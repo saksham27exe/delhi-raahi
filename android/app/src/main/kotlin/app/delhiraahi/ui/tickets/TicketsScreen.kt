@@ -58,6 +58,9 @@ import app.delhiraahi.data.Lang
 import app.delhiraahi.data.TicketStore
 import app.delhiraahi.data.formatDelhi
 import app.delhiraahi.data.isExpired
+import app.delhiraahi.data.SessionViewModel
+import app.delhiraahi.ui.account.SecureScreen
+import androidx.compose.runtime.LaunchedEffect
 import app.delhiraahi.i18n.LocalStrings
 import app.delhiraahi.ui.common.Divider
 import app.delhiraahi.ui.common.RoutePill
@@ -72,11 +75,13 @@ import kotlinx.coroutines.launch
 
 private fun money(x: Double) = if (x % 1.0 == 0.0) "₹${x.toInt()}" else "₹${"%.1f".format(x)}"
 
-/** Wallet: demo tickets saved on this device. */
+/** The account's demo tickets (synced from the server, cached on the device). Guests are asked to log in. */
 @Composable
-fun TicketsScreen(store: TicketStore, lang: Lang, onOpen: (String) -> Unit, onPlan: () -> Unit) {
+fun TicketsScreen(session: SessionViewModel, lang: Lang, onOpen: (String) -> Unit, onPlan: () -> Unit, onLogin: () -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
+    val store = session.tickets
+    LaunchedEffect(session.user?.id) { session.syncTickets() }
     val tickets by store.tickets.collectAsState(initial = emptyList())
     Column(Modifier.fillMaxSize().background(t.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         LazyColumn(
@@ -85,7 +90,15 @@ fun TicketsScreen(store: TicketStore, lang: Lang, onOpen: (String) -> Unit, onPl
             verticalArrangement = Arrangement.spacedBy(Space.md),
         ) {
             item { Text(s.ticketsTitle, style = MaterialTheme.typography.headlineLarge, color = t.text, modifier = Modifier.semantics { heading() }) }
-            if (tickets.isEmpty()) item {
+            if (!session.loggedIn) item {
+                Column(Modifier.fillMaxWidth().padding(vertical = Space.xxl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+                    Box(Modifier.size(64.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.ConfirmationNumber, contentDescription = null, tint = t.text, modifier = Modifier.size(28.dp))
+                    }
+                    Text(s.loginToSeeTickets, style = MaterialTheme.typography.titleMedium, color = t.text, textAlign = TextAlign.Center)
+                    Box(Modifier.padding(top = Space.md).widthIn(max = 260.dp)) { PrimaryButton(s.loginOrSignUp, onClick = onLogin) }
+                }
+            } else if (tickets.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(vertical = Space.xxl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(t.surface), contentAlignment = Alignment.Center) {
                         Icon(Icons.Outlined.ConfirmationNumber, contentDescription = null, tint = t.text, modifier = Modifier.size(28.dp))
@@ -95,9 +108,9 @@ fun TicketsScreen(store: TicketStore, lang: Lang, onOpen: (String) -> Unit, onPl
                     Box(Modifier.padding(top = Space.md).widthIn(max = 260.dp)) { PrimaryButton(s.planTrip, onClick = onPlan) }
                 }
             }
-            items(tickets, key = { it.ticket_id }) { tk -> TicketCard(tk, lang) { onOpen(tk.ticket_id) } }
-            if (tickets.isNotEmpty()) item {
-                Text(s.storedOnDevice, style = MaterialTheme.typography.labelSmall, color = t.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            if (session.loggedIn) items(tickets, key = { it.ticket_id }) { tk -> TicketCard(tk, lang) { onOpen(tk.ticket_id) } }
+            if (session.loggedIn && tickets.isNotEmpty()) item {
+                Text(s.noScreenshots, style = MaterialTheme.typography.labelSmall, color = t.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -146,6 +159,7 @@ private fun StatusPill(expired: Boolean) {
 /** One ticket: DEMO banner, QR with a large rotated DEMO watermark, status, legs, verify / delete. */
 @Composable
 fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit) {
+    SecureScreen()
     val s = LocalStrings.current
     val t = LocalExtra.current
     val scope = rememberCoroutineScope()
@@ -186,6 +200,7 @@ fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit)
                 Text(tk.ticket_id, style = MaterialTheme.typography.titleMedium, color = t.text)
                 StatusPill(expired)
                 Text(s.validUntil(formatDelhi(tk.valid_until, lang)), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                tk.holder?.let { Text(s.holder(it), style = MaterialTheme.typography.bodyMedium, color = t.text) }
                 Divider()
                 tk.legs.forEach { l ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -208,11 +223,7 @@ fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit)
                         .fold({ if (it.valid_signature) s.verified(it.status) else s.notVerified }, { s.errNetwork })
                 }
             }
-            Text(
-                s.removeTicket, color = t.veryHigh.fg, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md))
-                    .clickable(role = Role.Button) { scope.launch { store.remove(tk.ticket_id); onBack() } }.padding(Space.lg),
-            )
+            Text(s.noScreenshots, style = MaterialTheme.typography.labelSmall, color = t.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }

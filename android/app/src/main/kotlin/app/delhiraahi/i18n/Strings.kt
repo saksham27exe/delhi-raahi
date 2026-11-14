@@ -56,6 +56,20 @@ interface Strings {
     val home: String; val work: String; val savedPlaces: String; val remove: String; val recent: String; val clearRecent: String
     fun choosePlace(slot: String): String; val fromHere: String; fun fromStop(stop: String): String; val notSet: String
     val expand: String; val collapse: String
+    // K5: accounts, wallet, passes, help
+    val logIn: String; val signUp: String; val createAccount: String; val mobile: String; val password: String; val yourName: String
+    val showPassword: String; val hidePassword: String; val passwordRule: String; val noSmsNote: String
+    val guestTitle: String; val guestSub: String; val loginToBook: String; val loginToSeeTickets: String; val loginOrSignUp: String
+    val wallet: String; val demoWallet: String; val addMoney: String; fun add(amount: Int): String; val walletHistory: String
+    val noHistory: String; fun txKind(kind: String): String; val topupNote: String; fun balance(x: String): String; fun payFromWallet(x: String): String
+    val passes: String; val myPasses: String; val buyPass: String; val noPasses: String; val passTitle: String
+    val officialPrice: String; val unverifiedPrice: String; fun checkedOn(d: String): String; fun buyFor(price: String): String
+    fun holder(h: String): String; val source: String; val buying: String
+    val profile: String; val womanTraveller: String; val womanTravellerSub: String; val changePassword: String
+    val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
+    val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
+    val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
+    val privacyTitle: String; val privacyBody: String; val noScreenshots: String; val demoPass: String; val verifyPass: String
 }
 
 object En : Strings {
@@ -78,7 +92,7 @@ object En : Strings {
     override val test = "Test"; override val serverOk = "Connected"; override val serverFail = "Not reachable"
     override val about = "About DelhiRaahi"
     override val aboutText = "Hackathon prototype. Timetable and live data: Delhi Transport open data. Crowding: modelled from October 2026 ONDC e-tickets. Tickets are demo only."
-    override val privacy = "Everything you save stays on this device."
+    override val privacy = "Saved places and recent trips stay on this device. Your account, wallet, tickets and passes are stored on the DelhiRaahi server."
     override val now = "Now"; override val addHome = "Add Home"; override val addWork = "Add Work"
     override val insights = "When are buses quiet?"; override val insightsSub = "Crowd patterns, busiest stretches"
     override val switchLang = "हिंदी में बदलें"; override val otherLang = "हिंदी"; override val locate = "Show my location"
@@ -112,7 +126,7 @@ object En : Strings {
     override val demoBanner = "DEMO TICKET — not valid for travel, no payment taken"; override val close = "Close"
     override val ticketTitle = "Ticket"; override val ticketActive = "Active · demo"; override val ticketExpired = "Expired"
     override fun validUntil(t: String) = "Valid until $t"; override fun passengersN(n: Int) = if (n == 1) "1 passenger" else "$n passengers"
-    override val verify = "Verify ticket"; override fun verified(status: String) = "Signature valid · $status"; override val notVerified = "Signature not valid"
+    override val verify = "Verify ticket"; override fun verified(status: String) = "Signature valid · " + when (status) { "active_demo" -> "active (demo)"; "expired" -> "expired"; "not_on_record" -> "not on record: do not accept"; else -> status }; override val notVerified = "Signature not valid"
     override val removeTicket = "Delete ticket"; override val storedOnDevice = "Tickets are stored only on this device."
     override val emptyHint = "Plan a trip and book a demo ticket."; override val planTrip = "Plan a trip"
     override val searchStop = "Search a stop"; override val nearbyStops = "Nearby stops"; override val allBuses = "All buses"
@@ -138,6 +152,44 @@ object En : Strings {
     override fun choosePlace(slot: String) = "Set $slot"; override val fromHere = "From your location"
     override fun fromStop(stop: String) = "From $stop"; override val notSet = "Not set"
     override val expand = "Expand panel"; override val collapse = "Collapse panel"
+    override val logIn = "Log in"; override val signUp = "Sign up"; override val createAccount = "Create account"
+    override val mobile = "Mobile number"; override val password = "Password"; override val yourName = "Your name"
+    override val showPassword = "Show password"; override val hidePassword = "Hide password"
+    override val passwordRule = "At least 8 characters, with a letter and a number."
+    override val noSmsNote = "Demo: your number is not verified by SMS."
+    override val guestTitle = "You are using DelhiRaahi as a guest"
+    override val guestSub = "Plan trips freely. Log in to book tickets, buy passes and keep them on your account."
+    override val loginToBook = "Log in to book this ticket"; override val loginToSeeTickets = "Log in to see your tickets and passes."
+    override val loginOrSignUp = "Log in or sign up"
+    override val wallet = "Wallet"; override val demoWallet = "DEMO wallet — no real money"; override val addMoney = "Add money"
+    override fun add(amount: Int) = "Add ₹$amount"; override val walletHistory = "History"; override val noHistory = "No transactions yet."
+    override fun txKind(kind: String) = when (kind) { "topup" -> "Added (demo)"; "ticket" -> "Ticket"; "pass" -> "Bus pass"; else -> kind }
+    override val topupNote = "Demo top-up: no payment is taken and the balance works only in this demo."
+    override fun balance(x: String) = "Balance $x"; override fun payFromWallet(x: String) = "Paid from your demo wallet (balance $x)"
+    override val passes = "Bus passes"; override val myPasses = "My passes"; override val buyPass = "Buy a pass"; override val noPasses = "No passes yet."
+    override val passTitle = "Bus pass"; override val officialPrice = "Official DTC fare"; override val unverifiedPrice = "Price not confirmed by DTC"
+    override fun checkedOn(d: String) = "Prices checked $d"; override fun buyFor(price: String) = "Buy for $price"
+    override fun holder(h: String) = "Holder $h"; override val source = "Source"; override val buying = "Buying…"
+    override val profile = "Profile"; override val womanTraveller = "Woman traveller"
+    override val womanTravellerSub = "Pre-fills free travel for women when booking (Delhi scheme)."
+    override val changePassword = "Change password"; override val currentPassword = "Current password"; override val newPassword = "New password"
+    override val save = "Save"; override val saved = "Saved"; override val logout = "Log out"; override val logoutSub = "Signs you out on all devices."
+    override val deleteAccount = "Delete account"
+    override val deleteWarn = "This permanently deletes your account, wallet history, tickets and passes. Enter your password to confirm."
+    override val cancel = "Cancel"; override val settings = "Settings"
+    override val help = "Help & feedback"
+    override val faq = listOf(
+        "Are these real tickets?" to "No. Tickets and passes are demos: not valid for travel and no money is taken.",
+        "Where do the crowd levels come from?" to "From October 2026 ONDC e-ticket data, per scheduled bus. They are an estimate, not a head count.",
+        "Why can I not take a screenshot of a ticket?" to "Tickets and passes belong to your account. Screenshots are blocked and each QR shows the holder's masked number.",
+        "Do I need an account?" to "No for planning trips, live buses and insights. Yes for booking tickets and buying passes.",
+    )
+    override val feedback = "Send feedback"; override val feedbackHint = "Tell us what to improve"; override val send = "Send"
+    override val thanks = "Thanks! Your feedback was sent."
+    override val privacyTitle = "Privacy"
+    override val privacyBody = "We store your name, mobile number, a hashed password, and your demo wallet, tickets and passes. No location is stored on our server. You can delete everything from this screen."
+    override val noScreenshots = "Screenshots are blocked on tickets and passes."
+    override val demoPass = "DEMO PASS — not valid for travel, no real money"; override val verifyPass = "Verify pass"
 }
 
 object Hi : Strings {
@@ -160,7 +212,7 @@ object Hi : Strings {
     override val test = "जाँचें"; override val serverOk = "जुड़ा हुआ"; override val serverFail = "संपर्क नहीं"
     override val about = "दिल्लीराही के बारे में"
     override val aboutText = "हैकथॉन प्रोटोटाइप। समय-सारणी और लाइव डेटा: दिल्ली परिवहन ओपन डेटा। भीड़: अक्टूबर 2026 के ONDC ई-टिकट से मॉडल किया गया। टिकट सिर्फ़ डेमो हैं।"
-    override val privacy = "आप जो सहेजते हैं वह इसी डिवाइस पर रहता है।"
+    override val privacy = "सहेजी जगहें और हाल की यात्राएँ इसी डिवाइस पर रहती हैं। आपका अकाउंट, वॉलेट, टिकट और पास दिल्लीराही सर्वर पर रखे जाते हैं।"
     override val now = "अभी"; override val addHome = "घर जोड़ें"; override val addWork = "ऑफ़िस जोड़ें"
     override val insights = "बसें कब खाली रहती हैं?"; override val insightsSub = "भीड़ के पैटर्न, सबसे व्यस्त हिस्से"
     override val switchLang = "Switch to English"; override val otherLang = "English"; override val locate = "मेरी लोकेशन दिखाएँ"
@@ -194,7 +246,7 @@ object Hi : Strings {
     override val demoBanner = "डेमो टिकट — यात्रा के लिए मान्य नहीं, कोई भुगतान नहीं लिया गया"; override val close = "बंद करें"
     override val ticketTitle = "टिकट"; override val ticketActive = "सक्रिय · डेमो"; override val ticketExpired = "समाप्त"
     override fun validUntil(t: String) = "$t तक मान्य"; override fun passengersN(n: Int) = "$n यात्री"
-    override val verify = "टिकट जाँचें"; override fun verified(status: String) = "हस्ताक्षर सही · $status"; override val notVerified = "हस्ताक्षर सही नहीं"
+    override val verify = "टिकट जाँचें"; override fun verified(status: String) = "हस्ताक्षर सही · " + when (status) { "active_demo" -> "चालू (डेमो)"; "expired" -> "समय खत्म"; "not_on_record" -> "रिकॉर्ड में नहीं: स्वीकार न करें"; else -> status }; override val notVerified = "हस्ताक्षर सही नहीं"
     override val removeTicket = "टिकट हटाएँ"; override val storedOnDevice = "टिकट सिर्फ़ इसी डिवाइस पर रखे जाते हैं।"
     override val emptyHint = "यात्रा खोजें और डेमो टिकट बुक करें।"; override val planTrip = "यात्रा खोजें"
     override val searchStop = "स्टॉप खोजें"; override val nearbyStops = "पास के स्टॉप"; override val allBuses = "सभी बसें"
@@ -220,6 +272,44 @@ object Hi : Strings {
     override fun choosePlace(slot: String) = "$slot चुनें"; override val fromHere = "आपकी लोकेशन से"
     override fun fromStop(stop: String) = "$stop से"; override val notSet = "तय नहीं"
     override val expand = "पैनल बड़ा करें"; override val collapse = "पैनल छोटा करें"
+    override val logIn = "लॉग इन"; override val signUp = "साइन अप"; override val createAccount = "अकाउंट बनाएँ"
+    override val mobile = "मोबाइल नंबर"; override val password = "पासवर्ड"; override val yourName = "आपका नाम"
+    override val showPassword = "पासवर्ड दिखाएँ"; override val hidePassword = "पासवर्ड छिपाएँ"
+    override val passwordRule = "कम से कम 8 अक्षर, जिसमें एक अक्षर और एक अंक हो।"
+    override val noSmsNote = "डेमो: आपका नंबर SMS से सत्यापित नहीं होता।"
+    override val guestTitle = "आप मेहमान के रूप में दिल्लीराही इस्तेमाल कर रहे हैं"
+    override val guestSub = "यात्रा खुलकर प्लान करें। टिकट बुक करने, पास खरीदने और उन्हें अकाउंट में रखने के लिए लॉग इन करें।"
+    override val loginToBook = "यह टिकट बुक करने के लिए लॉग इन करें"; override val loginToSeeTickets = "अपने टिकट और पास देखने के लिए लॉग इन करें।"
+    override val loginOrSignUp = "लॉग इन या साइन अप"
+    override val wallet = "वॉलेट"; override val demoWallet = "डेमो वॉलेट — असली पैसे नहीं"; override val addMoney = "पैसे जोड़ें"
+    override fun add(amount: Int) = "₹$amount जोड़ें"; override val walletHistory = "लेन-देन"; override val noHistory = "अभी कोई लेन-देन नहीं।"
+    override fun txKind(kind: String) = when (kind) { "topup" -> "जोड़े गए (डेमो)"; "ticket" -> "टिकट"; "pass" -> "बस पास"; else -> kind }
+    override val topupNote = "डेमो टॉप-अप: कोई भुगतान नहीं लिया जाता और यह बैलेंस सिर्फ़ इस डेमो में चलता है।"
+    override fun balance(x: String) = "बैलेंस $x"; override fun payFromWallet(x: String) = "आपके डेमो वॉलेट से भुगतान (बैलेंस $x)"
+    override val passes = "बस पास"; override val myPasses = "मेरे पास"; override val buyPass = "पास खरीदें"; override val noPasses = "अभी कोई पास नहीं।"
+    override val passTitle = "बस पास"; override val officialPrice = "DTC का आधिकारिक किराया"; override val unverifiedPrice = "कीमत DTC से पुष्ट नहीं"
+    override fun checkedOn(d: String) = "कीमतें $d को जाँची गईं"; override fun buyFor(price: String) = "$price में खरीदें"
+    override fun holder(h: String) = "धारक $h"; override val source = "स्रोत"; override val buying = "खरीद रहे हैं…"
+    override val profile = "प्रोफ़ाइल"; override val womanTraveller = "महिला यात्री"
+    override val womanTravellerSub = "बुकिंग में महिलाओं की मुफ़्त यात्रा पहले से भर देता है (दिल्ली योजना)।"
+    override val changePassword = "पासवर्ड बदलें"; override val currentPassword = "मौजूदा पासवर्ड"; override val newPassword = "नया पासवर्ड"
+    override val save = "सहेजें"; override val saved = "सहेजा गया"; override val logout = "लॉग आउट"; override val logoutSub = "सभी डिवाइस से लॉग आउट करता है।"
+    override val deleteAccount = "अकाउंट मिटाएँ"
+    override val deleteWarn = "इससे आपका अकाउंट, वॉलेट का इतिहास, टिकट और पास हमेशा के लिए मिट जाएँगे। पुष्टि के लिए पासवर्ड डालें।"
+    override val cancel = "रद्द करें"; override val settings = "सेटिंग्स"
+    override val help = "मदद और सुझाव"
+    override val faq = listOf(
+        "क्या ये असली टिकट हैं?" to "नहीं। टिकट और पास डेमो हैं: यात्रा के लिए मान्य नहीं और कोई पैसा नहीं लिया जाता।",
+        "भीड़ का अनुमान कहाँ से आता है?" to "अक्टूबर 2026 के ONDC ई-टिकट डेटा से, हर निर्धारित बस के हिसाब से। यह अनुमान है, गिनती नहीं।",
+        "टिकट का स्क्रीनशॉट क्यों नहीं ले सकते?" to "टिकट और पास आपके अकाउंट के हैं। स्क्रीनशॉट बंद हैं और हर QR में धारक का छिपा हुआ नंबर होता है।",
+        "क्या अकाउंट ज़रूरी है?" to "यात्रा प्लान करने, लाइव बसें और जानकारी देखने के लिए नहीं। टिकट बुक करने और पास खरीदने के लिए हाँ।",
+    )
+    override val feedback = "सुझाव भेजें"; override val feedbackHint = "बताइए क्या बेहतर करें"; override val send = "भेजें"
+    override val thanks = "धन्यवाद! आपका सुझाव भेज दिया गया।"
+    override val privacyTitle = "निजता"
+    override val privacyBody = "हम आपका नाम, मोबाइल नंबर, हैश किया हुआ पासवर्ड और आपका डेमो वॉलेट, टिकट और पास रखते हैं। आपकी लोकेशन हमारे सर्वर पर नहीं रखी जाती। आप इसी स्क्रीन से सब कुछ मिटा सकते हैं।"
+    override val noScreenshots = "टिकट और पास पर स्क्रीनशॉट बंद हैं।"
+    override val demoPass = "डेमो पास — यात्रा के लिए मान्य नहीं, असली पैसे नहीं"; override val verifyPass = "पास जाँचें"
 }
 
 fun stringsFor(lang: Lang): Strings = if (lang == Lang.HI) Hi else En

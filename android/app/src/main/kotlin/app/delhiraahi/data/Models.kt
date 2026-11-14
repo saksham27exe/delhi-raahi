@@ -163,6 +163,7 @@ data class DemoTicket(
     val legs: List<TicketLeg> = emptyList(),
     val qr_payload: String,
     val watermark: Map<String, String> = emptyMap(),
+    val holder: String? = null,
 )
 
 @Serializable
@@ -244,3 +245,71 @@ data class Hotspot(
 
 @Serializable
 data class HotspotsResponse(val segments: List<Hotspot> = emptyList())
+
+// K5: accounts, DEMO wallet, passes
+@Serializable
+data class User(
+    val id: Int,
+    val phone: String,
+    val phone_masked: String = "",
+    val name: String = "",
+    val woman_traveller: Boolean = false,
+)
+
+@Serializable
+data class AuthResponse(val token: String, val user: User)
+
+@Serializable
+data class MeResponse(val user: User, val wallet_balance: Double = 0.0)
+
+@Serializable
+data class UserResponse(val user: User)
+
+@Serializable
+data class TokenResponse(val token: String)
+
+@Serializable
+data class OkResponse(val ok: Boolean = true, val deleted: Boolean = false)
+
+@Serializable
+data class WalletTx(val kind: String, val amount: Double, val balance_after: Double = 0.0, val ref: String? = null, val created_at: String = "")
+
+@Serializable
+data class Wallet(val balance: Double = 0.0, val transactions: List<WalletTx> = emptyList())
+
+@Serializable
+data class MyTickets(val tickets: List<DemoTicket> = emptyList())
+
+@Serializable
+data class DemoPass(
+    val pass_id: String,
+    val kind: String,
+    val bus_type: String,
+    val price: Double = 0.0,
+    val price_verified: Boolean = false,
+    val holder: String? = null,
+    val issued_at: String,
+    val valid_until: String,
+    val qr_payload: String,
+    val watermark: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class MyPasses(val passes: List<DemoPass> = emptyList())
+
+@Serializable
+data class PassType(
+    val kind: String,
+    val name: Map<String, String> = emptyMap(),
+    val price: Map<String, Double> = emptyMap(),
+    val validity: Map<String, String> = emptyMap(),
+    val verified: Boolean = false,
+    val sources: List<String> = emptyList(),
+)
+
+@Serializable
+data class PassCatalog(
+    val checked_on: String = "",
+    val coverage: Map<String, Map<String, String>> = emptyMap(),
+    val passes: List<PassType> = emptyList(),
+)

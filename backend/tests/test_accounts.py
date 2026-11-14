@@ -72,6 +72,7 @@ def test_api_account_flow(client):  # noqa: F811
     client.post("/api/v1/wallet/topup", json={"amount": 100}, headers=h)
     p = client.post("/api/v1/passes/buy", json={"kind": "daily", "bus_type": "ac"}, headers=h).json()
     assert p["pass_id"].startswith("PASS-") and p["price"] == 50 and p["holder"] == "XXXXXX3210"
+    assert "DEMO PASS" in p["watermark"]["en"] and "not valid for travel" in p["watermark"]["en"]
     assert client.post("/api/v1/passes/buy", json={"kind": "monthly", "bus_type": "ac"}, headers=h).status_code == 402
     t = client.post("/api/v1/tickets/book", json=LEG, headers=h).json()
     assert [x["pass_id"] for x in client.get("/api/v1/passes/mine", headers=h).json()["passes"]] == [p["pass_id"]]

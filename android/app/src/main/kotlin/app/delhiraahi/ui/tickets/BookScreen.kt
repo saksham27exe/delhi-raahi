@@ -53,7 +53,9 @@ import app.delhiraahi.data.ApiException
 import app.delhiraahi.data.DemoTicket
 import app.delhiraahi.data.LegRef
 import app.delhiraahi.data.Quote
-import app.delhiraahi.data.TicketStore
+import app.delhiraahi.data.SessionViewModel
+import app.delhiraahi.ui.account.money
+import app.delhiraahi.ui.trip.SecondaryButton
 import app.delhiraahi.data.TripViewModel
 import app.delhiraahi.i18n.LocalStrings
 import app.delhiraahi.ui.common.RoutePill
@@ -67,7 +69,7 @@ import kotlinx.coroutines.launch
 
 /** Demo booking card over a dimmed background. Total always comes from the server quote. */
 @Composable
-fun BookScreen(trip: TripViewModel, index: Int, store: TicketStore, onClose: () -> Unit, onBooked: (DemoTicket) -> Unit) {
+fun BookScreen(trip: TripViewModel, index: Int, session: SessionViewModel, onClose: () -> Unit, onBooked: (DemoTicket) -> Unit, onWallet: () -> Unit) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val scope = rememberCoroutineScope()
@@ -77,12 +79,15 @@ fun BookScreen(trip: TripViewModel, index: Int, store: TicketStore, onClose: () 
     val needsType = remember(j) { j.legs.map { (it.fare?.bus_type ?: "unknown") !in listOf("ac", "non_ac") } }
     var chosenType by remember { mutableStateOf("ac") }
     var passengers by remember { mutableIntStateOf(1) }
-    var women by remember { mutableIntStateOf(0) }
+    // Profile setting "woman traveller" pre-fills one free (women) passenger; it can still be changed.
+    var women by remember { mutableIntStateOf(if (session.user?.woman_traveller == true) 1 else 0) }
+    var needMoney by remember { mutableStateOf(false) }
     var quote by remember { mutableStateOf<Quote?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var booking by remember { mutableStateOf(false) }
     val busTypes = if (needsType.any { it }) needsType.map { if (it) chosenType else null } else null
 
+    LaunchedEffect(Unit) { session.refreshWallet() }
     LaunchedEffect(passengers, women, chosenType) {
         delay(150)
         runCatching { Api.quote(legs, passengers, women, busTypes) }
@@ -131,13 +136,19 @@ fun BookScreen(trip: TripViewModel, index: Int, store: TicketStore, onClose: () 
                 if (q == null && error == null) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = t.text)
                 else if (q != null) Text("₹${if (q.total % 1.0 == 0.0) q.total.toInt().toString() else "%.1f".format(q.total)}", style = MaterialTheme.typography.headlineSmall, color = t.text)
             }
+            session.wallet?.let { Text(s.payFromWallet(money(it.balance)), style = MaterialTheme.typography.bodyMedium, color = t.muted) }
             if (error != null) Text(error!!, color = t.veryHigh.fg, style = MaterialTheme.typography.bodyMedium)
+            if (needMoney) SecondaryButton(s.addMoney, onClick = onWallet)
             PrimaryButton(if (booking) s.confirming else s.confirmDemo, enabled = quote != null && !booking) {
-                booking = true
+                booking = true; needMoney = false
                 scope.launch {
                     runCatching { Api.book(legs, passengers, women, busTypes) }
-                        .onSuccess { tk -> store.add(tk); onBooked(tk) }
-                        .onFailure { error = if (it is ApiException && it.status == 0) s.errNetwork else it.message; booking = false }
+                        .onSuccess { tk -> session.onBooked(tk); onBooked(tk) }
+                        .onFailure {
+                            error = if (it is ApiException && it.status == 0) s.errNetwork else it.message
+                            needMoney = it is ApiException && it.status == 402
+                            booking = false
+                        }
                 }
             }
         }

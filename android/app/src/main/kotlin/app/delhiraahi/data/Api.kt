@@ -33,6 +33,12 @@ object Api {
         base = custom?.trim()?.trimEnd('/')?.takeIf { it.toHttpUrlOrNull() != null } ?: defaultBase
     }
 
+    /** Login token for the signed-in user; null for guests. Never logged. */
+    @Volatile
+    var token: String? = null
+
+    private fun Request.Builder.auth(): Request.Builder = apply { token?.let { header("Authorization", "Bearer $it") } }
+
     val json = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
 
     private val client = OkHttpClient.Builder()
@@ -52,7 +58,7 @@ object Api {
                 query.forEach { (k, v) -> if (v != null) addQueryParameter(k, v.toString()) }
             }?.build() ?: throw ApiException(0, "bad server address")
             val response = try {
-                client.newCall(Request.Builder().url(url).get().build()).execute()
+                client.newCall(Request.Builder().url(url).auth().get().build()).execute()
             } catch (e: IOException) {
                 throw ApiException(0, "network")
             }
@@ -63,10 +69,10 @@ object Api {
             }
         }
 
-    private suspend inline fun <reified T> post(path: String, body: JsonObject, timeoutMs: Long = 45_000): T =
+    private suspend inline fun <reified T> post(path: String, body: JsonObject, timeoutMs: Long = 45_000, method: String = "POST"): T =
         withContext(Dispatchers.IO) {
             val url = "$base/api/v1$path".toHttpUrlOrNull() ?: throw ApiException(0, "bad server address")
-            val req = Request.Builder().url(url).post(body.toString().toRequestBody("application/json".toMediaType())).build()
+            val req = Request.Builder().url(url).auth().method(method, body.toString().toRequestBody("application/json".toMediaType())).build()
             val call = client.newBuilder().readTimeout(timeoutMs, TimeUnit.MILLISECONDS).build().newCall(req)
             val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
             response.use {
@@ -97,6 +103,27 @@ object Api {
         get("/live/vehicles", mapOf("route_id" to routeId, "bbox" to bbox))
 
     suspend fun health(): Health = get("/health")
+
+    // ---- Accounts, DEMO wallet, passes ----
+    suspend fun register(phone: String, password: String, name: String): AuthResponse =
+        post("/auth/register", buildJsonObject { put("phone", phone); put("password", password); put("name", name) })
+    suspend fun login(phone: String, password: String): AuthResponse =
+        post("/auth/login", buildJsonObject { put("phone", phone); put("password", password) })
+    suspend fun logout(): OkResponse = post("/auth/logout", buildJsonObject { })
+    suspend fun me(): MeResponse = get("/me")
+    suspend fun updateMe(name: String? = null, womanTraveller: Boolean? = null): UserResponse =
+        post("/me", buildJsonObject { name?.let { put("name", it) }; womanTraveller?.let { put("woman_traveller", it) } }, method = "PATCH")
+    suspend fun changePassword(old: String, new: String): TokenResponse =
+        post("/me/password", buildJsonObject { put("old_password", old); put("new_password", new) })
+    suspend fun deleteAccount(password: String): OkResponse = post("/me/delete", buildJsonObject { put("password", password) })
+    suspend fun wallet(): Wallet = get("/wallet")
+    suspend fun topup(amount: Int): Wallet = post("/wallet/topup", buildJsonObject { put("amount", amount) })
+    suspend fun myTickets(): MyTickets = get("/tickets/mine")
+    suspend fun passCatalog(): PassCatalog = get("/passes/catalog")
+    suspend fun myPasses(): MyPasses = get("/passes/mine")
+    suspend fun buyPass(kind: String, busType: String): DemoPass =
+        post("/passes/buy", buildJsonObject { put("kind", kind); put("bus_type", busType) })
+    suspend fun feedback(text: String): OkResponse = post("/feedback", buildJsonObject { put("text", text) })
     suspend fun searchRoutes(q: String): RouteSearchResponse = get("/routes/search", mapOf("q" to q))
     suspend fun routeDay(routeId: String, date: String): RouteDay =
         get("/crowd/route/${java.net.URLEncoder.encode(routeId, "UTF-8")}", mapOf("date" to date))

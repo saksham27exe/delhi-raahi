@@ -14,7 +14,7 @@ import java.util.Locale
 
 private val Context.ticketData by preferencesDataStore(name = "tickets")
 
-/** Demo tickets live only on this device (newest first, max 50). */
+/** Cache of the signed-in account's demo tickets (newest first, max 50); cleared on log out. */
 class TicketStore(private val context: Context) {
     private val key = stringPreferencesKey("tickets_json")
 
@@ -31,6 +31,9 @@ class TicketStore(private val context: Context) {
 
     suspend fun add(t: DemoTicket) = write { (listOf(t) + it.filter { x -> x.ticket_id != t.ticket_id }).take(50) }
     suspend fun remove(id: String) = write { it.filter { x -> x.ticket_id != id } }
+    /** Replace the cache with the account's tickets (server is the source of truth when logged in). */
+    suspend fun replaceAll(list: List<DemoTicket>) = write { list.take(50) }
+    suspend fun clear() = write { emptyList() }
 }
 
 fun DemoTicket.isExpired(): Boolean = runCatching { OffsetDateTime.parse(valid_until).isBefore(OffsetDateTime.now()) }.getOrDefault(false)
@@ -43,3 +46,5 @@ fun formatDelhi(iso: String, lang: Lang): String = runCatching {
         "${t.dayOfMonth} ${months[t.monthValue - 1]}, ${t.format(HHMM)}"
     } else t.format(DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.ENGLISH))
 }.getOrDefault(iso)
+
+fun isPast(iso: String): Boolean = runCatching { OffsetDateTime.parse(iso).isBefore(OffsetDateTime.now()) }.getOrDefault(false)

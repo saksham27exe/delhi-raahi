@@ -45,7 +45,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import android.net.Uri
-import app.delhiraahi.data.TicketStore
+import app.delhiraahi.data.SessionViewModel
+import app.delhiraahi.ui.account.AuthScreen
+import app.delhiraahi.ui.account.HelpScreen
+import app.delhiraahi.ui.account.PassScreen
+import app.delhiraahi.ui.account.PassesScreen
+import app.delhiraahi.ui.account.WalletScreen
 import app.delhiraahi.data.PlacesStore
 import app.delhiraahi.data.Places
 import app.delhiraahi.data.Slot
@@ -96,7 +101,9 @@ fun App(settings: Settings, store: SettingsStore) {
     val current = entry?.destination?.route
     val trip: TripViewModel = viewModel()
     val ctx = LocalContext.current
-    val tickets = remember { TicketStore(ctx.applicationContext) }
+    val session: SessionViewModel = viewModel()
+    val tickets = session.tickets
+    val login: (String?) -> Unit = { next -> nav.navigate("auth" + (next?.let { "?next=${Uri.encode(it)}" } ?: "")) }
     val placesStore = remember { PlacesStore(ctx.applicationContext) }
     val places by placesStore.places.collectAsState(initial = Places())
     // Remember each successful search (on this device only).
@@ -134,7 +141,8 @@ fun App(settings: Settings, store: SettingsStore) {
             }
             composable("live") { LiveScreen(onOpenStop = { openStop(it, null) }) }
             composable("tickets") {
-                TicketsScreen(tickets, settings.lang, onOpen = { nav.navigate("ticket/${Uri.encode(it)}") }, onPlan = { nav.navigate("search") })
+                TicketsScreen(session, settings.lang, onOpen = { nav.navigate("ticket/${Uri.encode(it)}") }, onPlan = { nav.navigate("search") },
+                    onLogin = { login(null) })
             }
             composable("ticket/{id}") { e ->
                 TicketScreen(tickets, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() })
@@ -144,16 +152,31 @@ fun App(settings: Settings, store: SettingsStore) {
             }
             dialog("book/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType }),
                 dialogProperties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) { e ->
-                BookScreen(trip, e.arguments?.getInt("idx") ?: 0, tickets, onClose = { nav.popBackStack() }, onBooked = { tk ->
+                BookScreen(trip, e.arguments?.getInt("idx") ?: 0, session, onClose = { nav.popBackStack() }, onBooked = { tk ->
                     nav.navigate("ticket/${Uri.encode(tk.ticket_id)}") { popUpTo("home") }
-                })
+                }, onWallet = { nav.navigate("wallet") })
             }
             composable("account") {
-                AccountScreen(settings = settings, store = store, places = places,
+                AccountScreen(settings = settings, store = store, session = session, places = places,
+                    onLogin = { login(null) }, onWallet = { nav.navigate("wallet") }, onPasses = { nav.navigate("passes") },
+                    onHelp = { nav.navigate("help") },
                     onSetPlace = { nav.navigate("pickplace/${it.name}") },
                     onRemovePlace = { scope.launch { placesStore.set(it, null) } },
                     onInsights = { nav.navigate("insights") })
             }
+            composable("auth?next={next}", arguments = listOf(navArgument("next") { type = NavType.StringType; nullable = true; defaultValue = null })) { e ->
+                val next = e.arguments?.getString("next")
+                AuthScreen(session, reason = if (next?.startsWith("book/") == true) s.loginToBook else null,
+                    onBack = { nav.popBackStack() },
+                    onDone = { nav.popBackStack(); next?.let { nav.navigate(it) } })
+            }
+            composable("wallet") { WalletScreen(session, settings.lang, onBack = { nav.popBackStack() }) }
+            composable("passes") {
+                PassesScreen(session, settings.lang, onBack = { nav.popBackStack() },
+                    onOpen = { nav.navigate("pass/${Uri.encode(it)}") }, onWallet = { nav.navigate("wallet") })
+            }
+            composable("pass/{id}") { e -> PassScreen(session, e.arguments?.getString("id").orEmpty(), settings.lang, onBack = { nav.popBackStack() }) }
+            composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
             composable("insights") { InsightsScreen(settings.lang, onBack = { nav.popBackStack() }) }
             composable("pickplace/{slot}") { e ->
                 val slot = runCatching { Slot.valueOf(e.arguments?.getString("slot").orEmpty()) }.getOrDefault(Slot.HOME)
@@ -170,7 +193,7 @@ fun App(settings: Settings, store: SettingsStore) {
             composable("journey/{idx}", arguments = listOf(navArgument("idx") { type = NavType.IntType })) { e ->
                 val idx = e.arguments?.getInt("idx") ?: 0
                 JourneyScreen(trip, idx, settings.lang, onBack = { nav.popBackStack() },
-                    onBook = { nav.navigate("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) })
+                    onBook = { if (session.loggedIn) nav.navigate("book/$idx") else login("book/$idx") }, onTrack = { stop, route -> openStop(stop, route) })
             }
         }
         if (showTabs) {
