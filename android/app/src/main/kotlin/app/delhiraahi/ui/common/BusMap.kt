@@ -51,7 +51,34 @@ private const val STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-
 val DELHI_CENTER = LatLng(28.6315, 77.2167)
 
 /** A route line: bus legs in crowd colours, walks as thin grey. */
-data class MapLine(val points: List<Pair<Double, Double>>, val color: Int, val widthDp: Float = 5f)
+data class MapLine(val points: List<Pair<Double, Double>>, val color: Int, val widthDp: Float = 5f, val dashed: Boolean = false)
+
+/** Split a path into short dashes (metres) so walks read as dotted, unlike bus lines. */
+private fun dashes(pts: List<Pair<Double, Double>>, dashM: Double, gapM: Double): List<List<LatLng>> {
+    val out = mutableListOf<List<LatLng>>()
+    var cur = mutableListOf<LatLng>()
+    var drawing = true
+    var left = dashM
+    for (i in 0 until pts.size - 1) {
+        val (la, lo) = pts[i]; val (lb, lob) = pts[i + 1]
+        val kx = 111_320.0 * kotlin.math.cos(Math.toRadians(la))
+        val segLen = kotlin.math.hypot((lob - lo) * kx, (lb - la) * 110_540.0)
+        var pos = 0.0
+        if (drawing && cur.isEmpty()) cur.add(LatLng(la, lo))
+        while (segLen - pos > left) {
+            pos += left
+            val f = pos / segLen
+            val p = LatLng(la + (lb - la) * f, lo + (lob - lo) * f)
+            if (drawing) { cur.add(p); out += cur; cur = mutableListOf() } else cur = mutableListOf(p)
+            drawing = !drawing
+            left = if (drawing) dashM else gapM
+        }
+        left -= segLen - pos
+        if (drawing) cur.add(LatLng(lb, lob))
+    }
+    if (drawing && cur.size >= 2) out += cur
+    return out
+}
 
 data class MapPin(val id: String, val lat: Double, val lon: Double, val title: String, val kind: Kind = Kind.STOP) {
     enum class Kind { STOP, BUS, FROM, TO }
@@ -121,6 +148,8 @@ fun BusMap(
     val idleCb by rememberUpdatedState(onCameraIdle)
     val pinCb by rememberUpdatedState(onPinClick)
     var style by remember { mutableStateOf<Style?>(null) }
+    // Whole-number zoom: dashed walks are re-cut when it changes so dashes keep a fixed on-screen size.
+    var zoomStep by remember { mutableStateOf(12) }
     val icons = remember {
         mapOf(
             MapPin.Kind.STOP to dotIcon(ctx, 0xFF000000.toInt(), 22),
@@ -164,6 +193,7 @@ fun BusMap(
             m.addOnCameraIdleListener {
                 val b = m.projection.visibleRegion.latLngBounds
                 idleCb?.invoke("${b.latitudeSouth},${b.longitudeWest},${b.latitudeNorth},${b.longitudeEast}", m.cameraPosition.zoom)
+                zoomStep = m.cameraPosition.zoom.toInt()
             }
         }
     }
@@ -181,12 +211,16 @@ fun BusMap(
     }
 
     // Lines + pins (annotations are cleared and redrawn together)
-    LaunchedEffect(map, style, pins, lines) {
+    LaunchedEffect(map, style, pins, lines, zoomStep) {
         val m = map ?: return@LaunchedEffect
         if (style == null) return@LaunchedEffect
         m.clear()
         lines.forEach { l ->
-            if (l.points.size >= 2) m.addPolyline(PolylineOptions().addAll(l.points.map { LatLng(it.first, it.second) }).color(l.color).width(l.widthDp))
+            if (l.points.size < 2) return@forEach
+            // metres per dp at this zoom (512-px tiles): dash 6 dp, gap 5 dp
+            val mPerDp = 40_075_016.0 * kotlin.math.cos(Math.toRadians(l.points[0].first)) / (512 * Math.pow(2.0, zoomStep + 0.5))
+            if (l.dashed) dashes(l.points, 6 * mPerDp, 5 * mPerDp).forEach { d -> m.addPolyline(PolylineOptions().addAll(d).color(l.color).width(l.widthDp)) }
+            else m.addPolyline(PolylineOptions().addAll(l.points.map { LatLng(it.first, it.second) }).color(l.color).width(l.widthDp))
         }
         val byMarker = pins.associateBy { pin ->
             m.addMarker(MarkerOptions().position(LatLng(pin.lat, pin.lon)).title(pin.title).icon(icons.getValue(pin.kind))).id

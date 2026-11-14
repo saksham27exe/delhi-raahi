@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -17,6 +18,7 @@ from app.services.crowd_service import CATEGORIES, CrowdService
 
 IST = ZoneInfo("Asia/Kolkata")
 ACCESS_RADIUS_M = 600
+MAX_ACCESS_RADIUS_M = 1500
 DETOUR = 1.3
 
 
@@ -24,7 +26,12 @@ MAX_SCORED_CANDIDATES = 60
 
 
 class PlaceError(ValueError):
-    pass
+    def __init__(self, message: str, code: str = "invalid_place", radius_m: int | None = None):
+        super().__init__(message)
+        self.code, self.radius_m = code, radius_m
+
+    def detail(self) -> dict:
+        return {"message": str(self), "code": self.code, "radius_m": self.radius_m}
 
 
 def ci_category(ci: float | None) -> str:
@@ -39,8 +46,9 @@ def hhmm(sec: float) -> str:
 
 
 class JourneyService:
-    def __init__(self, net: Network, crowd: CrowdService | None, fares=None):
+    def __init__(self, net: Network, crowd: CrowdService | None, fares=None, geo=None):
         self.net = net
+        self.geo = geo    # OsmGeo | None: real walking distances/paths for coordinate places
         self.fares = fares  # FareService | None
         self.search_engine = JourneySearch(net)
         self.crowd = crowd
@@ -74,7 +82,7 @@ class JourneyService:
     def _routes_at(self, stop_ids: list[str]) -> int:
         return len({self.net.patterns[k].route_id for s in stop_ids for k, _ in self.net.stop_patterns.get(s, [])})
 
-    def resolve(self, place: dict) -> tuple[list[tuple[str, float]], dict]:
+    def resolve(self, place: dict, radius_m: int = ACCESS_RADIUS_M) -> tuple[list[tuple[str, float]], dict]:
         """place: {'type':'stop','id':..} | {'type':'stop_name','name':..} | {'type':'coord','lat':..,'lon':..}"""
         t = place.get("type")
         if t == "stop":
@@ -97,8 +105,9 @@ class JourneyService:
             ids = []
         else:
             raise PlaceError("place.type must be 'stop', 'stop_name' or 'coord'.")
-        near = self.net.nearby_stops(lat, lon, ACCESS_RADIUS_M, limit=12)
+        near = self.net.nearby_stops(lat, lon, radius_m, limit=12)
         access: dict[str, float] = {}
+        basis = "straight_line_estimate"
         for sid in ids:  # same-name stops (both kerbs) get their real walking distance from the centroid
             r = self.net.stops.loc[sid]
             access[sid] = float(haversine_m(lat, lon, r["stop_lat"], r["stop_lon"]) * DETOUR / WALK_SPEED_MPS) if t != "stop" else 0.0
@@ -106,19 +115,29 @@ class JourneyService:
             w = r.distance_m * DETOUR / WALK_SPEED_MPS
             if r.stop_id not in access:
                 access[r.stop_id] = w
+        if t == "coord" and self.geo is not None and access:
+            sids = list(access)
+            pts = [(float(self.net.stops.at[s, "stop_lat"]), float(self.net.stops.at[s, "stop_lon"])) for s in sids]
+            dist = self.geo.walk_distances(lat, lon, pts)
+            if dist is not None and any(x is not None for x in dist):
+                basis = "osm_road"
+                access = {s: x / WALK_SPEED_MPS for s, x in zip(sids, dist)
+                          if x is not None and x <= radius_m * 1.6}   # drop stops that are far by road (river, rail line)
         if not access:
-            raise PlaceError(f"No bus stop within {ACCESS_RADIUS_M} m of {name}.")
+            raise PlaceError(f"No bus stop within {radius_m} m of {name}.", "no_stop_nearby", radius_m)
         items = sorted(access.items(), key=lambda x: x[1])[:10]
-        return items, {"name": name, "lat": float(lat), "lon": float(lon), "candidate_stops": len(items)}
+        return items, {"name": name, "lat": float(lat), "lon": float(lon), "candidate_stops": len(items),
+                       "type": t, "radius_m": radius_m, "walk_basis": basis}
 
     # ---- journeys ------------------------------------------------------------------
     def plan(self, origin: dict, destination: dict, when: datetime, preference: str = "balanced",
-             max_transfers: int = 1) -> dict:
+             max_transfers: int = 1, radius_m: int = ACCESS_RADIUS_M, with_paths: bool = True) -> dict:
         if preference not in CONFIG["modes"]:
             raise PlaceError(f"preference must be one of {list(CONFIG['modes'])}")
         when = when.astimezone(IST) if when.tzinfo else when.replace(tzinfo=IST)
-        o, o_info = self.resolve(origin)
-        dd, d_info = self.resolve(destination)
+        radius_m = int(min(max(radius_m, 200), MAX_ACCESS_RADIUS_M))
+        o, o_info = self.resolve(origin, radius_m)
+        dd, d_info = self.resolve(destination, radius_m)
         d = when.date()
         t0 = when.hour * 3600 + when.minute * 60 + when.second
         cands = prune_candidates(self.search_engine.search(o, dd, d, t0, max_transfers))
@@ -133,11 +152,18 @@ class JourneyService:
                 notes.append(f"Crowd estimates for {d.isoformat()} use the recurring {d.strftime('%A')} pattern "
                              f"learned from data up to {self.crowd.forecasts.window_end}.")
         notes.append("Times are GTFS scheduled times, not live arrivals.")
+        journeys = [self._public(j) for j in ranked]
+        for info in (o_info, d_info):
+            if info["type"] == "coord" and info["walk_basis"] != "osm_road":
+                notes.append(f"Walking times to and from {info['name']} are straight-line estimates "
+                             "(walking-route service unavailable).")
+        if with_paths:
+            self._attach_walk_paths(journeys, o_info, d_info)
         return {
             "search_id": uuid.uuid4().hex[:12],
             "query": {"origin": o_info, "destination": d_info, "departure": when.isoformat(),
                       "preference": preference, "max_transfers": max_transfers},
-            "journeys": [self._public(j) for j in ranked],
+            "journeys": journeys,
             "candidates_considered": len(cands),
             "notes": notes,
             "metric": {"name": "demand_per_scheduled_departure",
@@ -146,12 +172,12 @@ class JourneyService:
         }
 
     def advise(self, origin: dict, destination: dict, when: datetime, preference: str = "balanced",
-               offsets_min: tuple[int, ...] = (-30, -15, 0, 15, 30, 45, 60)) -> dict:
+               offsets_min: tuple[int, ...] = (-30, -15, 0, 15, 30, 45, 60), radius_m: int = ACCESS_RADIUS_M) -> dict:
         when = when.astimezone(IST) if when.tzinfo else when.replace(tzinfo=IST)
         rows = []
         for off in offsets_min:
             t = when + timedelta(minutes=off)
-            res = self.plan(origin, destination, t, preference)
+            res = self.plan(origin, destination, t, preference, radius_m=radius_m, with_paths=False)
             js = res["journeys"]
             if not js:
                 rows.append({"offset_min": off, "departure": t.isoformat(), "available": False})
@@ -176,6 +202,44 @@ class JourneyService:
             else:
                 rec = {"offset_min": 0, "reason": "No nearby departure time is meaningfully less crowded without a much longer trip."}
         return {"departures": rows, "recommendation": rec}
+
+    # ---- walking paths --------------------------------------------------------------
+    def _stop_pt(self, sid: str) -> tuple[float, float]:
+        return float(self.net.stops.at[sid, "stop_lat"]), float(self.net.stops.at[sid, "stop_lon"])
+
+    def _attach_walk_paths(self, journeys: list[dict], o_info: dict, d_info: dict) -> None:
+        """Road walking paths origin -> first board stop and last alight stop -> destination (coordinate places only)."""
+        for j in journeys:
+            j["walk"]["basis"] = {"origin": o_info["walk_basis"] if o_info["type"] == "coord" else "stop",
+                                  "destination": d_info["walk_basis"] if d_info["type"] == "coord" else "stop"}
+            j["walk"]["origin_path"] = j["walk"]["destination_path"] = None
+        if self.geo is None or not journeys:
+            return
+        jobs: dict[tuple, tuple] = {}
+        for j in journeys:
+            if not j["legs"]:
+                continue
+            if o_info["type"] == "coord" and o_info["walk_basis"] == "osm_road":
+                b = self._stop_pt(j["legs"][0]["board_stop_id"])
+                jobs.setdefault(("o", b), ((o_info["lat"], o_info["lon"]), b))
+            if d_info["type"] == "coord" and d_info["walk_basis"] == "osm_road":
+                a = self._stop_pt(j["legs"][-1]["alight_stop_id"])
+                jobs.setdefault(("d", a), (a, (d_info["lat"], d_info["lon"])))
+        if not jobs:
+            return
+        with ThreadPoolExecutor(max_workers=min(6, len(jobs))) as ex:
+            res = dict(zip(jobs, ex.map(lambda ab: self.geo.walk_path(*ab), jobs.values())))
+        for j in journeys:
+            if not j["legs"]:
+                continue
+            o = res.get(("o", self._stop_pt(j["legs"][0]["board_stop_id"])))
+            d = res.get(("d", self._stop_pt(j["legs"][-1]["alight_stop_id"])))
+            j["walk"]["origin_path"] = o["path"] if o else None
+            j["walk"]["destination_path"] = d["path"] if d else None
+            if o:
+                j["walk"]["origin_m"] = round(o["distance_m"])
+            if d:
+                j["walk"]["destination_m"] = round(d["distance_m"])
 
     # ---- internals ----------------------------------------------------------------
     def _score(self, c: Candidate, d: date) -> ScoredJourney:

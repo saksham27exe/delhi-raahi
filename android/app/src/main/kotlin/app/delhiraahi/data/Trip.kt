@@ -29,6 +29,7 @@ data class PickedPlace(val label: String, val stopName: String? = null, val lat:
     companion object {
         fun stop(h: StopHit) = PickedPlace(h.name, stopName = h.name, lat = h.lat, lon = h.lon)
         fun here(label: String, lat: Double, lon: Double) = PickedPlace(label, lat = lat, lon = lon)
+        fun place(h: PlaceHit) = PickedPlace(h.name, lat = h.lat, lon = h.lon)
     }
 }
 
@@ -69,20 +70,25 @@ class TripViewModel : ViewModel() {
     var result by mutableStateOf<Load<JourneyResult>>(Load.Idle)
         private set
     var selected by mutableIntStateOf(0)
+    /** Longest straight-line walk to a boarding stop; raised to 1500 m when nothing is nearer. */
+    var radiusM by mutableIntStateOf(600)
+        private set
     private var job: Job? = null
 
-    fun search() {
+    fun search(radius: Int = 600) {
         val f = from ?: return
         val t = to ?: return
         job?.cancel()
         result = Load.Loading
         selected = 0
+        radiusM = radius
         val departure = leaveAt.resolve().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         val body = buildJsonObject {
             put("origin", f.toJson())
             put("destination", t.toJson())
             put("departure_datetime", departure)
             put("preference", preference.wire)
+            put("access_radius_m", radius)
         }
         job = viewModelScope.launch {
             result = runCatching { Api.journeys(body) }.fold({ Load.Ok(it) }, { Load.Failed(it) })

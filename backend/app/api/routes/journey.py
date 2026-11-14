@@ -17,9 +17,9 @@ def search(req: JourneySearchRequest, st: AppState = Depends(get_state)) -> dict
     require_gtfs(st)
     try:
         res = st.journeys.plan(req.origin.model_dump(), req.destination.model_dump(), req.departure_datetime,
-                               req.preference, req.max_transfers)
+                               req.preference, req.max_transfers, req.access_radius_m)
     except PlaceError as e:
-        raise HTTPException(422, detail=str(e)) from None
+        raise HTTPException(422, detail=e.detail()) from None
     for j in res["journeys"]:
         j["summary"] = summaries.journey(j)
     if not res["journeys"]:
@@ -34,6 +34,6 @@ def advisor(req: AdvisorRequest, st: AppState = Depends(get_state)) -> dict:
     require_gtfs(st)
     try:
         return st.journeys.advise(req.origin.model_dump(), req.destination.model_dump(), req.departure_datetime,
-                                  req.preference, tuple(req.offsets_min))
+                                  req.preference, tuple(req.offsets_min), req.access_radius_m)
     except PlaceError as e:
-        raise HTTPException(422, detail=str(e)) from None
+        raise HTTPException(422, detail=e.detail()) from None

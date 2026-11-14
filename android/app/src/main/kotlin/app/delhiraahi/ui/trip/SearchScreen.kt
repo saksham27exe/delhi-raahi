@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.LocationCity
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.SwapVert
@@ -50,6 +51,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import kotlinx.coroutines.async
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -80,6 +83,7 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     var fromText by remember { mutableStateOf(trip.from?.label.orEmpty()) }
     var toText by remember { mutableStateOf(trip.to?.label.orEmpty()) }
     var hits by remember { mutableStateOf<List<StopHit>>(emptyList()) }
+    var places by remember { mutableStateOf<List<app.delhiraahi.data.PlaceHit>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var here by remember { mutableStateOf<PickedPlace?>(null) }
     val fromFocus = remember { FocusRequester() }
@@ -96,16 +100,20 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     val query = (if (field == Field.FROM) fromText else toText).trim()
     val picked = if (field == Field.FROM) trip.from else trip.to
     LaunchedEffect(query, field) {
-        if (query.length < 2 || picked?.label == query) { hits = emptyList(); searching = false; return@LaunchedEffect }
+        if (query.length < 2 || picked?.label == query) { hits = emptyList(); places = emptyList(); searching = false; return@LaunchedEffect }
         searching = true
-        delay(220)
-        hits = runCatching { Api.searchStops(query).results }.getOrDefault(emptyList())
+        delay(260)
+        kotlinx.coroutines.coroutineScope {
+            val p = async { runCatching { Api.searchPlaces(query).results }.getOrDefault(emptyList()) }
+            hits = runCatching { Api.searchStops(query).results }.getOrDefault(emptyList())
+            places = p.await()
+        }
         searching = false
     }
 
     fun choose(p: PickedPlace) {
         if (field == Field.FROM) { trip.from = p; fromText = p.label } else { trip.to = p; toText = p.label }
-        hits = emptyList()
+        hits = emptyList(); places = emptyList()
         when {
             trip.from != null && trip.to != null -> { trip.search(); onDone() }
             trip.from == null -> { field = Field.FROM; fromFocus.requestFocus() }
@@ -149,19 +157,42 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
                     ListRow(Icons.Outlined.MyLocation, s.currentLocation, onClick = { choose(here!!) })
                 }
                 if (query.length in 1..1) item { Text(s.typeMore, color = t.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Space.lg)) }
-                if (searching && hits.isEmpty()) item {
+                if (searching && hits.isEmpty() && places.isEmpty()) item {
                     Row(Modifier.padding(Space.lg)) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = t.text) }
                 }
-                if (!searching && query.length >= 2 && hits.isEmpty() && picked?.label != query) item {
+                if (!searching && query.length >= 2 && hits.isEmpty() && places.isEmpty() && picked?.label != query) item {
                     Text(s.noMatch, color = t.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(Space.lg))
                 }
-                items(hits, key = { it.name }) { h ->
-                    ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
+                // A stop whose name contains the typed text wins; otherwise addresses/landmarks come first.
+                val stopsFirst = places.isEmpty() || hits.any { it.name.contains(query, ignoreCase = true) }
+                val shownStops = if (stopsFirst) hits else hits.take(4)
+                val stopSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                    if (shownStops.isNotEmpty() && places.isNotEmpty()) item(key = "h:stops") { SectionLabel(s.busStops) }
+                    items(shownStops, key = { "s:" + it.name }) { h ->
+                        ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
+                    }
                 }
+                val placeSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                    if (places.isNotEmpty()) item(key = "h:places") { SectionLabel(s.placesHeader) }
+                    items(places, key = { "p:${it.name}:${it.lat}:${it.lon}" }) { p ->
+                        ListRow(Icons.Outlined.LocationCity, p.name, subtitle = p.area.ifBlank { null }, onClick = { choose(PickedPlace.place(p)) })
+                    }
+                    if (places.isNotEmpty()) item(key = "h:osm") {
+                        Text(s.osmCredit, style = MaterialTheme.typography.labelSmall, color = t.muted, modifier = Modifier.padding(Space.md))
+                    }
+                }
+                if (stopsFirst) { stopSection(); placeSection() } else { placeSection(); stopSection() }
                 item { Spacer(Modifier.height(Space.xxl)) }
             }
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    val t = LocalExtra.current
+    Text(text, style = MaterialTheme.typography.labelLarge, color = t.muted,
+        modifier = Modifier.padding(start = Space.md, top = Space.md, bottom = Space.xs).semantics { heading() })
 }
 
 @Composable

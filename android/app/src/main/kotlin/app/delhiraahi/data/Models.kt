@@ -82,7 +82,23 @@ data class Leg(
 )
 
 @Serializable
-data class WalkParts(val origin_min: Double = 0.0, val transfer_min: Double = 0.0, val destination_min: Double = 0.0)
+data class WalkParts(
+    val origin_min: Double = 0.0, val transfer_min: Double = 0.0, val destination_min: Double = 0.0,
+    val origin_m: Double? = null, val destination_m: Double? = null,
+    val origin_path: List<List<Double>>? = null, val destination_path: List<List<Double>>? = null,
+    val basis: WalkBasis? = null,
+)
+
+/** "osm_road" (real walking route), "straight_line_estimate" (fallback) or "stop" (trip starts at a stop). */
+@Serializable
+data class WalkBasis(val origin: String = "stop", val destination: String = "stop")
+
+/** An address or landmark from OpenStreetMap (via our backend). */
+@Serializable
+data class PlaceHit(val name: String, val area: String = "", val lat: Double, val lon: Double, val kind: String = "")
+
+@Serializable
+data class PlaceSearchResponse(val results: List<PlaceHit> = emptyList())
 
 @Serializable
 data class JourneyFare(

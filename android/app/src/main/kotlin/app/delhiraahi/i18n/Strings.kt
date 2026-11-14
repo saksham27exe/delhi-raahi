@@ -69,6 +69,8 @@ interface Strings {
     val currentPassword: String; val newPassword: String; val save: String; val saved: String; val logout: String; val logoutSub: String
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
     val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
+    val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
+    fun noStopNear(m: Int): String; val widerSearch: String
     val privacyTitle: String; val privacyBody: String; val noScreenshots: String; val demoPass: String; val verifyPass: String
 }
 
@@ -98,7 +100,7 @@ object En : Strings {
     override val switchLang = "हिंदी में बदलें"; override val otherLang = "हिंदी"; override val locate = "Show my location"
     override val back = "Back"; override val swap = "Swap From and To"; override val from = "From"; override val to = "To"
     override val currentLocation = "Current location"; override val fromPh = "Pick-up stop"; override val toPh = "Where to?"
-    override val typeMore = "Type at least 2 letters"; override val noMatch = "No stop found. Try another spelling."
+    override val typeMore = "Type at least 2 letters"; override val noMatch = "Nothing found. Try another spelling."
     override fun routesServed(n: Int) = "$n bus routes"
     override val chooseTrip = "Choose a trip"; override val leaveNow = "Leave now"
     override fun leaveIn(min: Int) = if (min < 60) "In $min min" else "In ${min / 60} h"
@@ -187,7 +189,10 @@ object En : Strings {
     override val feedback = "Send feedback"; override val feedbackHint = "Tell us what to improve"; override val send = "Send"
     override val thanks = "Thanks! Your feedback was sent."
     override val privacyTitle = "Privacy"
-    override val privacyBody = "We store your name, mobile number, a hashed password, and your demo wallet, tickets and passes. No location is stored on our server. You can delete everything from this screen."
+    override val busStops = "Bus stops"; override val placesHeader = "Places and addresses"; override val osmCredit = "Places © OpenStreetMap contributors"
+    override fun walkToM(min: Int, m: Int) = "Walk $min min · $m m"; override val approx = "approx."
+    override fun noStopNear(m: Int) = "No bus stop within $m m of this place."; override val widerSearch = "Search within 1.5 km"
+    override val privacyBody = "We store your name, mobile number, a hashed password, and your demo wallet, tickets and passes. No location is stored on our server. When you search for a place, or plan a trip from a place or your location, the search text and the position rounded to about 10 m are sent to free OpenStreetMap services (Photon place search, FOSSGIS walking routes) without your name or number. You can delete everything from this screen."
     override val noScreenshots = "Screenshots are blocked on tickets and passes."
     override val demoPass = "DEMO PASS — not valid for travel, no real money"; override val verifyPass = "Verify pass"
 }
@@ -218,7 +223,7 @@ object Hi : Strings {
     override val switchLang = "Switch to English"; override val otherLang = "English"; override val locate = "मेरी लोकेशन दिखाएँ"
     override val back = "वापस"; override val swap = "कहाँ से और कहाँ तक बदलें"; override val from = "कहाँ से"; override val to = "कहाँ तक"
     override val currentLocation = "मौजूदा लोकेशन"; override val fromPh = "चढ़ने का स्टॉप"; override val toPh = "कहाँ जाना है?"
-    override val typeMore = "कम से कम 2 अक्षर लिखें"; override val noMatch = "कोई स्टॉप नहीं मिला। दूसरी स्पेलिंग आज़माएँ।"
+    override val typeMore = "कम से कम 2 अक्षर लिखें"; override val noMatch = "कुछ नहीं मिला। दूसरी स्पेलिंग आज़माएँ।"
     override fun routesServed(n: Int) = "$n बस रूट"
     override val chooseTrip = "यात्रा चुनें"; override val leaveNow = "अभी निकलें"
     override fun leaveIn(min: Int) = if (min < 60) "$min मिनट में" else "${min / 60} घंटे में"
@@ -307,7 +312,10 @@ object Hi : Strings {
     override val feedback = "सुझाव भेजें"; override val feedbackHint = "बताइए क्या बेहतर करें"; override val send = "भेजें"
     override val thanks = "धन्यवाद! आपका सुझाव भेज दिया गया।"
     override val privacyTitle = "निजता"
-    override val privacyBody = "हम आपका नाम, मोबाइल नंबर, हैश किया हुआ पासवर्ड और आपका डेमो वॉलेट, टिकट और पास रखते हैं। आपकी लोकेशन हमारे सर्वर पर नहीं रखी जाती। आप इसी स्क्रीन से सब कुछ मिटा सकते हैं।"
+    override val busStops = "बस स्टॉप"; override val placesHeader = "जगहें और पते"; override val osmCredit = "जगहें © OpenStreetMap योगदानकर्ता"
+    override fun walkToM(min: Int, m: Int) = "$min मिनट पैदल · $m मी"; override val approx = "अनुमान"
+    override fun noStopNear(m: Int) = "इस जगह से $m मीटर के अंदर कोई बस स्टॉप नहीं।"; override val widerSearch = "1.5 किमी तक खोजें"
+    override val privacyBody = "हम आपका नाम, मोबाइल नंबर, हैश किया हुआ पासवर्ड और आपका डेमो वॉलेट, टिकट और पास रखते हैं। आपकी लोकेशन हमारे सर्वर पर नहीं रखी जाती। जब आप कोई जगह खोजते हैं या किसी जगह/अपनी लोकेशन से यात्रा खोजते हैं, तो खोज का शब्द और लगभग 10 मीटर तक गोल की गई लोकेशन मुफ़्त OpenStreetMap सेवाओं (Photon, FOSSGIS) को भेजी जाती है, आपके नाम या नंबर के बिना। आप इसी स्क्रीन से सब कुछ मिटा सकते हैं।"
     override val noScreenshots = "टिकट और पास पर स्क्रीनशॉट बंद हैं।"
     override val demoPass = "डेमो पास — यात्रा के लिए मान्य नहीं, असली पैसे नहीं"; override val verifyPass = "पास जाँचें"
 }

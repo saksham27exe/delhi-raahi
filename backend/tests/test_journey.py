@@ -138,3 +138,59 @@ def test_advisor_returns_row_per_offset(net):
     assert [r["offset_min"] for r in a["departures"]] == [0, 30]
     assert a["departures"][0]["board_time"] == "08:00" and a["departures"][1]["board_time"] == "08:30"
     assert a["recommendation"]["offset_min"] == 0
+
+
+class FakeGeo:
+    """Road distances = 2x straight line, except stop B which is unreachable by road."""
+    def __init__(self, net, down=False):
+        self.net, self.down, self.paths = net, down, []
+
+    def walk_distances(self, lat, lon, pts):
+        if self.down:
+            return None
+        from app.journey_engine.network import haversine_m
+        b = (float(self.net.stops.at["B", "stop_lat"]), float(self.net.stops.at["B", "stop_lon"]))
+        return [None if p == b else float(haversine_m(lat, lon, *p)) * 2 for p in pts]
+
+    def walk_path(self, a, b):
+        self.paths.append((a, b))
+        return {"distance_m": 321.0, "path": [list(a), list(b)]}
+
+
+def coord(lat, lon, label="Home"):
+    return {"type": "coord", "lat": lat, "lon": lon, "label": label}
+
+
+def test_coord_place_uses_road_walks_and_paths(net):
+    geo = FakeGeo(net)
+    js = JourneyService(net, None, geo=geo)
+    r = js.plan(coord(28.6003, 77.2003), stop("D"), datetime(2026, 11, 20, 7, 50))
+    assert r["query"]["origin"]["walk_basis"] == "osm_road"
+    j = r["journeys"][0]
+    assert j["legs"][0]["board_stop_id"] == "A"
+    assert j["walk"]["basis"] == {"origin": "osm_road", "destination": "stop"}
+    assert j["walk"]["origin_path"] and j["walk"]["destination_path"] is None
+    assert j["walk"]["origin_m"] == 321
+    # road distance (2x ~42 m) / 1.2 m/s, not straight line x 1.3
+    assert 1.0 < j["walk"]["origin_min"] < 1.4
+
+
+def test_road_unreachable_stop_is_dropped_and_fallback_is_labelled(net):
+    js = JourneyService(net, None, geo=FakeGeo(net))
+    items, info = js.resolve(coord(28.61, 77.2001), 1500)
+    assert "B" not in dict(items)
+    js2 = JourneyService(net, None, geo=FakeGeo(net, down=True))
+    r = js2.plan(coord(28.6003, 77.2003), stop("D"), datetime(2026, 11, 20, 7, 50))
+    assert r["query"]["origin"]["walk_basis"] == "straight_line_estimate"
+    assert any("straight-line" in n for n in r["notes"])
+    assert r["journeys"][0]["walk"]["origin_path"] is None
+
+
+def test_no_stop_nearby_has_code_and_wider_radius_works(net):
+    js = JourneyService(net, None)
+    far = coord(28.6, 77.2105)            # ~1 km east of A, ~0.6+ km from others
+    with pytest.raises(PlaceError) as e:
+        js.plan(far, stop("D"), datetime(2026, 11, 20, 7, 50), radius_m=300)
+    assert e.value.code == "no_stop_nearby" and e.value.detail()["radius_m"] == 300
+    r = js.plan(far, stop("D"), datetime(2026, 11, 20, 7, 50), radius_m=1500)
+    assert r["query"]["origin"]["radius_m"] == 1500

@@ -136,8 +136,18 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
                         verticalArrangement = Arrangement.spacedBy(Space.sm),
                     ) {
                         val e = r.error
-                        Text(if (e is ApiException && e.status == 0) s.errNetwork else (e.message ?: s.errNetwork), color = t.veryHigh.fg)
-                        Text(s.retry, color = t.veryHigh.fg, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(role = Role.Button) { trip.search() })
+                        val noStop = e is ApiException && e.reason == "no_stop_nearby"
+                        Text(when {
+                            e is ApiException && e.status == 0 -> s.errNetwork
+                            noStop -> s.noStopNear(trip.radiusM)
+                            else -> e.message ?: s.errNetwork
+                        }, color = t.veryHigh.fg)
+                        if (noStop && trip.radiusM < 1500)
+                            Text(s.widerSearch, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(1500) }.padding(vertical = Space.sm))
+                        else
+                            Text(s.retry, color = t.veryHigh.fg, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { trip.search(trip.radiusM) }.padding(vertical = Space.sm))
                     }
                     is Load.Ok -> if (r.value.journeys.isEmpty()) Column(Modifier.padding(vertical = Space.xl), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
                         Text(s.noTrips, style = MaterialTheme.typography.titleMedium, color = t.text)

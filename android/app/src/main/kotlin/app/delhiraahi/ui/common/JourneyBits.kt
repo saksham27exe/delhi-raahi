@@ -116,16 +116,20 @@ fun journeyMap(j: Journey, t: Tokens, from: Pair<Double, Double>?, to: Pair<Doub
     val walkColor = t.muted.toArgb()
     val first = j.legs.firstOrNull()?.segments?.firstOrNull()
     val last = j.legs.lastOrNull()?.segments?.lastOrNull()
-    if (from != null && first != null) lines += MapLine(listOf(from, first.lat to first.lon), walkColor, 3f)
+    fun path(p: List<List<Double>>?) = p?.filter { it.size >= 2 }?.map { it[0] to it[1] }?.takeIf { it.size >= 2 }
+    if (from != null && first != null) lines += MapLine(
+        path(j.walk.origin_path)?.let { listOf(from) + it + listOf(first.lat to first.lon) } ?: listOf(from, first.lat to first.lon), walkColor, 4f, dashed = true)
     j.legs.forEachIndexed { i, leg ->
         leg.segments.forEach { sg -> lines += MapLine(listOf(sg.lat to sg.lon, sg.to_lat to sg.to_lon), t.crowd(sg.crowd?.category).line.toArgb(), 6f) }
         val b = leg.segments.firstOrNull()
         val a = leg.segments.lastOrNull()
         if (b != null) pins += MapPin("b$i", b.lat, b.lon, leg.board_stop, if (i == 0) MapPin.Kind.FROM else MapPin.Kind.STOP)
-        if (a != null) pins += MapPin("a$i", a.to_lat, a.to_lon, leg.alight_stop, if (i == j.legs.lastIndex) MapPin.Kind.TO else MapPin.Kind.STOP)
+        if (a != null) pins += MapPin("a$i", a.to_lat, a.to_lon, leg.alight_stop, if (i == j.legs.lastIndex && to == null) MapPin.Kind.TO else MapPin.Kind.STOP)
         val next = j.legs.getOrNull(i + 1)?.segments?.firstOrNull()
-        if (a != null && next != null) lines += MapLine(listOf(a.to_lat to a.to_lon, next.lat to next.lon), walkColor, 3f)
+        if (a != null && next != null) lines += MapLine(listOf(a.to_lat to a.to_lon, next.lat to next.lon), walkColor, 4f, dashed = true)
     }
-    if (to != null && last != null) lines += MapLine(listOf(last.to_lat to last.to_lon, to), walkColor, 3f)
+    if (to != null && last != null) pins += MapPin("dest", to.first, to.second, "", MapPin.Kind.TO)
+    if (to != null && last != null) lines += MapLine(
+        path(j.walk.destination_path)?.let { listOf(last.to_lat to last.to_lon) + it + listOf(to) } ?: listOf(last.to_lat to last.to_lon, to), walkColor, 4f, dashed = true)
     return lines to pins
 }

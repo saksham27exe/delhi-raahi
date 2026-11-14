@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     crowdwise_bucket_minutes: int = 30
     live_enabled: bool = True          # poll GTFS-RT when an API key is present
     live_poll_seconds: float = 30.0
+    osm_services_enabled: bool = True  # Photon place search + OSRM foot routing (server-side)
     demo_ticket_secret: str = ""       # HMAC key for demo ticket QR codes; random per run if empty
     crowdwise_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

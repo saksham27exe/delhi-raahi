@@ -16,7 +16,7 @@ import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-class ApiException(val status: Int, message: String) : Exception(message)
+class ApiException(val status: Int, message: String, val reason: String? = null) : Exception(message)
 
 /**
  * Thin client for the backend. The base URL defaults to `api.base` from local.properties
@@ -50,7 +50,14 @@ object Api {
     fun detail(body: String): String = runCatching {
         val d = json.parseToJsonElement(body).let { (it as kotlinx.serialization.json.JsonObject)["detail"] }
         (d as? kotlinx.serialization.json.JsonPrimitive)?.content
+            ?: ((d as? kotlinx.serialization.json.JsonObject)?.get("message") as? kotlinx.serialization.json.JsonPrimitive)?.content
     }.getOrNull() ?: body.take(200)
+
+    /** Machine-readable error code from {"detail": {"code": ...}}, e.g. "no_stop_nearby". */
+    fun reason(body: String): String? = runCatching {
+        val d = json.parseToJsonElement(body).let { (it as kotlinx.serialization.json.JsonObject)["detail"] }
+        ((d as? kotlinx.serialization.json.JsonObject)?.get("code") as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }.getOrNull()
 
     private suspend inline fun <reified T> get(path: String, query: Map<String, Any?> = emptyMap()): T =
         withContext(Dispatchers.IO) {
@@ -77,7 +84,7 @@ object Api {
             val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
             response.use {
                 val text = it.body?.string().orEmpty()
-                if (!it.isSuccessful) throw ApiException(it.code, detail(text))
+                if (!it.isSuccessful) throw ApiException(it.code, detail(text), reason(text))
                 json.decodeFromString<T>(text)
             }
         }
@@ -132,5 +139,6 @@ object Api {
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =
         get("/stops/nearby", mapOf("lat" to lat, "lon" to lon, "radius_m" to radiusM))
     suspend fun searchStops(q: String): StopSearchResponse = get("/stops/search", mapOf("q" to q, "limit" to 8))
+    suspend fun searchPlaces(q: String): PlaceSearchResponse = get("/places/search", mapOf("q" to q, "limit" to 6))
     suspend fun liveStatus(): LiveStatus = get("/live/status")
 }

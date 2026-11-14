@@ -26,6 +26,7 @@ class AppState:
     live: object | None = None        # LiveTracker
     fares: object | None = None       # FareService
     tickets: object | None = None     # TicketService (demo)
+    geo: object | None = None         # OsmGeo (place search, walking routes) or None
     accounts: object | None = None    # AccountStore (users, demo wallet, tickets, passes)
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
@@ -104,7 +105,10 @@ def load_state(settings: Settings | None = None) -> AppState:
         if not st.fares.profile:
             st.load_errors["fare_profile"] = "route_fare_profile.parquet missing: bus type unknown. Run scripts/validate_fares.py."
         st.tickets = TicketService(st.fares, secret)
-        st.journeys = JourneyService(st.network, st.crowd, st.fares)
+        if s.osm_services_enabled:
+            from app.services.geo import OsmGeo
+            st.geo = OsmGeo()
+        st.journeys = JourneyService(st.network, st.crowd, st.fares, st.geo)
         from app.services.live_service import LiveTracker
         st.live = LiveTracker(st.network)
     st.load_seconds = round(time.time() - t0, 1)

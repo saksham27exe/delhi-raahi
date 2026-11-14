@@ -32,6 +32,7 @@ class JourneySearchRequest(BaseModel):
     departure_datetime: datetime = Field(..., examples=["2026-11-20T08:30:00+05:30"])
     preference: Literal["fastest", "balanced", "least_crowded"] = "balanced"
     max_transfers: int = Field(1, ge=0, le=1)
+    access_radius_m: int = Field(600, ge=200, le=1500, description="Max walk to a boarding stop (straight line)")
 
 
 class AdvisorRequest(JourneySearchRequest):

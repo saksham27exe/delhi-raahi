@@ -22,6 +22,18 @@ def stop_search(q: str = Query(..., min_length=2, max_length=80), limit: int = Q
     return {"query": q, "results": st.journeys.search_stops(q, limit)}
 
 
+@router.get("/places/search")
+def place_search(q: str = Query(..., min_length=2, max_length=100), limit: int = Query(6, ge=1, le=10),
+                 st: AppState = Depends(get_state)) -> dict:
+    """Addresses and landmarks in Delhi NCR (OpenStreetMap via Photon). Use the result as a 'coord' place."""
+    if st.geo is None:
+        raise HTTPException(503, detail="Place search is turned off on this server.")
+    res = st.geo.search(q, limit)
+    if res is None:
+        raise HTTPException(503, detail="Place search service is not responding. Try a bus stop name.")
+    return {"query": q, "results": res, "source": "OpenStreetMap (Photon)"}
+
+
 @router.get("/stops/nearby")
 def stops_nearby(lat: float = Query(..., ge=27.5, le=29.5), lon: float = Query(..., ge=76.5, le=78.0),
                  radius_m: int = Query(600, ge=50, le=2000), st: AppState = Depends(get_state)) -> dict:

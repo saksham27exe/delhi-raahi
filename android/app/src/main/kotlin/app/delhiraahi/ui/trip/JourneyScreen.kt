@@ -117,13 +117,15 @@ fun JourneyScreen(trip: TripViewModel, index: Int, lang: Lang, onBack: () -> Uni
         ) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = Space.lg)) {
                 // Step-by-step timeline
-                if (j.walk.origin_min >= 1) Step(Icons.AutoMirrored.Outlined.DirectionsWalk, s.walkStart, s.walkTo(j.walk.origin_min.mins()), dotted = true)
+                fun walkText(min: Double, m: Double?, basis: String?) =
+                    (if (m != null) s.walkToM(min.mins(), m.toInt()) else s.walkTo(min.mins())) + if (basis == "straight_line_estimate") " (${s.approx})" else ""
+                if (j.walk.origin_min >= 1) Step(Icons.AutoMirrored.Outlined.DirectionsWalk, s.walkStart, walkText(j.walk.origin_min, j.walk.origin_m, j.walk.basis?.origin), dotted = true)
                 j.legs.forEachIndexed { i, leg ->
                     if (i > 0) Step(Icons.Outlined.SyncAlt, s.changeBus, if (j.walk.transfer_min >= 1) s.walkTo(j.walk.transfer_min.mins()) else null, dotted = true)
                     LegBlock(leg, last = i == j.legs.lastIndex && j.walk.destination_min < 1)
                 }
                 if (j.walk.destination_min >= 1) {
-                    Step(Icons.AutoMirrored.Outlined.DirectionsWalk, s.walkEnd, s.walkTo(j.walk.destination_min.mins()), dotted = true)
+                    Step(Icons.AutoMirrored.Outlined.DirectionsWalk, s.walkEnd, walkText(j.walk.destination_min, j.walk.destination_m, j.walk.basis?.destination), dotted = true)
                     Step(Icons.Outlined.Flag, trip.to?.label ?: "", j.arrival, last = true)
                 }
 
