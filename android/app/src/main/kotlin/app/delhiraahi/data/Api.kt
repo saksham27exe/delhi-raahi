@@ -151,6 +151,7 @@ object Api {
     suspend fun modelCard(): kotlinx.serialization.json.JsonObject = get("/insights/model")
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =
         get("/stops/nearby", mapOf("lat" to lat, "lon" to lon, "radius_m" to radiusM))
+    suspend fun stopsInArea(bbox: String, limit: Int = 60): StopsInArea = get("/stops/in_area", mapOf("bbox" to bbox, "limit" to limit))
     suspend fun searchStops(q: String): StopSearchResponse = get("/stops/search", mapOf("q" to q, "limit" to 8))
     suspend fun searchPlaces(q: String): PlaceSearchResponse = get("/places/search", mapOf("q" to q, "limit" to 6))
     suspend fun liveStatus(): LiveStatus = get("/live/status")

@@ -71,9 +71,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.semantics.Role
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 
 private const val MIN_ZOOM = 11.5
+private const val STOP_ZOOM = 14.0
 
 /** Live buses for the visible map area (refreshed every 30 s), stop search and nearby stops. */
 @Composable
@@ -92,6 +94,10 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
     var nearby by remember { mutableStateOf<List<NearbyStop>>(emptyList()) }
     var q by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<StopHit>>(emptyList()) }
+    var placeHits by remember { mutableStateOf<List<app.delhiraahi.data.PlaceHit>>(emptyList()) }
+    var area by remember { mutableStateOf(app.delhiraahi.data.StopsInArea()) }
+    var focus by remember { mutableStateOf<MapPin?>(null) }          // searched place, shown on this map
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var selected by remember { mutableStateOf<String?>(null) }        // tapped bus
     var detail by remember { mutableStateOf<app.delhiraahi.data.VehicleDetail?>(null) }
     val lt = app.delhiraahi.voice.LiveText.of(LocalStrings.current === app.delhiraahi.i18n.Hi)
@@ -118,6 +124,13 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
         }
     }
 
+    // Stops in view (pins when zoomed in; the count always).
+    LaunchedEffect(bbox, zoom) {
+        val b = bbox ?: return@LaunchedEffect
+        delay(300)
+        runCatching { Api.stopsInArea(b, if (zoom >= STOP_ZOOM) 60 else 1) }.onSuccess { area = it }
+    }
+
     // The tapped bus: its route and times, refreshed while selected.
     LaunchedEffect(selected) {
         detail = null
@@ -131,16 +144,34 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
     LaunchedEffect(q) {
         if (q.trim().length < 2) { hits = emptyList(); return@LaunchedEffect }
         delay(220)
-        hits = runCatching { Api.searchStops(q.trim()).results }.getOrDefault(emptyList())
+        kotlinx.coroutines.coroutineScope {
+            val p = async { runCatching { Api.searchPlaces(q.trim()).results }.getOrDefault(emptyList()) }
+            hits = runCatching { Api.searchStops(q.trim()).results }.getOrDefault(emptyList())
+            placeHits = p.await()
+        }
+    }
+    // A search result opens on this map: move there and list the stops around it.
+    fun showHere(name: String, lat: Double, lon: Double) {
+        keyboard?.hide(); q = ""; hits = emptyList(); placeHits = emptyList(); selected = null
+        focus = MapPin("f", lat, lon, name, MapPin.Kind.TO)
+        map.moveTo(lat, lon, 14.8)
+    }
+    LaunchedEffect(focus) {
+        val f = focus
+        val (la, lo) = if (f != null) f.lat to f.lon else me ?: return@LaunchedEffect
+        nearby = runCatching { Api.nearbyStops(la, lo, if (f != null) 800 else 1000).results.take(if (f != null) 8 else 6) }.getOrDefault(emptyList())
     }
 
     val d = detail
-    val pins = remember(vehicles, nearby, d) {
+    val pins = remember(vehicles, nearby, d, area, zoom, focus) {
         val upcoming = d?.stops?.filter { !it.passed }?.take(12).orEmpty()
         // The followed bus stays on the map even when zoomed out past the live-bus limit.
         val shown = if (d != null && vehicles.none { it.vehicle_id == d.vehicle.vehicle_id }) vehicles + d.vehicle else vehicles
         shown.map { v -> MapPin("v:" + v.vehicle_id, v.lat, v.lon, routeName(v.route ?: "?") + (v.next_stop?.let { " → $it" } ?: ""), MapPin.Kind.BUS) } +
-            nearby.map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name) } +
+            (nearby + if (zoom >= STOP_ZOOM) area.results else emptyList()).distinctBy { it.stop_id }
+                .filter { st -> upcoming.none { it.stop_id == st.stop_id } }
+                .map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name) } +
+            listOfNotNull(focus) +
             upcoming.map { st -> MapPin("s" + st.stop_id, st.lat, st.lon, st.name + (st.eta?.let { " · $it" } ?: ""), MapPin.Kind.STOP) }
     }
     // Selected bus: the stretch already covered muted, the rest of its route in the accent colour.
@@ -173,7 +204,7 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                             selected != null && detail != null -> "${routeName(detail!!.route)} · ${detail!!.vehicle.next_stop ?: ""}"
                             zoom < MIN_ZOOM -> s.zoomIn
                             live == null -> s.loading
-                            live == true -> "${s.liveOn} · ${s.busesShown(vehicles.size)}"
+                            live == true -> "${s.liveOn} · ${s.busesShown(vehicles.size, area.count.takeIf { zoom >= STOP_ZOOM })}"
                             else -> s.liveOff
                         },
                         style = MaterialTheme.typography.bodyMedium, color = t.muted,
@@ -181,7 +212,7 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                 }
             }
             Box(
-                Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { me?.let { map.moveTo(it.first, it.second, 14.0) } }
+                Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { focus = null; me?.let { map.moveTo(it.first, it.second, 14.0) } }
                     .semantics { contentDescription = s.locate },
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = t.text) }
@@ -212,20 +243,25 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             Icon(Icons.Outlined.Search, contentDescription = null, tint = t.muted, modifier = Modifier.size(22.dp))
             Box(Modifier.weight(1f)) {
-                if (q.isEmpty()) Text(s.searchStop, color = t.muted, style = MaterialTheme.typography.titleMedium)
+                if (q.isEmpty()) Text(s.searchStopPlace, color = t.muted, style = MaterialTheme.typography.titleMedium)
                 BasicTextField(q, { q = it }, singleLine = true, textStyle = MaterialTheme.typography.titleMedium.copy(color = t.text),
-                    cursorBrush = SolidColor(t.primary), modifier = Modifier.fillMaxWidth().semantics { contentDescription = s.searchStop })
+                    cursorBrush = SolidColor(t.primary), modifier = Modifier.fillMaxWidth().semantics { contentDescription = s.searchStopPlace })
             }
         }
         Box(Modifier.padding(horizontal = Space.xl).fillMaxWidth().height(1.5.dp).background(if (q.isEmpty()) t.border else t.primary))
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.xl).padding(bottom = Space.xl)) {
-            if (hits.isNotEmpty()) hits.forEach { h ->
-                ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), chevron = true) { onOpenStop(h.stop_ids.first()) }
+            if (hits.isNotEmpty() || placeHits.isNotEmpty()) {
+                // Stops that really contain what was typed, then places, then the looser stop matches.
+                val typed = q.trim().lowercase()
+                val (exact, loose) = hits.partition { it.name.lowercase().contains(typed) }
+                exact.forEach { h -> ListRow(Icons.Outlined.DirectionsBus, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
+                placeHits.forEach { h -> ListRow(Icons.Outlined.Place, h.name, subtitle = h.area.ifEmpty { null }) { showHere(h.name, h.lat, h.lon) } }
+                loose.forEach { h -> ListRow(Icons.Outlined.DirectionsBus, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
             } else {
-                Text(s.nearbyStops.uppercase(), style = MaterialTheme.typography.labelMedium, color = t.muted,
+                Text((focus?.let { s.stopsNear(it.title) } ?: s.nearbyStops).uppercase(), style = MaterialTheme.typography.labelMedium, color = t.muted,
                     modifier = Modifier.padding(top = Space.lg, bottom = Space.xs).semantics { heading() })
-                if (me == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                if (me == null && focus == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 else if (nearby.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 nearby.forEach { st ->
                     ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { onOpenStop(st.stop_id) }

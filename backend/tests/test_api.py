@@ -113,3 +113,10 @@ def test_crowd_endpoints(client):
 def test_insights(client):
     m = client.get("/api/v1/insights/model").json()
     assert len(m["limitations"]) >= 4 and "route_model" in m
+
+
+def test_stops_in_area(client):
+    r = client.get("/api/v1/stops/in_area", params={"bbox": "28.55,77.15,28.70,77.30"}).json()
+    assert r["count"] >= 1 and len(r["results"]) == min(r["count"], 80)
+    assert all(28.55 <= x["lat"] <= 28.70 and 77.15 <= x["lon"] <= 77.30 for x in r["results"])
+    assert client.get("/api/v1/stops/in_area", params={"bbox": "x"}).status_code == 422

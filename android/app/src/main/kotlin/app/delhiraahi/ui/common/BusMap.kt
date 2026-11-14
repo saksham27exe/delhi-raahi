@@ -101,6 +101,40 @@ class MapController {
     }
 }
 
+/** A small bus drawn inside [l,t,r,b]: body, window band, two wheels. */
+private fun drawBus(c: Canvas, l: Float, t: Float, r: Float, b: Float, fg: Int, bg: Int) {
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    val w = r - l; val h = b - t
+    p.color = fg; c.drawRoundRect(l, t, r, b - h * 0.12f, w * 0.18f, w * 0.18f, p)
+    p.color = bg; c.drawRoundRect(l + w * 0.14f, t + h * 0.16f, r - w * 0.14f, t + h * 0.48f, w * 0.06f, w * 0.06f, p)
+    c.drawCircle(l + w * 0.27f, t + h * 0.68f, w * 0.08f, p); c.drawCircle(r - w * 0.27f, t + h * 0.68f, w * 0.08f, p)
+    p.color = fg; c.drawRect(l + w * 0.14f, b - h * 0.14f, l + w * 0.32f, b, p); c.drawRect(r - w * 0.32f, b - h * 0.14f, r - w * 0.14f, b, p)
+}
+
+/** Live bus: a filled circle with a bus in it. */
+private fun busIcon(ctx: Context, fill: Int, sizeDp: Int): Icon {
+    val px = (sizeDp * ctx.resources.displayMetrics.density).toInt()
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp); val p = Paint(Paint.ANTI_ALIAS_FLAG); val r = px / 2f
+    p.color = 0x55000000; c.drawCircle(r, r + 1, r - 1, p)
+    p.color = 0xFFFFFFFF.toInt(); c.drawCircle(r, r, r - 2, p)
+    p.color = fill; c.drawCircle(r, r, r - px / 9f, p)
+    drawBus(c, px * 0.30f, px * 0.27f, px * 0.70f, px * 0.73f, 0xFFFFFFFF.toInt(), fill)
+    return IconFactory.getInstance(ctx).fromBitmap(bmp)
+}
+
+/** Bus stop: a square sign (white, ink border) with a small bus, so it never reads as a moving bus. */
+private fun stopIcon(ctx: Context, ink: Int, sizeDp: Int): Icon {
+    val px = (sizeDp * ctx.resources.displayMetrics.density).toInt()
+    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp); val p = Paint(Paint.ANTI_ALIAS_FLAG); val k = px * 0.22f
+    p.color = 0x55000000; c.drawRoundRect(1f, 2f, px - 1f, px - 0f, k, k, p)
+    p.color = ink; c.drawRoundRect(1f, 1f, px - 1f, px - 2f, k, k, p)
+    p.color = 0xFFFFFFFF.toInt(); val e = px * 0.12f; c.drawRoundRect(e, e, px - e, px - 2f - e, k * 0.6f, k * 0.6f, p)
+    drawBus(c, px * 0.30f, px * 0.25f, px * 0.70f, px * 0.70f, ink, 0xFFFFFFFF.toInt())
+    return IconFactory.getInstance(ctx).fromBitmap(bmp)
+}
+
 /** Small round marker: black dot with white ring for stops, coloured for other kinds. */
 private fun dotIcon(ctx: Context, fill: Int, sizeDp: Int): Icon {
     val px = (sizeDp * ctx.resources.displayMetrics.density).toInt()
@@ -152,8 +186,8 @@ fun BusMap(
     var zoomStep by remember { mutableStateOf(12) }
     val icons = remember {
         mapOf(
-            MapPin.Kind.STOP to dotIcon(ctx, 0xFF000000.toInt(), 22),
-            MapPin.Kind.BUS to dotIcon(ctx, 0xFF0F766E.toInt(), 22),
+            MapPin.Kind.STOP to stopIcon(ctx, 0xFF221C18.toInt(), 22),
+            MapPin.Kind.BUS to busIcon(ctx, 0xFFA63D2A.toInt(), 28),
             MapPin.Kind.FROM to dotIcon(ctx, 0xFF16A34A.toInt(), 26),
             MapPin.Kind.TO to dotIcon(ctx, 0xFF000000.toInt(), 28),
         )

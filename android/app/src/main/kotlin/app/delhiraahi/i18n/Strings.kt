@@ -53,7 +53,7 @@ interface Strings {
     val removeTicket: String; val storedOnDevice: String; val emptyHint: String; val planTrip: String
     val searchStop: String; val nearbyStops: String; val allBuses: String; fun inMin(m: Int): String; val nowArriving: String
     fun late(m: Int): String; fun early(m: Int): String; val onTime: String; fun towards(stop: String): String
-    val noArrivals: String; fun basis(b: String): String; val zoomIn: String; fun busesShown(n: Int): String; val refresh: String
+    val noArrivals: String; fun basis(b: String): String; val zoomIn: String; fun busesShown(n: Int, stops: Int?): String; val searchStopPlace: String; fun stopsNear(p: String): String; val refresh: String
     // K4: insights, saved places, recent
     val insightsTitle: String; val routeQuiet: String; val routePh: String; fun quietest(q: String, b: String): String
     val hotspots: String; val hotspotsHint: String; val modelTitle: String; val routeModel: String; val segModel: String
@@ -156,7 +156,9 @@ object En : Strings {
     override fun late(m: Int) = "$m min late"; override fun early(m: Int) = "$m min early"; override val onTime = "On time"
     override fun towards(stop: String) = "to $stop"; override val noArrivals = "No buses in the next hour."
     override fun basis(b: String) = when (b) { "live_estimate" -> "Live"; "live_estimate_typical_running_time" -> "Live · approx."; else -> "Scheduled" }
-    override val zoomIn = "Zoom in to see live buses"; override fun busesShown(n: Int) = "$n buses on map"; override val refresh = "Refresh"
+    override val zoomIn = "Zoom in to see live buses"; override fun busesShown(n: Int, stops: Int?) = (if (n == 1) "1 bus" else "$n buses") +
+        when (stops) { null -> " on map · zoom in for stops"; 1 -> " · 1 stop on map"; else -> " · $stops stops on map" }
+    override val searchStopPlace = "Search a stop or place"; override fun stopsNear(p: String) = "Stops near $p"; override val refresh = "Refresh"
     override val insightsTitle = "Insights"; override val routeQuiet = "When is my bus quiet?"; override val routePh = "Bus number, e.g. 433"
     override fun quietest(q: String, b: String) = "Quietest around $q, busiest around $b."
     override val hotspots = "Busiest stretches"; override val hotspotsHint = "Top road segments by expected crowding (well-supported estimates only)."
@@ -292,7 +294,8 @@ object Hi : Strings {
     override fun late(m: Int) = "$m मिनट देर"; override fun early(m: Int) = "$m मिनट जल्दी"; override val onTime = "समय पर"
     override fun towards(stop: String) = "$stop की ओर"; override val noArrivals = "अगले एक घंटे में कोई बस नहीं।"
     override fun basis(b: String) = when (b) { "live_estimate" -> "लाइव"; "live_estimate_typical_running_time" -> "लाइव · अनुमान"; else -> "समय-सारणी" }
-    override val zoomIn = "लाइव बसें देखने के लिए ज़ूम करें"; override fun busesShown(n: Int) = "मैप पर $n बसें"; override val refresh = "ताज़ा करें"
+    override val zoomIn = "लाइव बसें देखने के लिए ज़ूम करें"; override fun busesShown(n: Int, stops: Int?) = "मैप पर $n बसें · " + (stops?.let { "$it स्टॉप" } ?: "स्टॉप देखने के लिए ज़ूम करें")
+    override val searchStopPlace = "स्टॉप या जगह खोजें"; override fun stopsNear(p: String) = "$p के पास के स्टॉप"; override val refresh = "ताज़ा करें"
     override val insightsTitle = "जानकारी"; override val routeQuiet = "मेरी बस कब खाली रहती है?"; override val routePh = "बस नंबर, जैसे 433"
     override fun quietest(q: String, b: String) = "$q के आसपास सबसे कम, $b के आसपास सबसे ज़्यादा भीड़।"
     override val hotspots = "सबसे भीड़ वाले हिस्से"; override val hotspotsHint = "अनुमानित भीड़ के हिसाब से सबसे व्यस्त सड़क-हिस्से (सिर्फ़ पक्के अनुमान)।"

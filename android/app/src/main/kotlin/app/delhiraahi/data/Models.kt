@@ -19,6 +19,10 @@ data class NearbyStop(
 @Serializable
 data class NearbyResponse(val results: List<NearbyStop> = emptyList())
 
+/** Stops inside the visible map area: the full count, and the ones nearest the centre. */
+@Serializable
+data class StopsInArea(val count: Int = 0, val results: List<NearbyStop> = emptyList())
+
 @Serializable
 data class StopHit(
     val name: String,

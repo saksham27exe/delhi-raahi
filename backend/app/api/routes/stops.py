@@ -59,6 +59,24 @@ def stops_nearby(lat: float = Query(..., ge=27.5, le=29.5), lon: float = Query(.
                          "distance_m": round(float(r.distance_m))} for r in near.itertuples()]}
 
 
+@router.get("/stops/in_area")
+def stops_in_area(bbox: str = Query(..., description="min_lat,min_lon,max_lat,max_lon"), limit: int = Query(80, ge=1, le=300),
+                  st: AppState = Depends(get_state)) -> dict:
+    """Stops inside the visible map area: the true count, and up to `limit` of them nearest the centre."""
+    require_gtfs(st)
+    try:
+        a, b, c, d = (float(x) for x in bbox.split(","))
+    except ValueError:
+        raise HTTPException(422, detail="bbox must be min_lat,min_lon,max_lat,max_lon")
+    s = st.network.stops
+    inside = s[(s["stop_lat"] >= a) & (s["stop_lat"] <= c) & (s["stop_lon"] >= b) & (s["stop_lon"] <= d)]
+    cy, cx = (a + c) / 2, (b + d) / 2
+    near = inside.assign(_d=(inside["stop_lat"] - cy) ** 2 + (inside["stop_lon"] - cx) ** 2).sort_values("_d").head(limit)
+    return {"count": int(len(inside)), "results": [
+        {"stop_id": str(i), "name": r.stop_name, "lat": float(r.stop_lat), "lon": float(r.stop_lon), "distance_m": 0}
+        for i, r in zip(near.index, near.itertuples())]}
+
+
 @router.get("/stops/{stop_id}")
 def stop_detail(stop_id: str, st: AppState = Depends(get_state)) -> dict:
     require_gtfs(st)
