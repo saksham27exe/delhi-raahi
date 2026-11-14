@@ -208,3 +208,39 @@ data class VehiclesResponse(val live: Boolean = false, val vehicles: List<Vehicl
 
 @Serializable
 data class StopDetail(val stop_id: String, val name: String, val lat: Double, val lon: Double)
+
+// K4: insights
+@Serializable
+data class RouteHit(val route_id: String, val route: String, val description: String = "")
+
+@Serializable
+data class RouteSearchResponse(val results: List<RouteHit> = emptyList())
+
+@Serializable
+data class DayBucket(val time: String, val category: String = "UNKNOWN", val busiest_segment: String? = null)
+
+@Serializable
+data class RouteDay(
+    val route_id: String,
+    val route: String = "",
+    val buckets: List<DayBucket> = emptyList(),
+    val quietest: String? = null,
+    val busiest: String? = null,
+    val summary: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class Hotspot(
+    val segment_id: String,
+    val route: String? = null,
+    val from_stop: String = "",
+    val to_stop: String = "",
+    val lat: Double,
+    val lon: Double,
+    val to_lat: Double,
+    val to_lon: Double,
+    val category: String = "UNKNOWN",
+)
+
+@Serializable
+data class HotspotsResponse(val segments: List<Hotspot> = emptyList())

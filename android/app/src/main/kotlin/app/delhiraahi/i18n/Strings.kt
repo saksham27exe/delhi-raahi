@@ -47,6 +47,14 @@ interface Strings {
     val searchStop: String; val nearbyStops: String; val allBuses: String; fun inMin(m: Int): String; val nowArriving: String
     fun late(m: Int): String; fun early(m: Int): String; val onTime: String; fun towards(stop: String): String
     val noArrivals: String; fun basis(b: String): String; val zoomIn: String; fun busesShown(n: Int): String; val refresh: String
+    // K4: insights, saved places, recent
+    val insightsTitle: String; val routeQuiet: String; val routePh: String; fun quietest(q: String, b: String): String
+    val hotspots: String; val hotspotsHint: String; val modelTitle: String; val routeModel: String; val segModel: String
+    val pickRoute: String; val timeLabel: String; val dayPattern: String; val noData: String; fun coverage(pct: Int): String
+    val fares: String; val ours: String; val baseline: String; val exactFare: String; val withinSlab: String
+    val limitations: String; val limitationsEnOnly: String; val honest: String; fun chartA11y(parts: String): String
+    val home: String; val work: String; val savedPlaces: String; val remove: String; val recent: String; val clearRecent: String
+    fun choosePlace(slot: String): String; val fromHere: String; fun fromStop(stop: String): String; val notSet: String
 }
 
 object En : Strings {
@@ -112,6 +120,22 @@ object En : Strings {
     override fun towards(stop: String) = "to $stop"; override val noArrivals = "No buses in the next hour."
     override fun basis(b: String) = when (b) { "live_estimate" -> "Live"; "live_estimate_typical_running_time" -> "Live · approx."; else -> "Scheduled" }
     override val zoomIn = "Zoom in to see live buses"; override fun busesShown(n: Int) = "$n buses on map"; override val refresh = "Refresh"
+    override val insightsTitle = "Insights"; override val routeQuiet = "When is my bus quiet?"; override val routePh = "Bus number, e.g. 433"
+    override fun quietest(q: String, b: String) = "Quietest around $q, busiest around $b."
+    override val hotspots = "Busiest stretches"; override val hotspotsHint = "Top road segments by expected crowding (well-supported estimates only)."
+    override val modelTitle = "How good are these numbers?"
+    override val routeModel = "Route busy-level score (macro F1, test week, higher is better)"
+    override val segModel = "Segment crowding error (passengers, MAE, lower is better)"
+    override val pickRoute = "Pick a route to see its day"; override val timeLabel = "Time"; override val dayPattern = "Typical pattern for today"
+    override val noData = "Not enough data for this route."; override fun coverage(pct: Int) = "80% forecast interval covered $pct% of test buckets."
+    override val fares = "Fare engine accuracy"; override val ours = "Our model"; override val baseline = "Baseline"
+    override val exactFare = "Exact fare match"; override val withinSlab = "Within one slab"
+    override val limitations = "Limitations"; override val limitationsEnOnly = ""; override val honest = "Our segment model ties a strong baseline, so we show both."
+    override fun chartA11y(parts: String) = "Crowd through the day: $parts"
+    override val home = "Home"; override val work = "Work"; override val savedPlaces = "Saved places"; override val remove = "Remove"
+    override val recent = "Recent"; override val clearRecent = "Clear"
+    override fun choosePlace(slot: String) = "Set $slot"; override val fromHere = "From your location"
+    override fun fromStop(stop: String) = "From $stop"; override val notSet = "Not set"
 }
 
 object Hi : Strings {
@@ -177,6 +201,22 @@ object Hi : Strings {
     override fun towards(stop: String) = "$stop की ओर"; override val noArrivals = "अगले एक घंटे में कोई बस नहीं।"
     override fun basis(b: String) = when (b) { "live_estimate" -> "लाइव"; "live_estimate_typical_running_time" -> "लाइव · अनुमान"; else -> "समय-सारणी" }
     override val zoomIn = "लाइव बसें देखने के लिए ज़ूम करें"; override fun busesShown(n: Int) = "मैप पर $n बसें"; override val refresh = "ताज़ा करें"
+    override val insightsTitle = "जानकारी"; override val routeQuiet = "मेरी बस कब खाली रहती है?"; override val routePh = "बस नंबर, जैसे 433"
+    override fun quietest(q: String, b: String) = "$q के आसपास सबसे कम, $b के आसपास सबसे ज़्यादा भीड़।"
+    override val hotspots = "सबसे भीड़ वाले हिस्से"; override val hotspotsHint = "अनुमानित भीड़ के हिसाब से सबसे व्यस्त सड़क-हिस्से (सिर्फ़ पक्के अनुमान)।"
+    override val modelTitle = "ये आँकड़े कितने सही हैं?"
+    override val routeModel = "रूट भीड़-स्तर स्कोर (macro F1, टेस्ट सप्ताह, ज़्यादा बेहतर)"
+    override val segModel = "सड़क-हिस्से की भीड़ त्रुटि (यात्री, MAE, कम बेहतर)"
+    override val pickRoute = "दिन का पैटर्न देखने के लिए रूट चुनें"; override val timeLabel = "समय"; override val dayPattern = "आज का आम पैटर्न"
+    override val noData = "इस रूट के लिए पर्याप्त डेटा नहीं।"; override fun coverage(pct: Int) = "80% अनुमान-सीमा ने $pct% टेस्ट समय को कवर किया।"
+    override val fares = "किराया गणना की सटीकता"; override val ours = "हमारा मॉडल"; override val baseline = "आधार"
+    override val exactFare = "किराया बिल्कुल सही"; override val withinSlab = "एक स्लैब के भीतर"
+    override val limitations = "सीमाएँ"; override val limitationsEnOnly = "(सर्वर से, अंग्रेज़ी में)"; override val honest = "हमारा सड़क-हिस्सा मॉडल एक मज़बूत आधार के बराबर है — हम दोनों दिखाते हैं।"
+    override fun chartA11y(parts: String) = "दिन भर की भीड़: $parts"
+    override val home = "घर"; override val work = "ऑफ़िस"; override val savedPlaces = "सहेजी जगहें"; override val remove = "हटाएँ"
+    override val recent = "हाल की यात्राएँ"; override val clearRecent = "साफ़ करें"
+    override fun choosePlace(slot: String) = "$slot चुनें"; override val fromHere = "आपकी लोकेशन से"
+    override fun fromStop(stop: String) = "$stop से"; override val notSet = "तय नहीं"
 }
 
 fun stringsFor(lang: Lang): Strings = if (lang == Lang.HI) Hi else En

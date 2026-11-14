@@ -58,6 +58,10 @@ import androidx.compose.ui.unit.dp
 import app.delhiraahi.data.Api
 import app.delhiraahi.data.DeviceLocation
 import app.delhiraahi.data.Lang
+import app.delhiraahi.data.PickedPlace
+import app.delhiraahi.data.Places
+import app.delhiraahi.data.Slot
+import androidx.compose.material.icons.outlined.History
 import app.delhiraahi.data.NearbyStop
 import app.delhiraahi.i18n.LocalStrings
 import app.delhiraahi.ui.common.BusMap
@@ -85,7 +89,10 @@ private sealed interface Nearby {
 
 /** Same structure as the Expo Home: full map, floating language pill + locate, draggable sheet. */
 @Composable
-fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit, onWhereTo: () -> Unit) {
+fun HomeScreen(
+    lang: Lang, places: Places, onToggleLang: () -> Unit, onSetPlace: (Slot) -> Unit, onWhereTo: () -> Unit,
+    onGo: (PickedPlace?, PickedPlace) -> Unit, onClearRecent: () -> Unit, onInsights: () -> Unit,
+) {
     val s = LocalStrings.current
     val t = LocalExtra.current
     val ctx = LocalContext.current
@@ -114,7 +121,10 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit, onW
         nearby = runCatching { Nearby.Loaded(Api.nearbyStops(loc.latitude, loc.longitude, 1000).results.take(5)) }.getOrElse { Nearby.Error }
     }
 
-    val soon = { Toast.makeText(ctx, s.comingSoon, Toast.LENGTH_SHORT).show() }
+    // A missing origin means "from where I am"; without a fix the search screen asks for one.
+    val go: (PickedPlace?, PickedPlace) -> Unit = { from, to ->
+        onGo(from ?: me?.let { PickedPlace.here(s.currentLocation, it.first, it.second) }, to)
+    }
     val stops = (nearby as? Nearby.Loaded)?.stops.orEmpty()
 
     Box(Modifier.fillMaxSize()) {
@@ -169,8 +179,27 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit, onW
         ) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Space.lg).padding(bottom = Space.xxl)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = Space.sm), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    Chip(s.addHome, Icons.Outlined.Home, onClick = onAddPlace)
-                    Chip(s.addWork, Icons.Outlined.Work, onClick = onAddPlace)
+                    val home = places.home
+                    val work = places.work
+                    if (home != null) Chip(s.home, Icons.Outlined.Home) { go(null, home.picked()) }
+                    else Chip(s.addHome, Icons.Outlined.Home) { onSetPlace(Slot.HOME) }
+                    if (work != null) Chip(s.work, Icons.Outlined.Work) { go(null, work.picked()) }
+                    else Chip(s.addWork, Icons.Outlined.Work) { onSetPlace(Slot.WORK) }
+                }
+
+                if (places.recent.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().padding(top = Space.md), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.recent, style = MaterialTheme.typography.titleMedium, color = t.text,
+                            modifier = Modifier.weight(1f).semantics { heading() })
+                        Text(s.clearRecent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = t.muted,
+                            modifier = Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button, onClick = onClearRecent)
+                                .padding(horizontal = Space.md, vertical = Space.sm))
+                    }
+                    places.recent.forEach { r ->
+                        ListRow(Icons.Outlined.History, r.to.label, subtitle = r.from?.let { s.fromStop(it.label) } ?: s.fromHere, chevron = true) {
+                            go(r.from?.picked(), r.to.picked())
+                        }
+                    }
                 }
 
                 Text(s.nearby, style = MaterialTheme.typography.titleMedium, color = t.text,
@@ -192,7 +221,7 @@ fun HomeScreen(lang: Lang, onToggleLang: () -> Unit, onAddPlace: () -> Unit, onW
                 // Insights promo card
                 Row(
                     Modifier.padding(top = Space.lg).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(t.surface)
-                        .clickable(role = Role.Button, onClick = soon).padding(Space.lg),
+                        .clickable(role = Role.Button, onClick = onInsights).padding(Space.lg),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.md),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

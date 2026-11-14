@@ -40,6 +40,12 @@ object Api {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /** FastAPI errors look like {"detail": "..."}; show just the message. */
+    fun detail(body: String): String = runCatching {
+        val d = json.parseToJsonElement(body).let { (it as kotlinx.serialization.json.JsonObject)["detail"] }
+        (d as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }.getOrNull() ?: body.take(200)
+
     private suspend inline fun <reified T> get(path: String, query: Map<String, Any?> = emptyMap()): T =
         withContext(Dispatchers.IO) {
             val url = "$base/api/v1$path".toHttpUrlOrNull()?.newBuilder()?.apply {
@@ -52,7 +58,7 @@ object Api {
             }
             response.use {
                 val body = it.body?.string().orEmpty()
-                if (!it.isSuccessful) throw ApiException(it.code, body.take(200))
+                if (!it.isSuccessful) throw ApiException(it.code, detail(body))
                 json.decodeFromString<T>(body)
             }
         }
@@ -65,7 +71,7 @@ object Api {
             val response = try { call.execute() } catch (e: IOException) { throw ApiException(0, "network") }
             response.use {
                 val text = it.body?.string().orEmpty()
-                if (!it.isSuccessful) throw ApiException(it.code, text.take(300))
+                if (!it.isSuccessful) throw ApiException(it.code, detail(text))
                 json.decodeFromString<T>(text)
             }
         }
@@ -91,6 +97,11 @@ object Api {
         get("/live/vehicles", mapOf("route_id" to routeId, "bbox" to bbox))
 
     suspend fun health(): Health = get("/health")
+    suspend fun searchRoutes(q: String): RouteSearchResponse = get("/routes/search", mapOf("q" to q))
+    suspend fun routeDay(routeId: String, date: String): RouteDay =
+        get("/crowd/route/${java.net.URLEncoder.encode(routeId, "UTF-8")}", mapOf("date" to date))
+    suspend fun hotspots(date: String, time: String): HotspotsResponse = get("/crowd/hotspots", mapOf("date" to date, "time" to time, "limit" to 120))
+    suspend fun modelCard(): kotlinx.serialization.json.JsonObject = get("/insights/model")
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =
         get("/stops/nearby", mapOf("lat" to lat, "lon" to lon, "radius_m" to radiusM))
     suspend fun searchStops(q: String): StopSearchResponse = get("/stops/search", mapOf("q" to q, "limit" to 8))

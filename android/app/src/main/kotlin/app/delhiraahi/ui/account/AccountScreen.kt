@@ -30,6 +30,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.delhiraahi.data.Api
+import app.delhiraahi.data.Places
+import app.delhiraahi.data.Slot
+import app.delhiraahi.ui.common.ListRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material3.TextButton
 import app.delhiraahi.data.Lang
 import app.delhiraahi.data.Settings
 import app.delhiraahi.data.SettingsStore
@@ -41,7 +49,10 @@ import app.delhiraahi.ui.theme.LocalExtra
 import kotlinx.coroutines.launch
 
 @Composable
-fun AccountScreen(settings: Settings, store: SettingsStore) {
+fun AccountScreen(
+    settings: Settings, store: SettingsStore, places: Places,
+    onSetPlace: (Slot) -> Unit, onRemovePlace: (Slot) -> Unit, onInsights: () -> Unit,
+) {
     val s = LocalStrings.current
     val x = LocalExtra.current
     val scope = rememberCoroutineScope()
@@ -53,7 +64,7 @@ fun AccountScreen(settings: Settings, store: SettingsStore) {
         Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState())
             .padding(24.dp).widthIn(max = 640.dp),
     ) {
-        Text(s.accountTitle, style = MaterialTheme.typography.headlineLarge)
+        Text(s.accountTitle, style = MaterialTheme.typography.headlineLarge, color = x.text)
 
         SectionTitle(s.language)
         Segmented(listOf(Lang.EN to "English", Lang.HI to "हिन्दी"), settings.lang, { scope.launch { store.setLang(it) } }, s.language)
@@ -63,6 +74,15 @@ fun AccountScreen(settings: Settings, store: SettingsStore) {
             listOf(ThemePref.SYSTEM to s.system, ThemePref.LIGHT to s.light, ThemePref.DARK to s.dark),
             settings.theme, { scope.launch { store.setTheme(it) } }, s.appearance,
         )
+
+        SectionTitle(s.savedPlaces)
+        listOf(Triple(Slot.HOME, s.home, Icons.Outlined.Home), Triple(Slot.WORK, s.work, Icons.Outlined.Work)).forEach { (slot, name, icon) ->
+            val p = if (slot == Slot.HOME) places.home else places.work
+            ListRow(icon, name, subtitle = p?.label ?: s.notSet,
+                trailing = if (p != null) ({ TextButton(onClick = { onRemovePlace(slot) }) { Text(s.remove, color = x.veryHigh.fg) } }) else null,
+                chevron = p == null, onClick = { onSetPlace(slot) })
+        }
+        ListRow(Icons.Outlined.BarChart, s.insightsTitle, subtitle = s.insightsSub, chevron = true, onClick = onInsights)
 
         SectionTitle(s.server)
         Text(s.serverHint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -89,7 +109,7 @@ fun AccountScreen(settings: Settings, store: SettingsStore) {
         }
 
         HorizontalDivider(Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.outline)
-        Text(s.about, style = MaterialTheme.typography.titleMedium)
+        Text(s.about, style = MaterialTheme.typography.titleMedium, color = x.text)
         Text(s.aboutText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         Text(s.privacy, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
     }

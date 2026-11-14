@@ -46,6 +46,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import android.net.Uri
 import app.delhiraahi.data.TicketStore
+import app.delhiraahi.data.PlacesStore
+import app.delhiraahi.data.Places
+import app.delhiraahi.data.Slot
+import app.delhiraahi.data.Load
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import app.delhiraahi.ui.home.PickPlaceScreen
+import app.delhiraahi.ui.insights.InsightsScreen
 import app.delhiraahi.ui.live.StopScreen
 import app.delhiraahi.ui.tickets.BookScreen
 import app.delhiraahi.ui.tickets.TicketScreen
@@ -89,6 +97,13 @@ fun App(settings: Settings, store: SettingsStore) {
     val trip: TripViewModel = viewModel()
     val ctx = LocalContext.current
     val tickets = remember { TicketStore(ctx.applicationContext) }
+    val placesStore = remember { PlacesStore(ctx.applicationContext) }
+    val places by placesStore.places.collectAsState(initial = Places())
+    // Remember each successful search (on this device only).
+    LaunchedEffect(trip.result) {
+        val to = trip.to
+        if (trip.result is Load.Ok && to != null) placesStore.addRecent(trip.from, to)
+    }
     val openStop: (String, String?) -> Unit = { id, route ->
         nav.navigate("stop/${Uri.encode(id)}" + (route?.let { "?route=${Uri.encode(it)}" } ?: ""))
     }
@@ -104,7 +119,18 @@ fun App(settings: Settings, store: SettingsStore) {
     Column(Modifier.fillMaxSize().background(t.bg)) {
         NavHost(nav, startDestination = "home", modifier = Modifier.weight(1f)) {
             composable("home") {
-                HomeScreen(lang = settings.lang, onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } }, onAddPlace = { go("account") }, onWhereTo = { nav.navigate("search") })
+                HomeScreen(
+                    lang = settings.lang, places = places,
+                    onToggleLang = { scope.launch { store.setLang(if (settings.lang == Lang.EN) Lang.HI else Lang.EN) } },
+                    onSetPlace = { nav.navigate("pickplace/${it.name}") },
+                    onWhereTo = { trip.to = null; nav.navigate("search") },
+                    onGo = { from, to ->
+                        trip.from = from; trip.to = to
+                        if (from != null) { trip.search(); nav.navigate("results") } else nav.navigate("search")
+                    },
+                    onClearRecent = { scope.launch { placesStore.clearRecent() } },
+                    onInsights = { nav.navigate("insights") },
+                )
             }
             composable("live") { LiveScreen(onOpenStop = { openStop(it, null) }) }
             composable("tickets") {
@@ -122,7 +148,17 @@ fun App(settings: Settings, store: SettingsStore) {
                     nav.navigate("ticket/${Uri.encode(tk.ticket_id)}") { popUpTo("home") }
                 })
             }
-            composable("account") { AccountScreen(settings = settings, store = store) }
+            composable("account") {
+                AccountScreen(settings = settings, store = store, places = places,
+                    onSetPlace = { nav.navigate("pickplace/${it.name}") },
+                    onRemovePlace = { scope.launch { placesStore.set(it, null) } },
+                    onInsights = { nav.navigate("insights") })
+            }
+            composable("insights") { InsightsScreen(settings.lang, onBack = { nav.popBackStack() }) }
+            composable("pickplace/{slot}") { e ->
+                val slot = runCatching { Slot.valueOf(e.arguments?.getString("slot").orEmpty()) }.getOrDefault(Slot.HOME)
+                PickPlaceScreen(slot, placesStore, onDone = { nav.popBackStack() })
+            }
             composable("search") {
                 SearchScreen(trip, onBack = { nav.popBackStack() }, onDone = {
                     nav.navigate("results") { popUpTo("search") { inclusive = true } }
