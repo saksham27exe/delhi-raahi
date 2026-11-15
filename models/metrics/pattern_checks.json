@@ -1,0 +1,463 @@
+{
+  "daily_shape": {
+    "holiday": {
+      "am_peak_hour": 9,
+      "pm_peak_hour": 18,
+      "am_peak_vs_midday": 2.15,
+      "pm_peak_vs_midday": 1.75,
+      "per_hour": [
+        55.5,
+        30.0,
+        10.0,
+        14.5,
+        58.0,
+        704.5,
+        1757.5,
+        2622.5,
+        4204.0,
+        5011.5,
+        3691.5,
+        2618.0,
+        2428.5,
+        2076.0,
+        2215.5,
+        2364.5,
+        3211.0,
+        3962.0,
+        4076.0,
+        3378.5,
+        2962.5,
+        2063.0,
+        1173.5,
+        214.5
+      ]
+    },
+    "saturday": {
+      "am_peak_hour": 9,
+      "pm_peak_hour": 19,
+      "am_peak_vs_midday": 4.06,
+      "pm_peak_vs_midday": 2.35,
+      "per_hour": [
+        59.0,
+        18.8,
+        15.4,
+        20.2,
+        71.0,
+        807.4,
+        2194.8,
+        4602.2,
+        9553.8,
+        11697.2,
+        7103.0,
+        3884.6,
+        2920.0,
+        2430.6,
+        2289.0,
+        2301.0,
+        2909.6,
+        4431.2,
+        6649.2,
+        6780.0,
+        5352.2,
+        3332.4,
+        1527.8,
+        296.8
+      ]
+    },
+    "sunday": {
+      "am_peak_hour": 9,
+      "pm_peak_hour": 18,
+      "am_peak_vs_midday": 2.07,
+      "pm_peak_vs_midday": 1.66,
+      "per_hour": [
+        52.2,
+        18.5,
+        16.0,
+        15.2,
+        57.2,
+        680.5,
+        1705.5,
+        2560.2,
+        4193.5,
+        4793.5,
+        3638.2,
+        2694.0,
+        2444.2,
+        2121.0,
+        2023.8,
+        2115.5,
+        2671.8,
+        3416.8,
+        3861.0,
+        3615.0,
+        3247.8,
+        2373.2,
+        1300.2,
+        255.8
+      ]
+    },
+    "weekday": {
+      "am_peak_hour": 9,
+      "pm_peak_hour": 18,
+      "am_peak_vs_midday": 4.55,
+      "pm_peak_vs_midday": 3.14,
+      "per_hour": [
+        48.0,
+        18.9,
+        14.3,
+        13.9,
+        73.0,
+        871.0,
+        2509.8,
+        5994.4,
+        13072.2,
+        14325.5,
+        7932.6,
+        4218.9,
+        3186.4,
+        2621.4,
+        2574.7,
+        2827.1,
+        3809.2,
+        6783.5,
+        9902.1,
+        9200.5,
+        6690.1,
+        3738.7,
+        1570.1,
+        301.7
+      ]
+    }
+  },
+  "day_types": {
+    "weekday": {
+      "days": 20,
+      "passengers_per_day": 102298,
+      "vs_weekday": 1.0
+    },
+    "saturday": {
+      "days": 5,
+      "passengers_per_day": 81247,
+      "vs_weekday": 0.79
+    },
+    "holiday": {
+      "days": 2,
+      "passengers_per_day": 50903,
+      "vs_weekday": 0.5
+    },
+    "sunday": {
+      "days": 4,
+      "passengers_per_day": 49871,
+      "vs_weekday": 0.49
+    }
+  },
+  "tidal_flow": {
+    "routes_checked": 420,
+    "min_tickets_per_peak": 200,
+    "busier_direction_swaps": 317,
+    "share_swapping": 0.755,
+    "routes_clearly_one_sided_in_both_peaks": 225,
+    "share_swapping_among_one_sided": 0.889,
+    "peaks": "07:00-09:59 vs 17:00-19:59, weekdays without holidays"
+  },
+  "busy_corridors": {
+    "am_peak": [
+      {
+        "from": "Asian Market",
+        "to": "Saket Crossing",
+        "eticket_passengers_per_weekday": 1296,
+        "routes": 28
+      },
+      {
+        "from": "Saket Crossing",
+        "to": "Maidan Garhi Crossing (SDM Court)",
+        "eticket_passengers_per_weekday": 1185,
+        "routes": 22
+      },
+      {
+        "from": "DIPSAR ( Institute of Pharmacy)",
+        "to": "Asian Market",
+        "eticket_passengers_per_weekday": 1153,
+        "routes": 25
+      },
+      {
+        "from": "Khanpur Extension / Devli Road Xing / Dakshin Puri G-Block",
+        "to": "Ambedkar Nagar Depot",
+        "eticket_passengers_per_weekday": 1051,
+        "routes": 27
+      },
+      {
+        "from": "Rainy Well",
+        "to": "Delhi Secretariat",
+        "eticket_passengers_per_weekday": 978,
+        "routes": 59
+      },
+      {
+        "from": "Ambedkar Nagar Terminal / DIPSAR",
+        "to": "DIPSAR ( Institute of Pharmacy)",
+        "eticket_passengers_per_weekday": 918,
+        "routes": 14
+      },
+      {
+        "from": "Vayusenabad (Tigri)",
+        "to": "Khanpur Extension / Devli Road Xing / Dakshin Puri G-Block",
+        "eticket_passengers_per_weekday": 909,
+        "routes": 26
+      },
+      {
+        "from": "Ambedkar Nagar Depot",
+        "to": "Ambedkar Nagar Terminal / DIPSAR",
+        "eticket_passengers_per_weekday": 894,
+        "routes": 13
+      },
+      {
+        "from": "Batra Hospital (Satya Narayan Mandir)",
+        "to": "Vayusenabad (Tigri)",
+        "eticket_passengers_per_weekday": 803,
+        "routes": 25
+      },
+      {
+        "from": "Maidan Garhi Crossing (SDM Court)",
+        "to": "Saket Metro Sation / Said-ul-Ajaib",
+        "eticket_passengers_per_weekday": 766,
+        "routes": 17
+      }
+    ],
+    "pm_peak": [
+      {
+        "from": "Saket Crossing",
+        "to": "Asian Market",
+        "eticket_passengers_per_weekday": 1005,
+        "routes": 28
+      },
+      {
+        "from": "Maidan Garhi Crossing (SDM Court)",
+        "to": "Saket Crossing",
+        "eticket_passengers_per_weekday": 939,
+        "routes": 22
+      },
+      {
+        "from": "Delhi Secretariat",
+        "to": "Rainy Well",
+        "eticket_passengers_per_weekday": 822,
+        "routes": 56
+      },
+      {
+        "from": "Ambedkar Nagar Depot",
+        "to": "Khanpur Extension / Devali Road Xing",
+        "eticket_passengers_per_weekday": 799,
+        "routes": 25
+      },
+      {
+        "from": "Ambedkar Nagar Terminal",
+        "to": "Ambedkar Nagar Depot",
+        "eticket_passengers_per_weekday": 755,
+        "routes": 20
+      },
+      {
+        "from": "Khanpur Extension / Devali Road Xing",
+        "to": "VayuSenaBad (Tigri)",
+        "eticket_passengers_per_weekday": 660,
+        "routes": 25
+      },
+      {
+        "from": "Saket Metro Station",
+        "to": "Maidan Garhi Crossing (SDM Court)",
+        "eticket_passengers_per_weekday": 598,
+        "routes": 18
+      },
+      {
+        "from": "VayuSenaBad (Tigri)",
+        "to": "Batra Hospital / Satya Narayan Mandir",
+        "eticket_passengers_per_weekday": 596,
+        "routes": 24
+      },
+      {
+        "from": "DIPSAR College of Pharmacy / Ambedkar Nagar (T.)",
+        "to": "Ambedkar Nagar Terminal",
+        "eticket_passengers_per_weekday": 585,
+        "routes": 11
+      },
+      {
+        "from": "Asian Market",
+        "to": "DIPSAR College of Pharmacy / Ambedkar Nagar (T.)",
+        "eticket_passengers_per_weekday": 582,
+        "routes": 10
+      }
+    ]
+  },
+  "week_to_week": {
+    "unit": "segment x 30-min bucket, weekdays without holidays; crowd level from demand per scheduled departure with the model's thresholds",
+    "pairs": [
+      {
+        "weeks": [
+          [
+            "2026-10-05",
+            "2026-10-09"
+          ],
+          [
+            "2026-10-12",
+            "2026-10-16"
+          ]
+        ],
+        "segment_buckets": 856628,
+        "by_support": [
+          {
+            "tickets_in_both_weeks": "[0, 10)",
+            "segment_buckets": 589509,
+            "pearson_log": 0.108,
+            "same_crowd_level": 0.976,
+            "within_one_level": 1.0
+          },
+          {
+            "tickets_in_both_weeks": "[10, 30)",
+            "segment_buckets": 191452,
+            "pearson_log": 0.241,
+            "same_crowd_level": 0.63,
+            "within_one_level": 0.981
+          },
+          {
+            "tickets_in_both_weeks": "[30, 100)",
+            "segment_buckets": 68127,
+            "pearson_log": 0.573,
+            "same_crowd_level": 0.598,
+            "within_one_level": 0.979
+          },
+          {
+            "tickets_in_both_weeks": "[100, 300)",
+            "segment_buckets": 7340,
+            "pearson_log": 0.754,
+            "same_crowd_level": 0.75,
+            "within_one_level": 0.997
+          },
+          {
+            "tickets_in_both_weeks": "[300, inf)",
+            "segment_buckets": 200,
+            "pearson_log": 0.663,
+            "same_crowd_level": 1.0,
+            "within_one_level": 1.0
+          }
+        ],
+        "all": {
+          "pearson_log": 0.749,
+          "same_crowd_level": 0.867,
+          "same_crowd_level_ticket_weighted": 0.698
+        }
+      },
+      {
+        "weeks": [
+          [
+            "2026-10-12",
+            "2026-10-16"
+          ],
+          [
+            "2026-10-19",
+            "2026-10-23"
+          ]
+        ],
+        "segment_buckets": 816523,
+        "by_support": [
+          {
+            "tickets_in_both_weeks": "[0, 10)",
+            "segment_buckets": 580850,
+            "pearson_log": 0.143,
+            "same_crowd_level": 0.955,
+            "within_one_level": 1.0
+          },
+          {
+            "tickets_in_both_weeks": "[10, 30)",
+            "segment_buckets": 172709,
+            "pearson_log": 0.329,
+            "same_crowd_level": 0.611,
+            "within_one_level": 0.983
+          },
+          {
+            "tickets_in_both_weeks": "[30, 100)",
+            "segment_buckets": 57589,
+            "pearson_log": 0.641,
+            "same_crowd_level": 0.632,
+            "within_one_level": 0.984
+          },
+          {
+            "tickets_in_both_weeks": "[100, 300)",
+            "segment_buckets": 5299,
+            "pearson_log": 0.753,
+            "same_crowd_level": 0.745,
+            "within_one_level": 0.996
+          },
+          {
+            "tickets_in_both_weeks": "[300, inf)",
+            "segment_buckets": 76,
+            "pearson_log": 0.776,
+            "same_crowd_level": 1.0,
+            "within_one_level": 1.0
+          }
+        ],
+        "all": {
+          "pearson_log": 0.753,
+          "same_crowd_level": 0.858,
+          "same_crowd_level_ticket_weighted": 0.693
+        }
+      },
+      {
+        "weeks": [
+          [
+            "2026-10-19",
+            "2026-10-23"
+          ],
+          [
+            "2026-10-26",
+            "2026-10-30"
+          ]
+        ],
+        "segment_buckets": 814664,
+        "by_support": [
+          {
+            "tickets_in_both_weeks": "[0, 10)",
+            "segment_buckets": 584397,
+            "pearson_log": 0.169,
+            "same_crowd_level": 0.956,
+            "within_one_level": 1.0
+          },
+          {
+            "tickets_in_both_weeks": "[10, 30)",
+            "segment_buckets": 169138,
+            "pearson_log": 0.384,
+            "same_crowd_level": 0.618,
+            "within_one_level": 0.988
+          },
+          {
+            "tickets_in_both_weeks": "[30, 100)",
+            "segment_buckets": 55872,
+            "pearson_log": 0.67,
+            "same_crowd_level": 0.652,
+            "within_one_level": 0.986
+          },
+          {
+            "tickets_in_both_weeks": "[100, 300)",
+            "segment_buckets": 5203,
+            "pearson_log": 0.769,
+            "same_crowd_level": 0.754,
+            "within_one_level": 0.997
+          },
+          {
+            "tickets_in_both_weeks": "[300, inf)",
+            "segment_buckets": 54,
+            "pearson_log": 0.809,
+            "same_crowd_level": 1.0,
+            "within_one_level": 1.0
+          }
+        ],
+        "all": {
+          "pearson_log": 0.769,
+          "same_crowd_level": 0.864,
+          "same_crowd_level_ticket_weighted": 0.705
+        }
+      }
+    ]
+  },
+  "holidays": {
+    "2026-10-02": "Gandhi Jayanti",
+    "2026-10-20": "Dussehra"
+  }
+}

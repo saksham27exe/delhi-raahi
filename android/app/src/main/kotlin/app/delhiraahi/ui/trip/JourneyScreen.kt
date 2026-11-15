@@ -154,7 +154,10 @@ fun JourneyScreen(
                     style = MaterialTheme.typography.bodyLarge, color = t.muted,
                 )
             }
-            Row(Modifier.padding(top = Space.sm)) { CrowdBadge(j.crowd_level) }
+            Row(Modifier.padding(top = Space.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                CrowdBadge(j.crowd_level)
+                s.confidence(j.evidence_quality).takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.muted) }
+            }
 
             // Small route sketch
             Box(Modifier.padding(top = Space.lg).fillMaxWidth().height(170.dp).clip(RoundedCornerShape(Radius.lg)).border(1.dp, t.border, RoundedCornerShape(Radius.lg))) {

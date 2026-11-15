@@ -41,7 +41,7 @@ interface Strings {
     fun ride(stops: Int, min: Int): String; fun walkTo(min: Int): String; val changeBus: String
     fun book(fare: String): String; val bookNoFare: String; val track: String; val why: String
     val crowdAlong: String; val timetable: String; val crowdNote: String; val nextBuildBooking: String
-    fun crowd(cat: String): String; fun crowdShort(cat: String): String
+    fun crowd(cat: String): String; fun crowdShort(cat: String): String; fun confidence(evidence: String): String
     val searching: String; val walkStart: String; val walkEnd: String; fun departsAt(t: String): String
     val showStretches: String; val hideStretches: String; val eTicketFare: String
     // K3: booking, tickets, live
@@ -150,6 +150,7 @@ object En : Strings {
     override val crowdNote = "Expected crowding comes from e-ticket data per scheduled bus. It is a guide, not a passenger count."
     override val nextBuildBooking = "Booking and live tracking arrive in the next build."
     override fun crowd(cat: String) = when (cat) { "LOW" -> "Low crowd"; "MODERATE" -> "Moderate crowd"; "HIGH" -> "High crowd"; "VERY_HIGH" -> "Very crowded"; else -> "Crowd unknown" }
+    override fun confidence(evidence: String) = when (evidence) { "HIGH" -> "Based on many tickets"; "MEDIUM" -> "Based on a fair number of tickets"; "LOW" -> "Few tickets on this trip, so the crowd level is less certain"; else -> "" }
     override fun crowdShort(cat: String) = when (cat) { "LOW" -> "Low"; "MODERATE" -> "Moderate"; "HIGH" -> "High"; "VERY_HIGH" -> "Very high"; else -> "Unknown" }
     override val searching = "Finding buses…"; override val walkStart = "Walk to the stop"; override val walkEnd = "Walk to your destination"
     override fun departsAt(t: String) = "Departs $t"; override val showStretches = "Show crowding by stretch"; override val hideStretches = "Hide stretches"; override val eTicketFare = "e-ticket fare"
@@ -330,6 +331,7 @@ object Hi : Strings {
     override val crowdNote = "अनुमानित भीड़ ई-टिकट डेटा से हर निर्धारित बस के हिसाब से है। यह एक संकेत है, यात्रियों की गिनती नहीं।"
     override val nextBuildBooking = "बुकिंग और लाइव ट्रैकिंग अगले बिल्ड में आएँगी।"
     override fun crowd(cat: String) = when (cat) { "LOW" -> "कम भीड़"; "MODERATE" -> "मध्यम भीड़"; "HIGH" -> "ज़्यादा भीड़"; "VERY_HIGH" -> "बहुत ज़्यादा भीड़"; else -> "भीड़ अज्ञात" }
+    override fun confidence(evidence: String) = when (evidence) { "HIGH" -> "बहुत से टिकटों पर आधारित"; "MEDIUM" -> "काफ़ी टिकटों पर आधारित"; "LOW" -> "इस यात्रा पर कम टिकट हैं, इसलिए भीड़ का अनुमान कम पक्का है"; else -> "" }
     override fun crowdShort(cat: String) = when (cat) { "LOW" -> "कम"; "MODERATE" -> "मध्यम"; "HIGH" -> "ज़्यादा"; "VERY_HIGH" -> "बहुत ज़्यादा"; else -> "अज्ञात" }
     override val searching = "बसें खोज रहे हैं…"; override val walkStart = "स्टॉप तक पैदल"; override val walkEnd = "मंज़िल तक पैदल"
     override fun departsAt(t: String) = "$t पर रवाना"; override val showStretches = "हिस्सों के हिसाब से भीड़ देखें"; override val hideStretches = "हिस्से छिपाएँ"; override val eTicketFare = "ई-टिकट किराया"

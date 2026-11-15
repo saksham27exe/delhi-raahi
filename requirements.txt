@@ -1,0 +1,31 @@
+# DelhiRaahi — Python 3.12. Pipeline, model training, API and tests.
+#   python -m venv .venv && .venv/Scripts/pip install -r requirements.txt     (Windows)
+#   python -m venv .venv && .venv/bin/pip install -r requirements.txt         (Linux / macOS)
+# Optional voice-assistant LLM fallback: backend/requirements-voice.txt
+
+# data pipeline + model
+duckdb==2.0.0
+pandas==3.1.1
+pyarrow==26.0.1
+numpy==2.5.4
+scipy==1.18.1
+scikit-learn==1.9.1
+lightgbm==4.7.0
+RapidFuzz==3.14.6
+
+# API
+fastapi==0.162.6
+uvicorn==0.54.0
+pydantic==2.14.3
+pydantic-settings==2.16.3
+requests==2.34.2
+gtfs-realtime-bindings==3.0.0
+protobuf==7.36.2
+
+# accounts in Firebase (optional: without a service-account file the API uses local SQLite)
+firebase_admin==7.8.0
+google-cloud-firestore==2.34.1
+
+# tests
+pytest==9.2.0
+httpx==0.28.1

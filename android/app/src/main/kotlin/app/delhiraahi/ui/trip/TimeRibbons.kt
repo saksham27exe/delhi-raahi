@@ -336,6 +336,7 @@ internal fun RibbonRow(j: Journey, r: Ribbon, axis: ClockAxis, selected: Boolean
                 )
                 CrowdBadge(j.crowd_level, short = true)
             }
+            if (j.evidence_quality == "LOW") Text(s.confidence("LOW"), style = MaterialTheme.typography.bodySmall, color = t.muted)
             RibbonBar(r, axis)
             if (first != null) {
                 // 1. Walk to the first stop
