@@ -163,6 +163,9 @@ object Api {
     suspend fun nearbyStops(lat: Double, lon: Double, radiusM: Int = 800): NearbyResponse =
         get("/stops/nearby", mapOf("lat" to lat, "lon" to lon, "radius_m" to radiusM))
     suspend fun stopsInArea(bbox: String, limit: Int = 60): StopsInArea = get("/stops/in_area", mapOf("bbox" to bbox, "limit" to limit))
+    /** Fallback reading of a voice sentence by the backend's local LLM (503 when it has no model). */
+    suspend fun voiceUnderstand(text: String): app.delhiraahi.voice.LlmReading =
+        post("/voice/understand", buildJsonObject { put("text", text) }, timeoutMs = 15_000)
     suspend fun searchStops(q: String): StopSearchResponse = get("/stops/search", mapOf("q" to q, "limit" to 8))
     suspend fun searchPlaces(q: String): PlaceSearchResponse = get("/places/search", mapOf("q" to q, "limit" to 6))
     suspend fun liveStatus(): LiveStatus = get("/live/status")

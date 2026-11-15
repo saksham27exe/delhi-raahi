@@ -1,0 +1,4 @@
+# Optional: local LLM fallback for the voice assistant (backend/app/services/voice_llm.py).
+# pip install -r requirements-voice.txt --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+# then: ../.venv/Scripts/python scripts/fetch_llm.py
+llama-cpp-python==0.3.36

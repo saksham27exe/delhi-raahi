@@ -130,8 +130,16 @@ object Understand {
         if (wrong) WRONG.forEach { t = cut(t, it) }
         for (w in listOf("route", "way", "bus", "wali", "wala", "वाली", "वाला")) if (pref != null) t = cut(t, w)
 
+        // After a preference or time was taken out, leftover filler ("please", "make it the", "leave") is not a command.
+        if (pref != null || leave != null) t = t.split(" ").filterNot { it in LEFTOVER }.joinToString(" ")
         // Short leftovers are commands ("next", "show", "haan") unless they read like a trip.
-        val cmd = if (t.isNotBlank() && !VoiceParser.looksLikeTrip(t)) VoiceParser.command(t) else null
+        // "alert me when to get off" / "guide me to the bus stop" contain "to" but are requests, not trips.
+        val strong = when {
+            ALERT_ASK.any { " $t ".contains(" $it ") } -> Said.Alert
+            GUIDE_ASK.any { " $t ".contains(" $it ") } -> Said.Guide
+            else -> null
+        }
+        val cmd = strong ?: if (t.isNotBlank() && !VoiceParser.looksLikeTrip(t)) VoiceParser.command(t) else null
         if (cmd != null) return Understood(command = cmd, preference = pref, leave = leave, wrongPlace = wrong)
 
         val trip = if (t.isBlank()) null else VoiceParser.trip(t)
@@ -149,7 +157,10 @@ object Understand {
     private val OFF_START = setOf("write", "generate", "create", "make", "code", "tell", "explain", "what", "whats", "who",
         "why", "play", "sing", "calculate", "translate", "define", "call", "send", "remind", "kya", "kaun", "kyun", "likho")
     private val OFF_END = setOf("likho", "sunao", "banao", "gao", "samjhao")
-    private val TRAVEL = Regex("""\b(bus|buses|route|stop|metro|reach|go|going|get|way|travel|ride|ticket|pass|fare|crowd|crowded|alert|jana|jaana|rasta|raasta)\b""")
+    private val TRAVEL = Regex("""\b(bus|buses|route|stop|metro|reach|go|going|get|way|travel|ride|ticket|pass|fare|crowd|crowded|alert|jana|jaana|rasta|raasta|fastest|quickest|least|direct|walk|leave|leaving|minutes|baje|option)\b""")
+    private val ALERT_ASK = listOf("alert me", "when to get off", "tell me when", "remind me", "wake me")
+    private val GUIDE_ASK = listOf("guide me", "navigate me", "walk me to the stop", "take me to the bus stop", "take me to the stop")
+    private val LEFTOVER = setOf("please", "pls", "make", "it", "the", "a", "leave", "leaving", "depart", "nikalna", "nikalenge", "chalna", "kar", "do", "karo")
 
     /**
      * Clearly not a travel request ("write a Python function", "tell me a joke"): the assistant says what
@@ -157,7 +168,8 @@ object Understand {
      */
     fun offTopic(text: String): Boolean {
         val t = VoiceParser.norm(text)
-        if (t.isBlank() || VoiceParser.looksLikeTrip(t) || TRAVEL.containsMatchIn(t)) return false
+        if (t.isBlank() || VoiceParser.looksLikeTrip(t) || TRAVEL.containsMatchIn(t) ||
+            VoiceParser.command(t).let { it != null && it != Said.Repeat }) return false   // "what" alone is Repeat, not a travel word
         val w = t.split(" ")
         return w.first() in OFF_START || w.last() in OFF_END
     }

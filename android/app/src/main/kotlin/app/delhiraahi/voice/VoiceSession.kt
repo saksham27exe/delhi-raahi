@@ -77,6 +77,8 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     private var lastHeard: List<String> = emptyList()
     /** The start the traveller named in this conversation ("from Saket"); kept when only the destination changes. */
     private var saidFrom: PickedPlace? = null
+    /** Set when the server has no LLM (or can't be reached): the session then uses its rules only. */
+    private var llmOff = false
 
     /** The big button: cut speech short, or finish listening early. Returns false when there is nothing to do. */
     fun tap(): Boolean = when (status) {
@@ -171,10 +173,41 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         is LeaveSpec.At -> vs.leaving((if (l.tomorrow) (if (vs.languageTag.startsWith("hi")) "कल " else "tomorrow ") else "") + vs.time("%02d:%02d".format(l.hour, l.minute)))
     }
 
-    private suspend fun handle(heard: List<String>, u: Understood) {
+    /**
+     * The rules couldn't read the sentence well: ask the backend's local LLM, turn its fields into a plain
+     * sentence ("from lajpat nagar to karol bagh") and handle that as if it had been said. True if handled.
+     */
+    private suspend fun retryWithLlm(heard: List<String>): Boolean {
+        if (llmOff || heard.isEmpty()) return false
+        status = VoiceStatus.THINKING
+        val s = step(vs.stepUnderstanding)
+        val r = try { Api.voiceUnderstand(heard.first()) } catch (e: Exception) {
+            if (e is ApiException && (e.status == 503 || e.status == 404)) llmOff = true
+            if (BuildConfig.DEBUG) Log.d(TAG, "llm unavailable: ${e.message}")
+            null
+        }
+        done(s, vs.stepUnderstanding)
+        status = VoiceStatus.IDLE
+        if (r == null) return false
+        val sentence = r.sentence()
+        if (BuildConfig.DEBUG) Log.d(TAG, "llm (${r.ms} ms): ${heard.first()} -> $r -> $sentence")
+        when {
+            r.intent == "off_topic" -> say(vs.offTopic)
+            sentence == null -> say(if (options.isEmpty()) vs.notUnderstoodNoTrip else vs.notUnderstood)
+            else -> handle(listOf(sentence), Understand.parse(sentence), viaLlm = true)
+        }
+        return true
+    }
+
+    /** Signs the rules misread: nothing understood, or a "place" that is really a whole clause. */
+    private fun needsLlm(u: Understood): Boolean =
+        u.isEmpty || listOfNotNull(u.to, u.from).any { it.split(" ").size > 3 }
+
+    private suspend fun handle(heard: List<String>, u: Understood, viaLlm: Boolean = false) {
         lastHeard = heard
         // Not a travel request at all: say what the assistant can do and listen again.
         if (heard.all { Understand.offTopic(it) }) { say(vs.offTopic); return }
+        if (!viaLlm && needsLlm(u) && retryWithLlm(heard)) return
         if (u.to != null || u.from != null || u.preference != null || u.leave != null)
             note(vs.understood(u.from ?: if (u.fromHere) vs.currentLocation else null, u.to,
                 listOfNotNull(u.preference?.let { vs.prefName(it) }, u.leave?.let { leaveSpecText(it) })))
@@ -208,9 +241,15 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
                 // when it clearly names a place; otherwise it is a misheard command, so the trip is kept.
                 val bare = (options.isNotEmpty() || destination != null) && u.from == null && !u.fromHere &&
                     heard.none { VoiceParser.looksLikeTrip(it) }
-                val to = resolveFirst(placeNames(heard) { it.to }, keepAlternatives = true,
+                val toNames = placeNames(heard) { it.to }
+                // Not found by the rules' reading: before giving up, let the LLM read the sentence ("" = stay quiet).
+                val askLlm = !viaLlm && !llmOff && !bare
+                val to = resolveFirst(toNames, keepAlternatives = true,
                     minScore = if (bare) PlaceMatch.SURE else PlaceMatch.ACCEPT,
-                    onMiss = if (bare) vs.notUnderstood else null) ?: return
+                    onMiss = if (bare) vs.notUnderstood else if (askLlm) "" else null) ?: run {
+                    if (askLlm && !retryWithLlm(heard)) say(vs.notFound(toNames.firstOrNull() ?: ""))
+                    return
+                }
                 applyPrefs(u)
                 val from = when {
                     u.from != null -> (resolveFirst(placeNames(heard) { it.from }) ?: return).place.also { saidFrom = it }

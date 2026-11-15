@@ -1,0 +1,60 @@
+{"text": "from Saket to AIIMS", "intent": "trip", "from": "saket", "to": "aiims"}
+{"text": "take me to India Gate", "intent": "trip", "to": "india gate"}
+{"text": "how do I get to Karol Bagh from Lajpat Nagar", "intent": "trip", "from": "lajpat nagar", "to": "karol bagh"}
+{"text": "I need to reach Nehru Place", "intent": "trip", "to": "nehru place"}
+{"text": "least crowded bus to Connaught Place", "intent": "trip", "to": "connaught place", "preference": "least_crowded"}
+{"text": "fastest way from Kashmere Gate to Saket", "intent": "trip", "from": "kashmere gate", "to": "saket", "preference": "fastest"}
+{"text": "book a bus from Saket to Akshardham", "intent": "trip", "from": "saket", "to": "akshardham"}
+{"text": "can you find me a bus going to Rajiv Chowk", "intent": "trip", "to": "rajiv chowk"}
+{"text": "what's the quickest bus to Hauz Khas", "intent": "trip", "to": "hauz khas", "preference": "fastest"}
+{"text": "I am at Munirka, want to go to Dwarka Sector 21", "intent": "trip", "from": "munirka", "to": "dwarka sector 21"}
+{"text": "Lajpat Nagar to Kalkaji", "intent": "trip", "from": "lajpat nagar", "to": "kalkaji"}
+{"text": "bus for Anand Vihar", "intent": "trip", "to": "anand vihar"}
+{"text": "show me buses from here to Red Fort", "intent": "trip", "from_here": true, "to": "red fort"}
+{"text": "I want to go to Chandni Chowk in 30 minutes", "intent": "trip", "to": "chandni chowk", "leave_in_min": 30}
+{"text": "Mujhe Saket se Akshardham jaane ka rasta batao", "intent": "trip", "from": "saket", "to": "akshardham"}
+{"text": "Mujhe Akshardham se Saket jaane ka rasta batao", "intent": "trip", "from": "akshardham", "to": "saket"}
+{"text": "Karol Bagh kaise jaun", "intent": "trip", "to": "karol bagh"}
+{"text": "India Gate ke liye bus dikhao", "intent": "trip", "to": "india gate"}
+{"text": "Lajpat Nagar se Nehru Place tak ki bus", "intent": "trip", "from": "lajpat nagar", "to": "nehru place"}
+{"text": "mujhe Chandni Chowk jana hai", "intent": "trip", "to": "chandni chowk"}
+{"text": "Saket jaane wali sabse kam bheed wali bus", "intent": "trip", "to": "saket", "preference": "least_crowded"}
+{"text": "Saket se Akshardham", "intent": "trip", "from": "saket", "to": "akshardham"}
+{"text": "yahan se Rohini Sector 22 kaise pahunchu", "intent": "trip", "from_here": true, "to": "rohini sector 22"}
+{"text": "Dilli Haat jaana hai jaldi", "intent": "trip", "to": "dilli haat", "preference": "fastest"}
+{"text": "Uttam Nagar se Janakpuri West jaane ke liye bus batao", "intent": "trip", "from": "uttam nagar", "to": "janakpuri west"}
+{"text": "Akshardham", "intent": "trip", "to": "akshardham"}
+{"text": "Karol Bagh", "intent": "trip", "to": "karol bagh"}
+{"text": "from Saket", "intent": "trip", "from": "saket"}
+{"text": "साकेत से अक्षरधाम", "intent": "trip", "from": "saket", "to": "akshardham"}
+{"text": "मुझे इंडिया गेट जाना है", "intent": "trip", "to": "india gate"}
+{"text": "कनॉट प्लेस कैसे जाऊं", "intent": "trip", "to": "connaught place"}
+{"text": "next", "intent": "command", "command": "next"}
+{"text": "show more", "intent": "command", "command": "next"}
+{"text": "so more", "intent": "command", "command": "next"}
+{"text": "aur koi bus", "intent": "command", "command": "next"}
+{"text": "go back", "intent": "command", "command": "previous"}
+{"text": "say that again", "intent": "command", "command": "repeat"}
+{"text": "show it on the screen", "intent": "command", "command": "show"}
+{"text": "stop", "intent": "command", "command": "stop"}
+{"text": "only direct buses", "intent": "command", "command": "direct_only"}
+{"text": "I'd rather walk", "intent": "command", "command": "walk_only"}
+{"text": "yes", "intent": "command", "command": "yes"}
+{"text": "haan theek hai", "intent": "command", "command": "yes"}
+{"text": "nahi", "intent": "command", "command": "no"}
+{"text": "alert me when to get off", "intent": "command", "command": "alert"}
+{"text": "guide me to the bus stop", "intent": "command", "command": "guide"}
+{"text": "start over", "intent": "command", "command": "new_trip"}
+{"text": "what can I say", "intent": "command", "command": "help"}
+{"text": "option two", "intent": "command", "command": "number", "number": 2}
+{"text": "make it the fastest", "intent": "settings", "preference": "fastest"}
+{"text": "least crowded please", "intent": "settings", "preference": "least_crowded"}
+{"text": "leave in 30 minutes", "intent": "settings", "leave_in_min": 30}
+{"text": "at 6 pm", "intent": "settings", "leave_at": "18:00"}
+{"text": "kal subah 9 baje", "intent": "settings", "leave_at": "09:00", "tomorrow": true}
+{"text": "write a python function", "intent": "off_topic"}
+{"text": "tell me a joke", "intent": "off_topic"}
+{"text": "what is the weather today", "intent": "off_topic"}
+{"text": "who won the cricket match yesterday", "intent": "off_topic"}
+{"text": "play some music", "intent": "off_topic"}
+{"text": "hmm", "intent": "unclear"}

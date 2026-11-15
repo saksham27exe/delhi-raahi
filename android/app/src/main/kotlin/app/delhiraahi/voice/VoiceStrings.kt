@@ -14,6 +14,7 @@ interface VoiceStrings {
     val micNeeded: String; val noRecognizer: String
     val greeting: String; val firstTip: String; val askWhere: String; val askFrom: String
     val approxLocation: String
+    val stepUnderstanding: String
     val notSure: String; val sayItAgain: String; fun checkHeard(text: String): String; fun sure(pct: Int): String
     val sorry: String; val goingQuiet: String; val bye: String; val help: String; val hint: String
     val notUnderstood: String; val notUnderstoodNoTrip: String
@@ -85,6 +86,7 @@ object VoiceEn : VoiceStrings {
     override val askFrom = "I can't get your location. Where are you starting from?"
     override val approxLocation = "Your location is only approximate. To be exact, say where you're starting from."
     override val sorry = "Sorry, say that again?"
+    override val stepUnderstanding = "Working out what you meant…"
     override val notSure = "I'm not sure I heard that right. Please say it again, a little slower."
     override val sayItAgain = "Okay, please say it again."
     override fun checkHeard(text: String) = "Did you say: $text?"
@@ -183,6 +185,7 @@ object VoiceHi : VoiceStrings {
     override val askFrom = "आपकी लोकेशन नहीं मिल रही। आप कहाँ से चलेंगे?"
     override val approxLocation = "आपकी लोकेशन सिर्फ़ अंदाज़न है। सही नतीजे के लिए बताइए आप कहाँ से चलेंगे।"
     override val sorry = "माफ़ कीजिए, फिर से बोलिए?"
+    override val stepUnderstanding = "आपकी बात समझी जा रही है…"
     override val notSure = "ठीक से सुनाई नहीं दिया। कृपया थोड़ा धीरे, फिर से बोलिए।"
     override val sayItAgain = "ठीक है, कृपया फिर से बोलिए।"
     override fun checkHeard(text: String) = "क्या आपने कहा: $text?"

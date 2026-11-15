@@ -68,7 +68,7 @@ object VoiceParser {
 
     private val LEAD_FILLER = setOf("i", "want", "wanna", "need", "would", "like", "to", "go", "going", "get", "take", "me", "us", "how",
         "do", "can", "could", "reach", "a", "the", "bus", "buses", "route", "routes", "directions", "please", "show", "find", "plan",
-        "trip", "journey", "mujhe", "main", "मुझे", "मैं", "हमें")
+        "trip", "journey", "mujhe", "main", "मुझे", "मैं", "हमें", "what's", "whats", "what", "which", "is", "for", "there", "any")
     private val HI_SUFFIX = listOf("jana chahta hoon", "jana chahti hoon", "jaana chahta hoon", "jaana chahti hoon", "jana hai", "jaana hai",
         "kaise jaun", "kaise jaaun", "kaise jaye", "kaise pahunchu", "pahunchna hai", "le chalo", "chalo", "jana", "jaana", "tak",
         "जाना चाहता हूं", "जाना चाहता हूँ", "जाना चाहती हूं", "जाना चाहती हूँ", "जाना है", "कैसे जाऊं", "कैसे जाऊँ", "कैसे जाएं",
@@ -93,6 +93,8 @@ object VoiceParser {
             NUMBERS[t.removePrefix("number ").removePrefix("option ")]?.let { return Said.Number(it) }
         }
         if (words > 4) return null
+        // A whole phrase from a list wins over a word inside it ("what can i say" is Help, not Repeat for "what").
+        COMMANDS.firstOrNull { (_, p) -> t in p }?.let { return it.first }
         for ((said, phrases) in COMMANDS) if (phrases.any { hasPhrase(t, it) }) return said
         return null
     }

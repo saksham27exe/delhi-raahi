@@ -29,3 +29,6 @@ models/metrics/*.txt
 # firebase (keys: never commit)
 google-services.json
 firebase-service-account*.json
+
+# Local LLM for voice understanding (~1 GB, downloaded by scripts/fetch_llm.py)
+models/llm/
