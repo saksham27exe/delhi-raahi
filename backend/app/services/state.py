@@ -29,6 +29,7 @@ class AppState:
     geo: object | None = None         # OsmGeo (place search, walking routes) or None
     accounts: object | None = None    # AccountStore (users, demo wallet, tickets, passes)
     mailer: object | None = None      # Mailer (SMTP) for account and support emails, if set up
+    admin: object | None = None       # AdminStore (admin website: admins, sessions, audit, support desk…)
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
@@ -94,6 +95,11 @@ def load_state(settings: Settings | None = None) -> AppState:
     from app.services.accounts import AccountStore, load_or_create_secret
     acc_dir = s.crowdwise_data_dir / "accounts"
     secret = s.demo_ticket_secret or load_or_create_secret(acc_dir / "server_secret.txt")
+    try:
+        from app.services.admin_store import AdminStore
+        st.admin = AdminStore(s.crowdwise_data_dir / "admin" / "admin.db")
+    except Exception as e:  # noqa: BLE001
+        st.load_errors["admin"] = f"{type(e).__name__}: {e}"
     if s.smtp_user and s.smtp_password:
         from app.services.mailer import Mailer
         st.mailer = Mailer(s.smtp_host, s.smtp_port, s.smtp_user, s.smtp_password, s.mail_from_name)

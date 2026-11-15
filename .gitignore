@@ -32,3 +32,7 @@ firebase-service-account*.json
 
 # Local LLM for voice understanding (~1 GB, downloaded by scripts/fetch_llm.py)
 models/llm/
+
+# admin website: build output and its database (admins, support requests, audit)
+admin/dist/
+data/admin/

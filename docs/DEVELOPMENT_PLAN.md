@@ -193,6 +193,22 @@ Run: backend `uvicorn app.main:app --port 8000`, then `cd frontend && npm run de
 - Known gaps: backend notes, ranking explanations and advisor reasons are English only; stop names are
   English (GTFS has no Hindi names).
 
+## Phase 11 — Admin website (agreed 15 Nov 2026: all areas, in phases) ⬜
+React + TypeScript app in `admin/`, built into the backend and served at `/admin` (same origin).
+Admin data lives in `data/admin/admin.db` (SQLite, git-ignored): admins, sessions, support requests,
+service alerts, overrides, audit log. Admin accounts are server-only (created by
+`scripts/create_admin.py`), scrypt-hashed passwords, HttpOnly SameSite=Strict cookie sessions, CSRF header,
+roles: owner (everything incl. admins), agent (support + users), viewer (read only). Every write is audited.
+- **A — Foundation** ✅: admin store + auth API + `/admin` static serving; app shell, login, roles, audit log.
+- **B — Support desk** ⬜: support requests move to admin.db (status, priority, assignee, notes, email
+  replies with the reference, CSV export); deleting an account deletes its requests.
+- **C — Users & bookings** ⬜: search users; profile, demo wallet, tickets, passes, requests; disable/enable,
+  resend verification, demo wallet adjustment, void ticket/pass (verify rejects it), delete account.
+- **D — Service alerts & data fixes** ⬜: notices for all / routes / stops with start–end time, shown in the
+  Android app (Home banner, trip results, live bus); stop name aliases for search; AC/non-AC overrides.
+- **E — Ops dashboard** ⬜: KPIs + charts (users, bookings, requests by type/route, crowd hotspots, model
+  card), health of live feed / voice model / email / data loads, audit log viewer, CSV exports.
+
 ## Phase 10 — Submission ⬜  ← NEXT
 README, `docs/technical_note.md` (methodology, assumptions, limitations), demo script + video,
 reproducible setup (`requirements.txt`, `docker-compose.yml`), final test run, git history clean.
