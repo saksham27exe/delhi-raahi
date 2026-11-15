@@ -123,15 +123,31 @@ private fun busIcon(ctx: Context, fill: Int, sizeDp: Int): Icon {
     return IconFactory.getInstance(ctx).fromBitmap(bmp)
 }
 
-/** Bus stop: a square sign (white, ink border) with a small bus, so it never reads as a moving bus. */
-private fun stopIcon(ctx: Context, ink: Int, sizeDp: Int): Icon {
-    val px = (sizeDp * ctx.resources.displayMetrics.density).toInt()
-    val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-    val c = Canvas(bmp); val p = Paint(Paint.ANTI_ALIAS_FLAG); val k = px * 0.22f
-    p.color = 0x55000000; c.drawRoundRect(1f, 2f, px - 1f, px - 0f, k, k, p)
-    p.color = ink; c.drawRoundRect(1f, 1f, px - 1f, px - 2f, k, k, p)
-    p.color = 0xFFFFFFFF.toInt(); val e = px * 0.12f; c.drawRoundRect(e, e, px - e, px - 2f - e, k * 0.6f, k * 0.6f, p)
-    drawBus(c, px * 0.30f, px * 0.25f, px * 0.70f, px * 0.70f, ink, 0xFFFFFFFF.toInt())
+/**
+ * Bus stop: a signpost (square sign on a pole) with a shelter-and-bench symbol, like a real stop sign.
+ * Deliberately no bus drawing and a different shape and colour from the round live-bus marker, so the
+ * two are never confused. The pole's foot is the stop's position (markers anchor at the bottom centre).
+ */
+private fun stopIcon(ctx: Context, sign: Int, sizeDp: Int): Icon {
+    val d = ctx.resources.displayMetrics.density
+    val w = (sizeDp * d).toInt()
+    val h = (w * 1.5f).toInt()
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp); val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    val k = w * 0.2f
+    // pole and its shadow on the ground
+    p.color = 0x44000000; c.drawOval(w * 0.30f, h - w * 0.12f, w * 0.70f, h.toFloat(), p)
+    p.color = 0xFF3A3A3A.toInt(); c.drawRoundRect(w * 0.44f, w * 0.8f, w * 0.56f, h - w * 0.05f, w * 0.05f, w * 0.05f, p)
+    // sign: white rim, coloured face
+    p.color = 0x55000000; c.drawRoundRect(1f, 2f, w - 1f, w.toFloat(), k, k, p)
+    p.color = 0xFFFFFFFF.toInt(); c.drawRoundRect(1f, 1f, w - 1f, w - 1f, k, k, p)
+    p.color = sign; val e = w * 0.09f; c.drawRoundRect(e, e, w - e, w - e, k * 0.7f, k * 0.7f, p)
+    // shelter: roof, two posts, a bench
+    p.color = 0xFFFFFFFF.toInt()
+    val l = w * 0.24f; val r = w * 0.76f; val t = w * 0.26f; val b = w * 0.74f; val iw = r - l
+    c.drawRoundRect(l - iw * 0.06f, t, r + iw * 0.06f, t + iw * 0.16f, iw * 0.05f, iw * 0.05f, p)      // roof
+    c.drawRect(l, t, l + iw * 0.13f, b, p); c.drawRect(r - iw * 0.13f, t, r, b, p)                     // posts
+    c.drawRect(l + iw * 0.13f, t + (b - t) * 0.58f, r - iw * 0.13f, t + (b - t) * 0.70f, p)            // bench
     return IconFactory.getInstance(ctx).fromBitmap(bmp)
 }
 
@@ -186,7 +202,7 @@ fun BusMap(
     var zoomStep by remember { mutableStateOf(12) }
     val icons = remember {
         mapOf(
-            MapPin.Kind.STOP to stopIcon(ctx, 0xFF221C18.toInt(), 22),
+            MapPin.Kind.STOP to stopIcon(ctx, 0xFF1F6FB2.toInt(), 24),         // blue signpost (buses are sandstone circles)
             MapPin.Kind.BUS to busIcon(ctx, 0xFFA63D2A.toInt(), 28),
             MapPin.Kind.FROM to dotIcon(ctx, 0xFF16A34A.toInt(), 26),
             MapPin.Kind.TO to dotIcon(ctx, 0xFF000000.toInt(), 28),
