@@ -120,3 +120,23 @@ def copy_email(ref: str, kind: str, message: str, fields: list[tuple[str, str]],
 
 def received_at() -> str:
     return datetime.now(IST).strftime("%d %b %Y, %H:%M IST")
+
+
+
+def reply_email(ref: str, kind: str, reply: str, original: str, agent: str, lang: str) -> tuple[str, str, str]:
+    """An agent's answer to a request, quoting what the person wrote."""
+    if lang == "hi":
+        subject = f"Re: आपका संदेश ({ref})"
+        title = f"{BRAND} सहायता का जवाब · {ref}"
+        label, team = "आपने लिखा था", f"{BRAND} सहायता"
+        foot = f"इस ईमेल का जवाब देकर बात आगे बढ़ाई जा सकती है। संदर्भ: {ref} · {BRAND}"
+    else:
+        subject = f"Re: your message ({ref})"
+        title = f"Reply from {BRAND} support · {ref}"
+        label, team = "You wrote", f"{BRAND} support"
+        foot = f"Reply to this email to continue the conversation. Reference: {ref} · {BRAND}"
+    intro = (escape(reply).replace("\n", "<br>") + f"<br><br>— {escape(agent)}, {team}"
+             + f'<br><br><span style="color:{MUTED}">{label}:</span>')
+    html = _wrap(title, intro, [], original, foot)
+    text = "\n".join([title, "", reply, "", f"— {agent}, {team}", "", label + ":", original, "", "—", foot])
+    return subject, html, text

@@ -200,7 +200,7 @@ service alerts, overrides, audit log. Admin accounts are server-only (created by
 `scripts/create_admin.py`), scrypt-hashed passwords, HttpOnly SameSite=Strict cookie sessions, CSRF header,
 roles: owner (everything incl. admins), agent (support + users), viewer (read only). Every write is audited.
 - **A — Foundation** ✅: admin store + auth API + `/admin` static serving; app shell, login, roles, audit log.
-- **B — Support desk** ⬜: support requests move to admin.db (status, priority, assignee, notes, email
+- **B — Support desk** ✅: support requests move to admin.db (status, priority, assignee, notes, email
   replies with the reference, CSV export); deleting an account deletes its requests.
 - **C — Users & bookings** ⬜: search users; profile, demo wallet, tickets, passes, requests; disable/enable,
   resend verification, demo wallet adjustment, void ticket/pass (verify rejects it), delete account.

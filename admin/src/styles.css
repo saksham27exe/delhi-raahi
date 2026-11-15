@@ -155,3 +155,5 @@ td.num, th.num { text-align: right; }
 .bar-row { display: grid; grid-template-columns: minmax(80px, 160px) 1fr 52px; gap: 10px; align-items: center; font-size: 13px; padding: 3px 0; }
 .bar-track { background: var(--sunk); border-radius: 4px; height: 12px; overflow: hidden; }
 .bar-fill { background: var(--accent); height: 100%; border-radius: 4px; }
+.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
+@media (max-width: 1000px) { .split { grid-template-columns: minmax(0, 1fr); } }

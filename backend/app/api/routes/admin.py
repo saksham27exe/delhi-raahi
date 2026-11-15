@@ -171,3 +171,9 @@ def reset_admin_password(admin_id: int, request: Request, a: Admin = Depends(req
 def audit_log(limit: int = 100, before: int | None = None, action: str | None = None, admin: str | None = None,
               a: Admin = Depends(require("agent")), s: AdminStore = Depends(store)) -> dict:
     return {"entries": s.audit_log(limit, before, action, admin)}
+
+
+@router.get("/agents")
+def agents(a: Admin = Depends(require("viewer")), s: AdminStore = Depends(store)) -> dict:
+    """Admins who can take support requests (active agents and owners), for assignment menus."""
+    return {"agents": [{"id": r["id"], "name": r["name"]} for r in s.list_admins() if not r["disabled"] and r["role"] != "viewer"]}

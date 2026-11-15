@@ -58,8 +58,12 @@ def send(req: SupportReq, request: Request, st: AppState = Depends(get_state),
               ("Stop or area", (req.where or "").strip()),
               ("Account", "signed in" if u else "guest"), ("Reply to", reply_to or ""),
               ("App", (req.app_version or "").strip())]
-    # Kept with the account's feedback, so "Delete account" removes it too.
-    if st.accounts is not None:
+    # Kept in the support desk (admin website); "Delete account" removes it too.
+    rid = None
+    if st.desk is not None:
+        rid = st.desk.add(ref, req.kind, message, reply_to, str(u.id) if u else None, (req.route or "").strip(),
+                          (req.when or "").strip(), (req.where or "").strip(), (req.app_version or "").strip() or None, req.lang)
+    elif st.accounts is not None:
         details = "; ".join(f"{k}: {v}" for k, v in fields[3:6] if v)
         try:
             st.accounts.add_feedback(u.id if u else None, f"[{ref}] {req.kind}" + (f" ({details})" if details else "") + f": {message}")
@@ -71,6 +75,8 @@ def send(req: SupportReq, request: Request, st: AppState = Depends(get_state),
         try:
             st.mailer.send(inbox, *sup.inbox_email(ref, req.kind, message, fields, reply_to), reply_to=reply_to)
             emailed = True
+            if rid:
+                st.desk.mark_emailed(rid)
         except Exception as e:  # noqa: BLE001  (never log the SMTP password; the exception text doesn't hold it)
             log.warning("support email to inbox failed for %s: %s", ref, type(e).__name__)
         if emailed and reply_to:
@@ -79,6 +85,6 @@ def send(req: SupportReq, request: Request, st: AppState = Depends(get_state),
                 copied = True
             except Exception as e:  # noqa: BLE001
                 log.warning("support copy email failed for %s: %s", ref, type(e).__name__)
-    if not emailed and st.accounts is None:
+    if not emailed and rid is None and st.accounts is None:
         raise HTTPException(503, detail="Support isn't available on this server right now.")
     return {"ok": True, "ref": ref, "emailed": emailed, "copy_sent": copied}

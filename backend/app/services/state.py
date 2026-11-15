@@ -30,6 +30,7 @@ class AppState:
     accounts: object | None = None    # AccountStore (users, demo wallet, tickets, passes)
     mailer: object | None = None      # Mailer (SMTP) for account and support emails, if set up
     admin: object | None = None       # AdminStore (admin website: admins, sessions, audit, support desk…)
+    desk: object | None = None        # SupportDesk (complaints and questions from the app)
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
@@ -98,6 +99,8 @@ def load_state(settings: Settings | None = None) -> AppState:
     try:
         from app.services.admin_store import AdminStore
         st.admin = AdminStore(s.crowdwise_data_dir / "admin" / "admin.db")
+        from app.services.support_desk import SupportDesk
+        st.desk = SupportDesk(st.admin)
     except Exception as e:  # noqa: BLE001
         st.load_errors["admin"] = f"{type(e).__name__}: {e}"
     if s.smtp_user and s.smtp_password:

@@ -8,6 +8,7 @@ import { ChangePassword, Login } from "./pages/Login";
 import { Admins } from "./pages/Admins";
 import { Audit } from "./pages/Audit";
 import { Dashboard } from "./pages/Dashboard";
+import { Support } from "./pages/support";
 import "./styles.css";
 
 interface Page { path: string; label: string; icon: string; role: Role; group: string; el: JSX.Element }
@@ -15,6 +16,7 @@ interface Page { path: string; label: string; icon: string; role: Role; group: s
 // Each phase adds its pages here.
 const PAGES: Page[] = [
   { path: "/", label: "Dashboard", icon: "◧", role: "viewer", group: "Overview", el: <Dashboard /> },
+  { path: "/support", label: "Support desk", icon: "✉", role: "viewer", group: "People", el: <Support /> },
   { path: "/audit", label: "Audit log", icon: "≣", role: "agent", group: "Admin", el: <Audit /> },
   { path: "/admins", label: "Admins", icon: "⚿", role: "owner", group: "Admin", el: <Admins /> },
 ];

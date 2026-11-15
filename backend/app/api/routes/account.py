@@ -154,6 +154,8 @@ def delete_me(req: DeleteReq, u: User = Depends(require_user), st: AppState = De
         _acc(st).delete(u.id, req.password)
     except AccountError as e:
         raise _err(e) from None
+    if st.desk is not None:
+        st.desk.delete_user(str(u.id))      # their support requests and complaints go too
     return {"deleted": True}
 
 
