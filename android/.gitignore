@@ -9,3 +9,8 @@ captures/
 *.apk
 *.keystore
 build.log
+
+# release signing (never commit)
+keystore/
+keystore.properties
+*.jks

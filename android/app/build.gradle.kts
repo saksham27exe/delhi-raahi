@@ -18,6 +18,11 @@ val local = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
+// Release signing key (git-ignored): android/keystore.properties -> storeFile, storePassword, keyAlias, keyPassword.
+val signing = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "app.delhiraahi"
     compileSdk = 35
@@ -33,9 +38,21 @@ android {
         buildConfigField("String", "API_BASE", "\"${local.getProperty("api.base", "http://10.0.2.2:8010")}\"")
     }
 
+    signingConfigs {
+        if (signing.getProperty("storeFile") != null) create("release") {
+            storeFile = rootProject.file(signing.getProperty("storeFile"))
+            storePassword = signing.getProperty("storePassword")
+            keyAlias = signing.getProperty("keyAlias")
+            keyPassword = signing.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         debug { applicationIdSuffix = ".dev" }
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }   // unsigned if there is no key
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
