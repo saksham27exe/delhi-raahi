@@ -281,16 +281,16 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
                 // Stops that really contain what was typed, then places, then the looser stop matches.
                 val typed = q.trim().lowercase()
                 val (exact, loose) = hits.partition { it.name.lowercase().contains(typed) }
-                exact.forEach { h -> ListRow(Icons.Outlined.DirectionsBus, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
+                exact.forEach { h -> ListRow(app.delhiraahi.ui.common.StopSignIcon, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
                 placeHits.forEach { h -> ListRow(Icons.Outlined.Place, h.name, subtitle = h.area.ifEmpty { null }) { showHere(h.name, h.lat, h.lon) } }
-                loose.forEach { h -> ListRow(Icons.Outlined.DirectionsBus, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
+                loose.forEach { h -> ListRow(app.delhiraahi.ui.common.StopSignIcon, h.name, subtitle = s.routesServed(h.routes_served)) { showHere(h.name, h.lat, h.lon) } }
             } else {
                 Text((focus?.let { s.stopsNear(it.title) } ?: s.nearbyStops).uppercase(), style = MaterialTheme.typography.labelMedium, color = t.muted,
                     modifier = Modifier.padding(top = Space.lg, bottom = Space.xs).semantics { heading() })
                 if (me == null && focus == null) Text(s.noLocation, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 else if (nearby.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 nearby.forEach { st ->
-                    ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) { pickStop(st.stop_id, st.name, st.lat, st.lon) }
+                    ListRow(app.delhiraahi.ui.common.StopSignIcon, st.name, subtitle = s.metres(st.distance_m), chevron = true) { pickStop(st.stop_id, st.name, st.lat, st.lon) }
                 }
             }
         }

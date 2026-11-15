@@ -166,7 +166,7 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
                 val stopSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
                     if (shownStops.isNotEmpty() && places.isNotEmpty()) item(key = "h:stops") { SectionLabel(s.busStops) }
                     items(shownStops, key = { "s:" + it.name }) { h ->
-                        ListRow(Icons.Outlined.Place, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
+                        ListRow(app.delhiraahi.ui.common.StopSignIcon, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
                     }
                 }
                 val placeSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {

@@ -209,7 +209,7 @@ fun HomeScreen(
                     modifier = Modifier.clickable(role = Role.Button) { attempt++ }.padding(vertical = Space.xs))
                 is Nearby.Loaded -> if (n.stops.isEmpty()) Text(s.noStopsNearby, style = MaterialTheme.typography.bodyMedium, color = t.muted)
                 else n.stops.forEach { st ->
-                    ListRow(Icons.Outlined.DirectionsBus, st.name, subtitle = s.metres(st.distance_m), chevron = true) {
+                    ListRow(app.delhiraahi.ui.common.StopSignIcon, st.name, subtitle = s.metres(st.distance_m), chevron = true) {
                         onPickFrom(PickedPlace(st.name, stopName = st.name, lat = st.lat, lon = st.lon))
                     }
                 }
