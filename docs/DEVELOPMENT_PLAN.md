@@ -209,9 +209,17 @@ roles: owner (everything incl. admins), agent (support + users), viewer (read on
 - **E — Ops dashboard** ✅: KPIs + charts (users, bookings, requests by type/route, crowd hotspots, model
   card), health of live feed / voice model / email / data loads, audit log viewer, CSV exports.
 
-## Phase 10 — Submission ⬜  ← NEXT
-README, `docs/technical_note.md` (methodology, assumptions, limitations), demo script + video,
-reproducible setup (`requirements.txt`, `docker-compose.yml`), final test run, git history clean.
+## Phase 10 — Submission 🟡  ← NEXT
+- ✅ `README.md` (deliverable map, setup, pipeline rerun, API, admin, app) · `requirements.txt` (pinned)
+- ✅ `docs/technical_note.md`: method, assumptions, accuracy, checks, where least reliable
+- ✅ `scripts/check_patterns.py` → `models/metrics/pattern_checks.json`: weekday peaks 09:00 (4.6× midday) and 18:00 (3.1×);
+  Sat 0.79×, Sun 0.49×, holidays 0.50× weekday volume; busier direction swaps AM↔PM on 76 % of two-way routes
+  (89 % of clearly one-sided ones); busiest corridor Asian Market ↔ Saket reverses AM/PM; week-to-week log-DPD
+  correlation 0.75–0.77, same level 86–87 % (100 % at ≥300 tickets)
+- ✅ App shows evidence ("Based on many tickets" / "less certain") on journeys
+- ✅ `docs/demo_script.md` (queries checked against the API)
+- ⬜ Demo video (record), release APK (needs a reachable server + signing key), docker-compose (skipped: daemon not
+  running, low memory; requirements + scripts suffice), final full test run before submitting
 
 ---
 
