@@ -116,7 +116,26 @@ object VoiceParser {
         return w.joinToString(" ")
     }
 
-    private fun place(t: String): String = stripLead(stripSuffix(t.trim())).removeSuffix(" please").trim()
+    private fun place(t: String): String = stripLead(stripSuffix(cutTail(t.trim()))).removeSuffix(" please").trim()
+
+    /**
+     * Words that ask for the trip rather than name the place: "Akshardham jaane ka rasta batao",
+     * "Karol Bagh kaise jaun", "India Gate ke liye bus dikhao". The place ends where the first one starts.
+     */
+    private val TAIL = setOf("jaane", "jane", "jaana", "jana", "jaun", "jaaun", "jaun?", "jaye", "jaaye", "jaayen", "jayen", "jaoon",
+        "pahunchna", "pahuchna", "pahunchu", "pahunchun", "pahunchne", "rasta", "raasta", "route", "kaise", "kaisey", "kidhar",
+        "batao", "bataiye", "bataye", "bataao", "dikhao", "dikhaiye", "chahiye", "chahta", "chahti", "liye", "wali", "wala",
+        "जाने", "जाना", "जाऊं", "जाऊँ", "जाएं", "पहुंचना", "पहुँचना", "रास्ता", "कैसे", "बताओ", "बताइए", "बताएं", "दिखाओ", "चाहिए", "लिए", "वाली", "वाला")
+    private val TAIL_GLUE = setOf("ka", "ke", "ki", "ko", "tak", "se", "का", "के", "की", "को", "तक", "से")
+
+    private fun cutTail(t: String): String {
+        val w = t.split(" ")
+        val i = w.indexOfFirst { it in TAIL }
+        if (i <= 0) return t
+        var keep = w.subList(0, i)
+        while (keep.size > 1 && keep.last() in TAIL_GLUE) keep = keep.subList(0, keep.size - 1)
+        return keep.joinToString(" ")
+    }
 
     /** A place name on its own (answer to "where from?"). */
     fun placeOnly(text: String): String = place(norm(text).removePrefix("from ").removePrefix("i am at ").removePrefix("i'm at "))

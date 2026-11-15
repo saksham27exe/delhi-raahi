@@ -16,6 +16,7 @@ object PlaceMatch {
         "a", "an", "the", "of", "to", "from", "me", "my", "please", "bus", "buses", "stop", "station", "near", "nearby",
         "i", "want", "go", "take", "get", "reach", "need", "can", "you", "is", "for", "at", "in", "on", "and", "by",
         "ka", "ki", "ke", "se", "tak", "ko", "jana", "jaana", "hai", "mujhe", "chalo", "wala", "wali",
+        "jaane", "jane", "rasta", "raasta", "kaise", "batao", "bataiye", "dikhao", "chahiye", "liye",
     )
 
     fun words(s: String): List<String> =

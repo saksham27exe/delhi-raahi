@@ -39,6 +39,9 @@ data class VoiceLine(val user: Boolean, val text: String, val step: Boolean = fa
 /** The traveller said "stop" (or went quiet): end the conversation. */
 private class EndConversation : Exception()
 
+/** Place search could not reach the server (no internet, or the server is off). */
+private class ServerUnreachable : Exception()
+
 /**
  * Hands-free trip planning. One loop: listen → understand the whole sentence → act → speak.
  * No confirmation questions: we act on the best match and say what we did; "wrong place" offers alternatives.
@@ -328,9 +331,13 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     private suspend fun candidates(name: String): List<Candidate> = coroutineScope {
         val q = Translit.toLatin(name).trim()
         if (q.length < 2) return@coroutineScope emptyList()
-        val places = async { runCatching { Api.searchPlaces(q).results }.getOrDefault(emptyList()) }
-        val stops = runCatching { Api.searchStops(q).results }.getOrDefault(emptyList())
-        val p = places.await()
+        val placesR = async { runCatching { Api.searchPlaces(q).results } }
+        val stopsR = runCatching { Api.searchStops(q).results }
+        val placesRes = placesR.await()
+        // Both lookups failed: the server is unreachable. Say so, rather than "not found, say it again".
+        if (stopsR.isFailure && placesRes.isFailure) throw ServerUnreachable()
+        val stops = stopsR.getOrDefault(emptyList())
+        val p = placesRes.getOrDefault(emptyList())
         val stopC = stops.map { Candidate(it.name, PickedPlace.stop(it), isStop = true) }
         val placeC = p.map { h ->
             val area = h.area.split(",").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() && !it.equals(h.name, true) }
@@ -353,7 +360,9 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         status = VoiceStatus.THINKING
         for (n in names) {
             val s = step(vs.stepFinding(n))
-            val c = candidates(n)
+            val c = try { candidates(n) } catch (_: ServerUnreachable) {
+                done(s, vs.stepNotFound(n)); status = VoiceStatus.IDLE; say(vs.serverDown); return null
+            }
             done(s, c.firstOrNull()?.let { vs.stepFound(n, it.spoken, it.isStop) } ?: vs.stepNotFound(n))
             if (c.isNotEmpty()) {
                 if (BuildConfig.DEBUG) Log.d(TAG, "resolve '$n' -> ${c.map { it.spoken }}")
