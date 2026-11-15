@@ -6,6 +6,12 @@ with `scripts/create_admin.py`, never through the app — and sign in to the web
 Passwords: scrypt (n=2^14, r=8, p=1) with a random salt. Sessions: a random token in an HttpOnly cookie;
 only its SHA-256 is stored. They end after 30 idle minutes or 12 hours, whichever comes first.
 Roles: owner (everything, incl. managing admins) > agent (support, users) > viewer (read only).
+
+Audit ledger (the "blockchain" on the Admins page): every audit entry is a block whose hash covers its own
+fields and the previous block's hash, signed with HMAC-SHA256 using a key kept outside the database
+(`data/admin/ledger_key.txt`). Changing, removing or reordering any past entry breaks every hash after it,
+and without the key nobody can quietly recompute the chain. The latest block number and hash are also
+written to `data/admin/ledger_head.json`, so cutting entries off the end is caught too.
 """
 from __future__ import annotations
 
@@ -114,6 +120,7 @@ class AdminStore:
         self._db.execute("PRAGMA journal_mode = WAL") if str(path) != ":memory:" else None
         self._lock = threading.RLock()
         self.migrate(SCHEMA)
+        self._ledger_init(path)
 
     def migrate(self, sql: str) -> None:
         with self._lock:
@@ -247,9 +254,85 @@ class AdminStore:
 
     # ---------- audit ----------
     def audit(self, a: Admin | None, email: str | None, action: str, target: str | None, detail: dict | None, ip: str | None) -> None:
-        self.x("INSERT INTO audit (at, admin_id, admin_email, action, target, detail, ip) VALUES (?,?,?,?,?,?,?)",
-               (_iso(_now()), a.id if a else None, a.email if a else email, action, target,
-                json.dumps(detail, ensure_ascii=False) if detail else None, ip))
+        with self._lock:
+            self._db.execute("INSERT INTO audit (at, admin_id, admin_email, action, target, detail, ip) VALUES (?,?,?,?,?,?,?)",
+                             (_iso(_now()), a.id if a else None, a.email if a else email, action, target,
+                              json.dumps(detail, ensure_ascii=False) if detail else None, ip))
+            self._seal()
+
+    # ---------- audit ledger (hash chain) ----------
+    GENESIS = "0" * 64
+
+    def _ledger_init(self, path: Path | str) -> None:
+        cols = {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}
+        with self._lock:
+            if "prev_hash" not in cols:
+                self._db.execute("ALTER TABLE audit ADD COLUMN prev_hash TEXT")
+            if "hash" not in cols:
+                self._db.execute("ALTER TABLE audit ADD COLUMN hash TEXT")
+        if str(path) == ":memory:":
+            self._ledger_key, self._head_path, self._head_mem = secrets.token_bytes(32), None, None
+        else:
+            key_file = Path(path).parent / "ledger_key.txt"
+            if not key_file.is_file():
+                key_file.write_text(secrets.token_hex(32), encoding="utf-8")
+            self._ledger_key = bytes.fromhex(key_file.read_text(encoding="utf-8").strip())
+            self._head_path, self._head_mem = Path(path).parent / "ledger_head.json", None
+        with self._lock:
+            self._seal()          # older entries (from before the ledger) are sealed once, in order
+
+    def _block_hash(self, prev: str, r) -> str:
+        body = json.dumps([prev, r["id"], r["at"], r["admin_id"], r["admin_email"], r["action"], r["target"], r["detail"], r["ip"]],
+                          ensure_ascii=False, separators=(",", ":"))
+        return hmac.new(self._ledger_key, body.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    def _seal(self) -> None:
+        """Hash every entry that has no hash yet, chaining from the last sealed one. Call with the lock held."""
+        last = self._db.execute("SELECT hash FROM audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
+        prev = last["hash"] if last else self.GENESIS
+        rows = self._db.execute("SELECT * FROM audit WHERE hash IS NULL ORDER BY id").fetchall()
+        for r in rows:
+            h = self._block_hash(prev, r)
+            self._db.execute("UPDATE audit SET prev_hash = ?, hash = ? WHERE id = ?", (prev, h, r["id"]))
+            prev = h
+            self._write_head(r["id"], h)
+
+    def _write_head(self, block: int, h: str) -> None:
+        head = {"block": block, "hash": h, "at": _iso(_now())}
+        if self._head_path is None:
+            self._head_mem = head
+        else:
+            self._head_path.write_text(json.dumps(head), encoding="utf-8")
+
+    def _read_head(self) -> dict | None:
+        if self._head_path is None:
+            return self._head_mem
+        try:
+            return json.loads(self._head_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def ledger(self, limit: int = 20) -> list[dict]:
+        rows = self.q("SELECT id, at, admin_email, action, target, prev_hash, hash FROM audit ORDER BY id DESC LIMIT ?", (limit,))
+        return [dict(r) for r in rows]
+
+    def verify_ledger(self) -> dict:
+        """Recompute the whole chain. Returns ok, how many blocks, the head, and the first broken block if any."""
+        with self._lock:
+            rows = self._db.execute("SELECT * FROM audit ORDER BY id").fetchall()
+        prev, count = self.GENESIS, 0
+        for r in rows:
+            if r["prev_hash"] != prev:
+                return {"ok": False, "blocks": count, "broken_at": r["id"], "reason": "A block before this one was changed or removed."}
+            if r["hash"] != self._block_hash(prev, r):
+                return {"ok": False, "blocks": count, "broken_at": r["id"], "reason": "This block's contents were changed."}
+            prev, count = r["hash"], count + 1
+        head = self._read_head()
+        last_id = rows[-1]["id"] if rows else None
+        if head and (head.get("block") != last_id or head.get("hash") != prev):
+            return {"ok": False, "blocks": count, "broken_at": head.get("block"),
+                    "reason": "The newest blocks were removed (the chain is shorter than the saved head)."}
+        return {"ok": True, "blocks": count, "head": prev, "head_block": last_id, "broken_at": None, "reason": None}
 
     def audit_log(self, limit: int = 100, before: int | None = None, action: str | None = None, admin: str | None = None) -> list[dict]:
         sql, args = "SELECT * FROM audit WHERE 1=1", []

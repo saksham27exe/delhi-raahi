@@ -173,6 +173,20 @@ def audit_log(limit: int = 100, before: int | None = None, action: str | None = 
     return {"entries": s.audit_log(limit, before, action, admin)}
 
 
+@router.get("/ledger")
+def ledger(limit: int = 20, a: Admin = Depends(require("owner")), s: AdminStore = Depends(store)) -> dict:
+    """Newest blocks of the audit hash chain, for the Admins page."""
+    return {"blocks": s.ledger(max(1, min(limit, 100)))}
+
+
+@router.post("/ledger/verify")
+def verify_ledger(request: Request, a: Admin = Depends(require("owner")), s: AdminStore = Depends(store)) -> dict:
+    """Recompute every hash in the audit chain; the check itself is then added as a new block."""
+    result = s.verify_ledger()
+    audit(request, a, "ledger_verified", None, {"ok": result["ok"], "blocks": result["blocks"], "broken_at": result["broken_at"]})
+    return result
+
+
 @router.get("/agents")
 def agents(a: Admin = Depends(require("viewer")), s: AdminStore = Depends(store)) -> dict:
     """Admins who can take support requests (active agents and owners), for assignment menus."""

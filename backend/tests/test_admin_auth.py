@@ -110,3 +110,43 @@ def test_admin_pages_never_cached(env):
     for path in ("/admin/", "/admin/support/12", "/admin/assets/missing.js"):
         r = c.get(path)
         assert r.headers.get("cache-control") == "no-store", path
+
+
+def test_ledger_chains_and_catches_tampering(env):
+    c, adm = env
+    csrf = signin(c)
+    h = {"X-CSRF-Token": csrf}
+    for e in ("x1@example.org", "x2@example.org"):
+        c.post("/api/v1/admin/admins", json={"email": e, "role": "viewer"}, headers=h)
+    r = c.post("/api/v1/admin/ledger/verify", headers=h).json()
+    assert r["ok"] and r["blocks"] >= 3
+    blocks = c.get("/api/v1/admin/ledger").json()["blocks"]
+    assert blocks[0]["action"] == "ledger_verified" and blocks[0]["prev_hash"] == blocks[1]["hash"]
+
+    adm._db.execute("UPDATE audit SET target = 'admin:999' WHERE action = 'admin_created' AND id = (SELECT MIN(id) FROM audit WHERE action = 'admin_created')")
+    bad = adm.verify_ledger()
+    assert not bad["ok"] and "changed" in bad["reason"]
+
+
+def test_ledger_catches_deleted_and_truncated_blocks():
+    adm = AdminStore(":memory:")
+    for i in range(4):
+        adm.audit(None, f"a{i}@example.org", "login_failed", None, None, "1.1.1.1")
+    assert adm.verify_ledger()["ok"]
+    adm._db.execute("DELETE FROM audit WHERE id = 2")
+    assert adm.verify_ledger()["broken_at"] == 3
+    adm2 = AdminStore(":memory:")
+    for i in range(3):
+        adm2.audit(None, "b@example.org", "login_failed", None, None, None)
+    adm2._db.execute("DELETE FROM audit WHERE id = 3")
+    r = adm2.verify_ledger()
+    assert not r["ok"] and "removed" in r["reason"]
+
+
+def test_ledger_viewer_and_agent_cannot_see(env):
+    c, adm = env
+    csrf = signin(c)
+    otp = c.post("/api/v1/admin/admins", json={"email": "ag@example.org", "role": "agent"}, headers={"X-CSRF-Token": csrf}).json()["one_time_password"]
+    c.cookies.clear()
+    signin(c, "ag@example.org", otp)
+    assert c.get("/api/v1/admin/ledger").status_code == 403

@@ -3,6 +3,7 @@ import { api, type Role } from "../api";
 import { useAuth } from "../auth";
 import { Badge, Button, Card, ErrorNote, Field, fmtTime, Modal, PageHead, Secret, Spinner, useAction, useConfirm, useLoad } from "../ui";
 import { ChangePassword } from "./Login";
+import { Ledger } from "./Ledger";
 
 interface Row { id: number; email: string; name: string; role: Role; disabled: number; must_change: number; created_at: string; last_login: string | null }
 
@@ -75,6 +76,7 @@ export function Admins() {
           </table></div>
         )}
       </Card>
+      <Ledger />
       <Card title="Roles">
         <dl className="kv">{(Object.keys(ROLE_HELP) as Role[]).map((r) => <Fragment key={r}><dt>{r}</dt><dd>{ROLE_HELP[r]}</dd></Fragment>)}</dl>
       </Card>
