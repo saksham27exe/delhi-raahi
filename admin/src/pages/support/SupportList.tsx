@@ -42,7 +42,7 @@ export function SupportList() {
           ))}
         </div>
         <div className="filters" style={{ marginBottom: 12 }}>
-          <Field label="Search"><input className="search" placeholder="Reference, words, email, stop…" defaultValue={f.q}
+          <Field label="Search" className="search"><input placeholder="Reference, words, email, stop…" defaultValue={f.q}
             onKeyDown={(e) => { if (e.key === "Enter") set("q", (e.target as HTMLInputElement).value.trim()); }}
             onBlur={(e) => e.target.value.trim() !== f.q && set("q", e.target.value.trim())} /></Field>
           <Field label="Type"><select value={f.kind} onChange={(e) => set("kind", e.target.value)}>

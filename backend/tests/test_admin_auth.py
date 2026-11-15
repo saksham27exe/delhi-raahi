@@ -103,3 +103,10 @@ def test_admin_site_path_traversal(env):
     c, _ = env
     r = c.get("/admin/..%2f..%2f.env")
     assert r.status_code in (200, 404) and "TS_API_KEY" not in r.text
+
+
+def test_admin_pages_never_cached(env):
+    c, _ = env
+    for path in ("/admin/", "/admin/support/12", "/admin/assets/missing.js"):
+        r = c.get(path)
+        assert r.headers.get("cache-control") == "no-store", path

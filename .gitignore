@@ -36,3 +36,4 @@ models/llm/
 # admin website: build output and its database (admins, support requests, audit)
 admin/dist/
 data/admin/
+admin/*.tsbuildinfo

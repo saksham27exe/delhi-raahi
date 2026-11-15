@@ -40,7 +40,7 @@ function UserList() {
         actions={<Button onClick={() => setLookup(true)}>Find ticket / check QR</Button>} />
       <Card>
         <div className="filters" style={{ marginBottom: 12 }}>
-          <Field label="Search"><input className="search" placeholder={data?.store === "firebase" ? "e.g. riya@ or a user id" : "phone, name or id"} defaultValue={q}
+          <Field label="Search" className="search"><input placeholder={data?.store === "firebase" ? "e.g. riya@ or a user id" : "phone, name or id"} defaultValue={q}
             onKeyDown={(e) => { if (e.key === "Enter") setSp((e.target as HTMLInputElement).value.trim() ? { q: (e.target as HTMLInputElement).value.trim() } : {}); }} /></Field>
         </div>
         <ErrorNote error={error} />

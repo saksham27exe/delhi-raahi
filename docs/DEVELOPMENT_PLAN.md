@@ -193,7 +193,7 @@ Run: backend `uvicorn app.main:app --port 8000`, then `cd frontend && npm run de
 - Known gaps: backend notes, ranking explanations and advisor reasons are English only; stop names are
   English (GTFS has no Hindi names).
 
-## Phase 11 — Admin website (agreed 15 Nov 2026: all areas, in phases) ⬜
+## Phase 11 — Admin website (agreed 15 Nov 2026: all areas, in phases) ✅
 React + TypeScript app in `admin/`, built into the backend and served at `/admin` (same origin).
 Admin data lives in `data/admin/admin.db` (SQLite, git-ignored): admins, sessions, support requests,
 service alerts, overrides, audit log. Admin accounts are server-only (created by
@@ -206,7 +206,7 @@ roles: owner (everything incl. admins), agent (support + users), viewer (read on
   resend verification, demo wallet adjustment, void ticket/pass (verify rejects it), delete account.
 - **D — Service alerts & data fixes** ✅: notices for all / routes / stops with start–end time, shown in the
   Android app (Home banner, trip results, live bus); stop name aliases for search; AC/non-AC overrides.
-- **E — Ops dashboard** ⬜: KPIs + charts (users, bookings, requests by type/route, crowd hotspots, model
+- **E — Ops dashboard** ✅: KPIs + charts (users, bookings, requests by type/route, crowd hotspots, model
   card), health of live feed / voice model / email / data loads, audit log viewer, CSV exports.
 
 ## Phase 10 — Submission ⬜  ← NEXT

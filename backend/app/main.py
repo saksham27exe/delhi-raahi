@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_state
-from app.api.routes import account, admin, admin_data, admin_support, admin_users, crowd, insights, journey, stops, support, tickets, voice
+from app.api.routes import account, admin, admin_data, admin_ops, admin_support, admin_users, crowd, insights, journey, stops, support, tickets, voice
 from app.api.routes import live as live_routes
 from app.core.config import REPO_ROOT, get_settings
 from app.services.state import AppState, _json, load_state, start_live
@@ -45,7 +45,7 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
                               "fares and DEMO tickets. Crowding is a relative index from e-ticket data, not occupancy.")
     origins = [o.strip() for o in get_settings().crowdwise_cors_origins.split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
-    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support, admin, admin_support, admin_users, admin_data):
+    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support, admin, admin_support, admin_ops, admin_users, admin_data):
         app.include_router(r.router)
 
     @app.get("/api/v1/health", tags=["meta"])
@@ -69,7 +69,9 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
             resp.headers["X-Frame-Options"] = "DENY"
             resp.headers["X-Content-Type-Options"] = "nosniff"
             resp.headers["Referrer-Policy"] = "no-referrer"
-            resp.headers["Cache-Control"] = "no-store" if p.startswith("/api") or p.endswith((".html", "/admin", "/admin/"))                 else resp.headers.get("Cache-Control", "public, max-age=31536000, immutable")
+            # Only the hashed build files (/admin/assets/…) may be cached; pages and API answers never are.
+            hashed = p.startswith("/admin/assets/") and "text/html" not in resp.headers.get("content-type", "")
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable" if hashed else "no-store"
             resp.headers["Content-Security-Policy"] = (
                 "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; "
                 "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")

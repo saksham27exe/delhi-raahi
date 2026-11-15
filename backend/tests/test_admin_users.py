@@ -117,3 +117,16 @@ def test_stats(env):
     s = signed_in(app, "viewer").get("/api/v1/admin/users/stats").json()
     assert s["users"] == 1 and s["tickets"] == 1 and s["demo_topups"] == 100 and s["demo_spent"] == 15
     assert s["per_day"] and s["per_day"][-1]["tickets"] == 1
+
+
+def test_overview_and_exports(env):
+    app, acc, uid, contact, desk = env
+    viewer = signed_in(app, "viewer")
+    o = viewer.get("/api/v1/admin/overview").json()
+    assert o["users"]["users"] == 1 and o["support"]["open"] == 1 and o["system"]["components"]["accounts"] is True
+    assert viewer.get("/api/v1/admin/users/export.csv").status_code == 403
+    csv = signed_in(app, "agent").get("/api/v1/admin/users/export.csv")
+    assert csv.status_code == 200 and uid in csv.text and csv.headers["content-disposition"].startswith("attachment")
+    assert signed_in(app, "agent").get("/api/v1/admin/audit/export.csv").status_code == 403
+    audit = signed_in(app, "owner").get("/api/v1/admin/audit/export.csv").text
+    assert "users_exported" in audit

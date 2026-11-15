@@ -68,9 +68,9 @@ export const Badge = ({ tone = "neutral", children }: { tone?: "neutral" | "good
   <span className={`badge badge-${tone}`}>{children}</span>
 );
 
-export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+export function Field({ label, hint, children, className = "" }: { label: string; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <label className="field">
+    <label className={`field ${className}`}>
       <span className="field-label">{label}</span>
       {children}
       {hint && <span className="field-hint">{hint}</span>}
