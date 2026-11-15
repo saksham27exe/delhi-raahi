@@ -202,7 +202,7 @@ roles: owner (everything incl. admins), agent (support + users), viewer (read on
 - **A — Foundation** ✅: admin store + auth API + `/admin` static serving; app shell, login, roles, audit log.
 - **B — Support desk** ✅: support requests move to admin.db (status, priority, assignee, notes, email
   replies with the reference, CSV export); deleting an account deletes its requests.
-- **C — Users & bookings** ⬜: search users; profile, demo wallet, tickets, passes, requests; disable/enable,
+- **C — Users & bookings** ✅: search users; profile, demo wallet, tickets, passes, requests; disable/enable,
   resend verification, demo wallet adjustment, void ticket/pass (verify rejects it), delete account.
 - **D — Service alerts & data fixes** ⬜: notices for all / routes / stops with start–end time, shown in the
   Android app (Home banner, trip results, live bus); stop name aliases for search; AC/non-AC overrides.

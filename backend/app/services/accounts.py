@@ -147,6 +147,10 @@ class AccountStore:
         self._db.row_factory = sqlite3.Row
         self._db.execute("PRAGMA foreign_keys = ON")
         self._db.executescript(SCHEMA)
+        for table, col, decl in (("users", "disabled", "INTEGER NOT NULL DEFAULT 0"), ("items", "voided_at", "TEXT"),
+                                 ("items", "void_reason", "TEXT")):
+            if col not in {r["name"] for r in self._db.execute(f"PRAGMA table_info({table})")}:
+                self._db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
         self._lock = threading.Lock()
         self._key = hmac.new(secret.encode(), b"delhiraahi-auth-v1", hashlib.sha256).digest()
         self._fails: dict[str, tuple[int, float]] = {}
@@ -201,6 +205,8 @@ class AccountStore:
             self._fails[phone] = (0, time.time() + LOCK_SECONDS) if fails >= MAX_FAILS else (fails, 0.0)
             raise AccountError("Wrong mobile number or password.", 401)
         self._fails.pop(phone, None)
+        if row["disabled"]:
+            raise AccountError("This account is disabled. Contact support.", 403)
         return self._token(row), self._user(row)
 
     def user_for_token(self, token: str) -> User | None:
@@ -215,7 +221,7 @@ class AccountStore:
         if body.get("exp", 0) < time.time():
             return None
         row = self._row(int(body["u"]))
-        if row is None or row["token_version"] != body.get("v"):
+        if row is None or row["token_version"] != body.get("v") or row["disabled"]:
             return None
         return self._user(row)
 
@@ -302,12 +308,110 @@ class AccountStore:
         return item
 
     def items(self, uid: int, kind: str) -> list[dict]:
-        rows = self._db.execute("SELECT payload FROM items WHERE user_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 100",
+        rows = self._db.execute("SELECT payload, voided_at FROM items WHERE user_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 100",
                                 (uid, kind)).fetchall()
-        return [json.loads(r["payload"]) for r in rows]
+        return [{**json.loads(r["payload"]), **({"voided": True} if r["voided_at"] else {})} for r in rows]
 
     def item_on_record(self, item_id: str) -> bool:
         return self._db.execute("SELECT 1 FROM items WHERE id = ?", (item_id,)).fetchone() is not None
+
+    def item_status(self, item_id: str) -> str | None:
+        r = self._db.execute("SELECT voided_at FROM items WHERE id = ?", (item_id,)).fetchone()
+        return None if r is None else "voided" if r["voided_at"] else "active"
+
+    # ---------- admin website ----------
+    def _admin_user_row(self, r: sqlite3.Row) -> dict:
+        return {"id": str(r["id"]), "email": "", "phone": r["phone"], "name": r["name"], "created_at": r["created_at"],
+                "balance": r["balance_paise"] / 100, "disabled": bool(r["disabled"]), "email_verified": None}
+
+    def admin_users(self, q: str = "", limit: int = 25, cursor: str | None = None) -> dict:
+        sql, args = "SELECT * FROM users WHERE 1=1", []
+        if q:
+            sql += " AND (phone LIKE ? OR name LIKE ? OR CAST(id AS TEXT) = ?)"
+            args += [f"%{q}%", f"%{q}%", q]
+        if cursor:
+            sql += " AND id < ?"; args.append(int(cursor))
+        rows = self._db.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit + 1)).fetchall()
+        return {"users": [self._admin_user_row(r) for r in rows[:limit]],
+                "next": str(rows[limit - 1]["id"]) if len(rows) > limit else None}
+
+    def _uid(self, uid) -> int:
+        try:
+            return int(uid)
+        except (TypeError, ValueError):
+            raise AccountError("No such user.", 404) from None
+
+    def admin_user(self, uid) -> dict:
+        r = self._row(self._uid(uid))
+        if r is None:
+            raise AccountError("No such user.", 404)
+        items = self._db.execute("SELECT * FROM items WHERE user_id = ? ORDER BY created_at DESC LIMIT 200", (r["id"],)).fetchall()
+        return {**self._admin_user_row(r), "wallet": self.wallet(r["id"], 100),
+                "items": [{"id": i["id"], "kind": i["kind"], "created_at": i["created_at"], "valid_until": i["valid_until"],
+                           "voided_at": i["voided_at"], "void_reason": i["void_reason"], "payload": json.loads(i["payload"])} for i in items]}
+
+    def admin_set_disabled(self, uid, disabled: bool) -> None:
+        u = self._uid(uid)
+        if self._row(u) is None:
+            raise AccountError("No such user.", 404)
+        with self._lock:
+            self._db.execute("UPDATE users SET disabled = ?, token_version = token_version + 1 WHERE id = ?", (int(disabled), u))
+
+    def admin_adjust(self, uid, amount: float, reason: str) -> dict:
+        u, paise = self._uid(uid), round(amount * 100)
+        with self._lock:
+            r = self._row(u)
+            if r is None:
+                raise AccountError("No such user.", 404)
+            bal = r["balance_paise"] + paise
+            if not 0 <= bal <= MAX_BALANCE_PAISE:
+                raise AccountError(f"The demo balance must stay between ₹0 and ₹{MAX_BALANCE_PAISE // 100}.")
+            self._db.execute("BEGIN")
+            self._db.execute("UPDATE users SET balance_paise = ? WHERE id = ?", (bal, u))
+            self._db.execute("INSERT INTO wallet_tx (user_id, kind, amount_paise, balance_after_paise, ref, created_at) VALUES (?, 'adjust', ?, ?, ?, ?)",
+                             (u, paise, bal, f"support: {reason}"[:200], self._now()))
+            self._db.execute("COMMIT")
+        return self.wallet(u)
+
+    def admin_void(self, item_id: str, reason: str) -> None:
+        with self._lock:
+            r = self._db.execute("SELECT voided_at FROM items WHERE id = ?", (item_id,)).fetchone()
+            if r is None:
+                raise AccountError("No such ticket or pass.", 404)
+            if r["voided_at"]:
+                raise AccountError("Already voided.", 409)
+            self._db.execute("UPDATE items SET voided_at = ?, void_reason = ? WHERE id = ?", (self._now(), reason[:200], item_id))
+
+    def admin_find_item(self, item_id: str) -> str | None:
+        r = self._db.execute("SELECT user_id FROM items WHERE id = ?", (item_id,)).fetchone()
+        return str(r["user_id"]) if r else None
+
+    def admin_delete(self, uid) -> None:
+        u = self._uid(uid)
+        with self._lock:
+            self._db.execute("DELETE FROM feedback WHERE user_id = ?", (u,))
+            self._db.execute("DELETE FROM users WHERE id = ?", (u,))
+
+    def admin_resend_verification(self, uid, lang: str = "en") -> bool:
+        raise AccountError("Phone accounts have no email to confirm.", 409)
+
+    def admin_stats(self, days: int = 30) -> dict:
+        since = (datetime.now(IST) - timedelta(days=days)).isoformat(timespec="seconds")
+        week = (datetime.now(IST) - timedelta(days=7)).isoformat(timespec="seconds")
+        one = lambda sql, *a: self._db.execute(sql, a).fetchone()[0]  # noqa: E731
+        per_day: dict[str, dict] = {}
+        for day, n in self._db.execute("SELECT substr(created_at,1,10), COUNT(*) FROM users WHERE created_at >= ? GROUP BY 1", (since,)):
+            per_day.setdefault(day, {"day": day, "users": 0, "tickets": 0, "passes": 0})["users"] = n
+        for day, kind, n in self._db.execute("SELECT substr(created_at,1,10), kind, COUNT(*) FROM items WHERE created_at >= ? GROUP BY 1, 2", (since,)):
+            per_day.setdefault(day, {"day": day, "users": 0, "tickets": 0, "passes": 0})["tickets" if kind == "ticket" else "passes"] = n
+        return {"users": one("SELECT COUNT(*) FROM users"), "users_7d": one("SELECT COUNT(*) FROM users WHERE created_at >= ?", week),
+                "disabled": one("SELECT COUNT(*) FROM users WHERE disabled = 1"),
+                "tickets": one("SELECT COUNT(*) FROM items WHERE kind = 'ticket'"), "passes": one("SELECT COUNT(*) FROM items WHERE kind = 'pass'"),
+                "tickets_7d": one("SELECT COUNT(*) FROM items WHERE kind = 'ticket' AND created_at >= ?", week),
+                "voided": one("SELECT COUNT(*) FROM items WHERE voided_at IS NOT NULL"),
+                "demo_topups": one("SELECT COALESCE(SUM(amount_paise), 0) FROM wallet_tx WHERE kind = 'topup'") / 100,
+                "demo_spent": -one("SELECT COALESCE(SUM(amount_paise), 0) FROM wallet_tx WHERE kind IN ('ticket', 'pass')") / 100,
+                "per_day": sorted(per_day.values(), key=lambda d: d["day"])}
 
     def add_feedback(self, uid: int | None, text: str) -> None:
         text = (text or "").strip()

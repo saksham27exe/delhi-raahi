@@ -94,6 +94,41 @@ class MemoryRepo:
     def add_feedback(self, data: dict) -> None:
         self.feedback.append(data)
 
+    def list_users(self, limit: int, after: str | None = None, email_prefix: str | None = None) -> list[tuple[str, dict]]:
+        rows = sorted(self.users.items(), key=lambda kv: (kv[1].get("created_at", ""), kv[0]), reverse=True)
+        if email_prefix:
+            rows = sorted([kv for kv in rows if kv[1].get("email", "").startswith(email_prefix)], key=lambda kv: kv[1].get("email", ""))
+        if after:
+            ids = [k for k, _ in rows]
+            rows = rows[ids.index(after) + 1:] if after in ids else []
+        return [(k, dict(v)) for k, v in rows[:limit]]
+
+    def get_item(self, item_id: str) -> dict | None:
+        v = self.items.get(item_id)
+        return dict(v) if v else None
+
+    def update_item(self, item_id: str, fields: dict) -> None:
+        with self._lock:
+            self.items[item_id].update(fields)
+
+    def count(self, col: str, field: str | None = None, op: str = "==", value: Any = None) -> int:
+        src = list(self.users.values()) if col == "users" else list(self.items.values())
+        if field is None:
+            return len(src)
+        cmp = {"==": lambda a: a == value, ">=": lambda a: a is not None and a >= value}[op]
+        return sum(1 for r in src if cmp(r.get(field)))
+
+    def since(self, col: str, iso: str) -> list[dict]:
+        src = self.users.values() if col == "users" else self.items.values()
+        return [dict(r) for r in src if r.get("created_at", "") >= iso]
+
+    def all_tx_sums(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for txs in self.tx.values():
+            for r in txs:
+                out[r["kind"]] = out.get(r["kind"], 0) + r["amount_paise"]
+        return out
+
     def delete_user_data(self, uid: str) -> None:
         with self._lock:
             self.users.pop(uid, None)
@@ -158,6 +193,43 @@ class FirestoreRepo:
     def add_feedback(self, data: dict) -> None:
         self.db.collection("feedback").add(data)
 
+    def list_users(self, limit: int, after: str | None = None, email_prefix: str | None = None) -> list[tuple[str, dict]]:
+        col = self.db.collection("users")
+        if email_prefix:      # single-field range: Firestore's automatic index is enough
+            q = col.where(filter=self._fs.FieldFilter("email", ">=", email_prefix)) \
+                   .where(filter=self._fs.FieldFilter("email", "<", email_prefix + "\uf8ff")).order_by("email")
+        else:
+            q = col.order_by("created_at", direction=self._fs.Query.DESCENDING)
+        if after:
+            snap = col.document(after).get()
+            if snap.exists:
+                q = q.start_after(snap)
+        return [(d.id, d.to_dict()) for d in q.limit(limit).stream()]
+
+    def get_item(self, item_id: str) -> dict | None:
+        s = self.db.collection("items").document(item_id).get()
+        return s.to_dict() if s.exists else None
+
+    def update_item(self, item_id: str, fields: dict) -> None:
+        self.db.collection("items").document(item_id).update(fields)
+
+    def count(self, col: str, field: str | None = None, op: str = "==", value: Any = None) -> int:
+        q = self.db.collection(col)
+        if field is not None:
+            q = q.where(filter=self._fs.FieldFilter(field, op, value))
+        return int(q.count().get()[0][0].value)
+
+    def since(self, col: str, iso: str) -> list[dict]:
+        q = self.db.collection(col).where(filter=self._fs.FieldFilter("created_at", ">=", iso))
+        return [d.to_dict() for d in q.stream()]
+
+    def all_tx_sums(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for d in self.db.collection_group("wallet_tx").stream():
+            r = d.to_dict()
+            out[r["kind"]] = out.get(r["kind"], 0) + r.get("amount_paise", 0)
+        return out
+
     def delete_user_data(self, uid: str) -> None:
         ref = self._u(uid)
         for d in ref.collection("wallet_tx").stream():
@@ -177,7 +249,9 @@ class FirebaseAccountStore:
 
     def __init__(self, repo, verify: Callable[[str], dict], delete_auth: Callable[[str], None] = lambda uid: None,
                  mailer=None, verify_link: Callable[[str], str] | None = None, reset_link: Callable[[str], str] | None = None,
-                 user_name: Callable[[str], str | None] = lambda email: None):
+                 user_name: Callable[[str], str | None] = lambda email: None,
+                 set_auth_disabled: Callable[[str, bool], None] = lambda uid, d: None,
+                 auth_info: Callable[[str], dict] = lambda uid: {}):
         self.repo = repo
         self._verify = verify
         self._delete_auth = delete_auth
@@ -186,6 +260,8 @@ class FirebaseAccountStore:
         self._verify_link = verify_link
         self._reset_link = reset_link
         self._user_name = user_name
+        self._set_auth_disabled = set_auth_disabled
+        self._auth_info = auth_info
         self._sent: dict[str, list[float]] = {}
         self._mail_lock = threading.Lock()
 
@@ -224,6 +300,8 @@ class FirebaseAccountStore:
             name = (claims.get("name") or email.split("@")[0] or "Traveller")[:60]
             d = self.repo.create_user(uid, {"email": email, "name": name, "woman_traveller": False,
                                             "balance_paise": 0, "created_at": self._now()})
+        if d.get("disabled"):
+            return None
         u = self._user(uid, d)
         u.verified = bool(claims.get("email_verified"))
         return u
@@ -334,7 +412,104 @@ class FirebaseAccountStore:
     def items(self, uid: str, kind: str) -> list[dict]:
         rows = [r for r in self.repo.list_items(uid) if r["kind"] == kind]
         rows.sort(key=lambda r: r["created_at"], reverse=True)
-        return [r["payload"] for r in rows[:100]]
+        return [{**r["payload"], **({"voided": True} if r.get("voided_at") else {})} for r in rows[:100]]
+
+    def item_status(self, item_id: str) -> str | None:
+        r = self.repo.get_item(item_id)
+        return None if r is None else "voided" if r.get("voided_at") else "active"
+
+    # ---------- admin website ----------
+    @staticmethod
+    def _admin_user_row(uid: str, d: dict) -> dict:
+        return {"id": uid, "email": d.get("email", ""), "phone": "", "name": d.get("name", ""), "created_at": d.get("created_at", ""),
+                "balance": d.get("balance_paise", 0) / 100, "disabled": bool(d.get("disabled")), "email_verified": None}
+
+    def admin_users(self, q: str = "", limit: int = 25, cursor: str | None = None) -> dict:
+        q = (q or "").strip()
+        if q and "@" not in q and len(q) >= 20:             # looks like a Firebase uid
+            d = self.repo.get_user(q)
+            return {"users": [self._admin_user_row(q, d)] if d else [], "next": None}
+        rows = self.repo.list_users(limit + 1, cursor, q.lower() if q else None)
+        return {"users": [self._admin_user_row(k, d) for k, d in rows[:limit]], "next": rows[limit - 1][0] if len(rows) > limit else None}
+
+    def admin_user(self, uid: str) -> dict:
+        d = self.repo.get_user(uid)
+        if d is None:
+            raise AccountError("No such user.", 404)
+        info = {}
+        try:
+            info = self._auth_info(uid) or {}
+        except Exception:  # noqa: BLE001  (sign-in record gone)
+            pass
+        items = sorted(self.repo.list_items(uid), key=lambda r: r["created_at"], reverse=True)[:200]
+        return {**self._admin_user_row(uid, d), "email_verified": info.get("email_verified"), "last_sign_in": info.get("last_sign_in"),
+                "wallet": self.wallet(uid, 100),
+                "items": [{"id": r["payload"].get("ticket_id") or r["payload"].get("pass_id"), "kind": r["kind"], "created_at": r["created_at"],
+                           "valid_until": r["valid_until"], "voided_at": r.get("voided_at"), "void_reason": r.get("void_reason"),
+                           "payload": r["payload"]} for r in items]}
+
+    def admin_set_disabled(self, uid: str, disabled: bool) -> None:
+        if self.repo.get_user(uid) is None:
+            raise AccountError("No such user.", 404)
+        self.repo.update_user(uid, {"disabled": bool(disabled)})
+        self._set_auth_disabled(uid, bool(disabled))
+
+    def admin_adjust(self, uid: str, amount: float, reason: str) -> dict:
+        if self.repo.get_user(uid) is None:
+            raise AccountError("No such user.", 404)
+        paise = round(amount * 100)
+
+        def fn(u):
+            bal = u.get("balance_paise", 0) + paise
+            if not 0 <= bal <= MAX_BALANCE_PAISE:
+                raise AccountError(f"The demo balance must stay between ₹0 and ₹{MAX_BALANCE_PAISE // 100}.")
+            return {"balance_paise": bal}, [self._tx("adjust", paise, bal, f"support: {reason}"[:200])], []
+
+        self.repo.atomic(uid, fn)
+        return self.wallet(uid)
+
+    def admin_void(self, item_id: str, reason: str) -> None:
+        r = self.repo.get_item(item_id)
+        if r is None:
+            raise AccountError("No such ticket or pass.", 404)
+        if r.get("voided_at"):
+            raise AccountError("Already voided.", 409)
+        self.repo.update_item(item_id, {"voided_at": self._now(), "void_reason": reason[:200]})
+
+    def admin_find_item(self, item_id: str) -> str | None:
+        r = self.repo.get_item(item_id)
+        return r["user_id"] if r else None
+
+    def admin_delete(self, uid: str) -> None:
+        if self.repo.get_user(uid) is None:
+            raise AccountError("No such user.", 404)
+        self.delete(uid)
+
+    def admin_resend_verification(self, uid: str, lang: str = "en") -> bool:
+        d = self.repo.get_user(uid)
+        if d is None:
+            raise AccountError("No such user.", 404)
+        return self.send_verification(self._user(uid, d), lang)
+
+    def admin_stats(self, days: int = 30) -> dict:
+        from datetime import timedelta
+        now = datetime.now(IST)
+        since, week = (now - timedelta(days=days)).isoformat(timespec="seconds"), (now - timedelta(days=7)).isoformat(timespec="seconds")
+        per_day: dict[str, dict] = {}
+        for r in self.repo.since("users", since):
+            per_day.setdefault(r["created_at"][:10], {"day": r["created_at"][:10], "users": 0, "tickets": 0, "passes": 0})["users"] += 1
+        recent = self.repo.since("items", since)
+        for r in recent:
+            k = "tickets" if r["kind"] == "ticket" else "passes"
+            per_day.setdefault(r["created_at"][:10], {"day": r["created_at"][:10], "users": 0, "tickets": 0, "passes": 0})[k] += 1
+        sums = self.repo.all_tx_sums()
+        return {"users": self.repo.count("users"), "users_7d": self.repo.count("users", "created_at", ">=", week),
+                "disabled": self.repo.count("users", "disabled", "==", True),
+                "tickets": self.repo.count("items", "kind", "==", "ticket"), "passes": self.repo.count("items", "kind", "==", "pass"),
+                "tickets_7d": sum(1 for r in recent if r["kind"] == "ticket" and r["created_at"] >= week),
+                "voided": sum(1 for r in recent if r.get("voided_at")),
+                "demo_topups": sums.get("topup", 0) / 100, "demo_spent": -(sums.get("ticket", 0) + sums.get("pass", 0)) / 100,
+                "per_day": sorted(per_day.values(), key=lambda d: d["day"])}
 
     def item_on_record(self, item_id: str) -> bool:
         return self.repo.has_item(item_id)
@@ -357,10 +532,22 @@ def connect(credentials_path: str, mailer=None) -> FirebaseAccountStore:
         except Exception:  # noqa: BLE001
             return None
 
+    def set_disabled(uid: str, disabled: bool) -> None:
+        auth.update_user(uid, disabled=disabled, app=app)
+        if disabled:
+            auth.revoke_refresh_tokens(uid, app=app)      # signs them out on every device
+
+    def info_of(uid: str) -> dict:
+        u = auth.get_user(uid, app=app)
+        last = u.user_metadata.last_sign_in_timestamp
+        return {"email_verified": u.email_verified, "auth_disabled": u.disabled,
+                "last_sign_in": datetime.fromtimestamp(last / 1000, IST).isoformat(timespec="seconds") if last else None}
+
     return FirebaseAccountStore(FirestoreRepo(firestore.client(app)),
                                 verify=lambda tok: auth.verify_id_token(tok, app=app),
                                 delete_auth=lambda uid: auth.delete_user(uid, app=app),
                                 mailer=mailer,
                                 verify_link=lambda email: auth.generate_email_verification_link(email, app=app),
                                 reset_link=lambda email: auth.generate_password_reset_link(email, app=app),
-                                user_name=name_of)
+                                user_name=name_of,
+                                set_auth_disabled=set_disabled, auth_info=info_of)

@@ -59,4 +59,6 @@ def verify(req: TicketVerifyRequest, st: AppState = Depends(get_state)) -> dict:
         # Signed but not held by any account (e.g. the account was deleted): do not accept.
         if not st.accounts.item_on_record(item_id):
             v["status"] = "not_on_record"
+        elif getattr(st.accounts, "item_status", lambda _i: None)(item_id) == "voided":
+            v["status"] = "voided"          # cancelled by support on the admin website
     return v
