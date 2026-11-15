@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_state
-from app.api.routes import account, crowd, insights, journey, stops, tickets, voice
+from app.api.routes import account, crowd, insights, journey, stops, support, tickets, voice
 from app.api.routes import live as live_routes
 from app.core.config import get_settings
 from app.services.state import AppState, _json, load_state, start_live
@@ -39,7 +39,7 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
                               "fares and DEMO tickets. Crowding is a relative index from e-ticket data, not occupancy.")
     origins = [o.strip() for o in get_settings().crowdwise_cors_origins.split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
-    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice):
+    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support):
         app.include_router(r.router)
 
     @app.get("/api/v1/health", tags=["meta"])

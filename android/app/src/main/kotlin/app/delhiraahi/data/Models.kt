@@ -346,6 +346,12 @@ data class TokenResponse(val token: String)
 data class OkResponse(val ok: Boolean = true, val deleted: Boolean = false)
 
 @Serializable
+data class SupportInfo(val email: String? = null, val form: Boolean = false)
+
+@Serializable
+data class SupportResult(val ok: Boolean = true, val ref: String = "", val emailed: Boolean = false, val copy_sent: Boolean = false)
+
+@Serializable
 data class WalletTx(val kind: String, val amount: Double, val balance_after: Double = 0.0, val ref: String? = null, val created_at: String = "")
 
 @Serializable

@@ -155,6 +155,16 @@ object Api {
     suspend fun buyPass(kind: String, busType: String): DemoPass =
         post("/passes/buy", buildJsonObject { put("kind", kind); put("bus_type", busType) })
     suspend fun feedback(text: String): OkResponse = post("/feedback", buildJsonObject { put("text", text) })
+    suspend fun supportInfo(): SupportInfo = get("/support")
+    suspend fun support(kind: String, message: String, email: String?, route: String?, whenText: String?, where: String?, lang: String): SupportResult =
+        post("/support", buildJsonObject {
+            put("kind", kind); put("message", message); put("lang", lang)
+            put("app_version", "android " + BuildConfig.VERSION_NAME)
+            email?.takeIf { it.isNotBlank() }?.let { put("email", it.trim()) }
+            route?.takeIf { it.isNotBlank() }?.let { put("route", it.trim()) }
+            whenText?.takeIf { it.isNotBlank() }?.let { put("when", it.trim()) }
+            where?.takeIf { it.isNotBlank() }?.let { put("where", it.trim()) }
+        })
     suspend fun searchRoutes(q: String): RouteSearchResponse = get("/routes/search", mapOf("q" to q))
     suspend fun routeDay(routeId: String, date: String): RouteDay =
         get("/crowd/route/${java.net.URLEncoder.encode(routeId, "UTF-8")}", mapOf("date" to date))

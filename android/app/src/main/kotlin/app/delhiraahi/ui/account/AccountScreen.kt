@@ -139,7 +139,7 @@ fun AccountScreen(
                     chevron = p == null, onClick = { onSetPlace(slot) })
             }
             ListRow(Icons.Outlined.BarChart, s.insightsTitle, subtitle = s.insightsSub, chevron = true, onClick = onInsights)
-            ListRow(Icons.AutoMirrored.Outlined.HelpOutline, s.help, subtitle = s.privacyTitle, chevron = true, onClick = onHelp)
+            ListRow(Icons.AutoMirrored.Outlined.HelpOutline, s.help, subtitle = s.helpSub, chevron = true, onClick = onHelp)
 
             SectionTitle(s.settings)
             Row(verticalAlignment = Alignment.CenterVertically) {

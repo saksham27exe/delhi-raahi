@@ -424,7 +424,7 @@ fun App(settings: Settings, store: SettingsStore) {
 
             }
 
-            composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
+            composable("help") { HelpScreen(email = session.user?.email.orEmpty(), onBack = { nav.popBackStack() }) }
 
             composable("liveride/{id}") { e ->
 

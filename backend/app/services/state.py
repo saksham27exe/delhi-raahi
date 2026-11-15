@@ -28,6 +28,7 @@ class AppState:
     tickets: object | None = None     # TicketService (demo)
     geo: object | None = None         # OsmGeo (place search, walking routes) or None
     accounts: object | None = None    # AccountStore (users, demo wallet, tickets, passes)
+    mailer: object | None = None      # Mailer (SMTP) for account and support emails, if set up
     live_poller: object | None = None
     routes: pd.DataFrame | None = None
     route_mapping: pd.DataFrame | None = None
@@ -93,14 +94,13 @@ def load_state(settings: Settings | None = None) -> AppState:
     from app.services.accounts import AccountStore, load_or_create_secret
     acc_dir = s.crowdwise_data_dir / "accounts"
     secret = s.demo_ticket_secret or load_or_create_secret(acc_dir / "server_secret.txt")
+    if s.smtp_user and s.smtp_password:
+        from app.services.mailer import Mailer
+        st.mailer = Mailer(s.smtp_host, s.smtp_port, s.smtp_user, s.smtp_password, s.mail_from_name)
     try:
         if s.firebase_credentials.is_file():
             from app.services.firebase_accounts import connect
-            mailer = None
-            if s.smtp_user and s.smtp_password:
-                from app.services.mailer import Mailer
-                mailer = Mailer(s.smtp_host, s.smtp_port, s.smtp_user, s.smtp_password, s.mail_from_name)
-            st.accounts = connect(str(s.firebase_credentials), mailer)
+            st.accounts = connect(str(s.firebase_credentials), st.mailer)
         else:
             st.accounts = AccountStore(acc_dir / "accounts.db", secret)
     except Exception as e:  # noqa: BLE001

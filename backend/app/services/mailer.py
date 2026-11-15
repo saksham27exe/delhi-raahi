@@ -15,13 +15,16 @@ class Mailer:
     def __init__(self, host: str, port: int, user: str, password: str, from_name: str = "DelhiRaahi"):
         self.host, self.port, self.user, self._password, self.from_name = host, port, user, password, from_name
 
-    def send(self, to: str, subject: str, html: str, text: str) -> None:
+    def send(self, to: str, subject: str, html: str, text: str, reply_to: str | None = None) -> None:
         msg = EmailMessage()
         msg["From"] = formataddr((self.from_name, self.user))
         msg["To"] = to
         msg["Subject"] = subject
         msg["Message-ID"] = make_msgid(domain=self.user.split("@")[-1])
-        msg["Auto-Submitted"] = "auto-generated"          # tells mail servers not to auto-reply
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        else:
+            msg["Auto-Submitted"] = "auto-generated"      # tells mail servers not to auto-reply
         msg.set_content(text)
         msg.add_alternative(html, subtype="html")
         ctx = ssl.create_default_context()

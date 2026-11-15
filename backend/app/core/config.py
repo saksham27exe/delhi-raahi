@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     mail_from_name: str = "DelhiRaahi"
+    # Where support requests and complaints go, and the address the app shows under "Email us".
+    # Empty = the SMTP sending address above.
+    support_email: str = ""
     crowdwise_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ---- derived paths -------------------------------------------------

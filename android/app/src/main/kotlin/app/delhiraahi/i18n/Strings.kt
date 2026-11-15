@@ -79,7 +79,13 @@ interface Strings {
     val deleteAccount: String; val deleteWarn: String; val cancel: String; val settings: String
     val alertsTitle: String; val alertArrive: String; val alertArriveSub: String; val alertGetOff: String; val alertGetOffSub: String; val alertsOffNote: String; val alertSpoken: String; val alertSpokenSub: String; val hearChime: String
     val voiceTitle: String; val wakeTitle: String; val wakeSub: String; val wakeHint: String
-    val help: String; val faq: List<Pair<String, String>>; val feedback: String; val feedbackHint: String; val send: String; val thanks: String
+    val help: String; val helpSub: String; val faq: List<Pair<String, String>>; val send: String
+    val faqTitle: String; val supportTitle: String; val supportSub: String; val quickFaq: String; val quickSupport: String; val quickComplaint: String
+    val kindComplaint: String; val kindProblem: String; val kindTicket: String; val kindIdea: String; fun messageHint(kind: String): String
+    val complaintRoute: String; val complaintWhen: String; val complaintWhere: String; val complaintDetails: String
+    val yourEmail: String; val emailCopyNote: String; val noEmailNote: String; val tooShort: String; val badEmail: String
+    fun supportSent(ref: String, copyTo: String?): String; fun supportSaved(ref: String): String
+    val emailUs: String; val emailUsSub: String; val noMailApp: String; val emergencyNote: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
     val privacyTitle: String; val privacyBody: String; val noScreenshots: String; val demoPass: String; val verifyPass: String
@@ -217,20 +223,46 @@ object En : Strings {
     override val wakeHint = "or say “Hey Raahi”"
     override val alertSpokenSub = "Also say each alert in words (uses the speaker; earphones recommended)"
     override val alertsOffNote = "Some alerts are off in Settings, so they're only shown here"
-    override val help = "Help & feedback"
+    override val help = "Help & support"
+    override val helpSub = "FAQ, contact support, complaints"
     override val faq = listOf(
         "Are these real tickets?" to "No. Tickets and passes are demos: not valid for travel and no money is taken.",
         "Where do the crowd levels come from?" to "From October 2026 ONDC e-ticket data, per scheduled bus. They are an estimate, not a head count.",
         "Why can I not take a screenshot of a ticket?" to "Tickets and passes belong to your account. Screenshots are blocked and each QR shows the holder's masked number.",
         "Do I need an account?" to "No for planning trips, live buses and insights. Yes for booking tickets and buying passes.",
+        "How is a bus marked AC or non-AC?" to "From the share of AC e-tickets sold on each route in October 2026. “AC / non-AC” means the route runs both kinds of bus. It's a guide, not a promise for one particular bus.",
+        "How up to date are live buses?" to "Positions come from Delhi's open real-time bus feed and refresh about every 30 seconds.",
+        "How do I use the voice assistant?" to "Tap the mic button, or say “Hey Raahi” if that's on under Account → Voice assistant. Say where you want to go, like “Karol Bagh to Akshardham”. If the assistant isn't sure what it heard, it asks again.",
+        "Is my voice recorded?" to "No. “Hey Raahi” is heard on your phone only. Your phone's speech service turns speech into text; if the app can't read a sentence, only that text (not audio) goes to our server to be understood, and it isn't stored.",
+        "What does the SOS button do?" to "It offers to call 112 (emergency), 1091 (women's helpline) or 102 (ambulance), or to share your location through an app you choose. It never calls or shares anything by itself.",
+        "How do I complain about a bus, driver or conductor?" to "Use “Make a complaint” on this screen. Add the route number, time and stop if you can. You get a reference number, and a copy by email if you give an address. Complaints reach the DelhiRaahi team, not the bus operator. In an emergency, call 112.",
+        "How do I delete my data?" to "Account → Delete account removes your account, demo wallet, tickets, passes and the messages you sent us.",
     )
-    override val feedback = "Send feedback"; override val feedbackHint = "Tell us what to improve"; override val send = "Send"
-    override val thanks = "Thanks! Your feedback was sent."
+    override val send = "Send"
+    override val faqTitle = "Frequently asked questions"; override val supportTitle = "Contact support"
+    override val supportSub = "Tell us what happened. We read every message."
+    override val quickFaq = "FAQ"; override val quickSupport = "Support"; override val quickComplaint = "Make a complaint"
+    override val kindComplaint = "Complaint"; override val kindProblem = "App problem"; override val kindTicket = "Ticket or wallet"; override val kindIdea = "Suggestion"
+    override fun messageHint(kind: String) = when (kind) {
+        "complaint" -> "What happened? E.g. the bus didn't stop, rude behaviour, overcrowding, unsafe driving"
+        "problem" -> "What went wrong, and on which screen?"
+        "ticket" -> "Which ticket, pass or top-up, and what's wrong with it?"
+        else -> "What should we add or improve?"
+    }
+    override val complaintRoute = "Bus route (e.g. 534)"; override val complaintWhen = "When (e.g. today 9 am)"; override val complaintWhere = "Stop or area"
+    override val complaintDetails = "About the bus (optional)"
+    override val yourEmail = "Your email (for our reply)"; override val emailCopyNote = "We'll send a copy with your reference number to this address."
+    override val noEmailNote = "Without an email we can't reply to you."
+    override val tooShort = "Please write at least 10 characters."; override val badEmail = "That email address doesn't look right."
+    override fun supportSent(ref: String, copyTo: String?) = "Sent. Your reference is $ref." + (copyTo?.let { " A copy was emailed to $it." } ?: "")
+    override fun supportSaved(ref: String) = "Saved with reference $ref. Our email isn't working right now, so the team will see it in the app's records."
+    override val emailUs = "Email us"; override val emailUsSub = "Opens your email app"; override val noMailApp = "No email app found. The address was copied."
+    override val emergencyNote = "In an emergency on a bus, use SOS on the Home screen or call 112."
     override val privacyTitle = "Privacy"
     override val busStops = "Bus stops"; override val placesHeader = "Places and addresses"; override val osmCredit = "Places © OpenStreetMap contributors"
     override fun walkToM(min: Int, m: Int) = "Walk $min min · $m m"; override val approx = "approx."
     override fun noStopNear(m: Int) = "No bus stop within $m m of this place."; override val widerSearch = "Search within 1.5 km"
-    override val privacyBody = "We store your name, mobile number, a hashed password, and your demo wallet, tickets and passes. No location is stored on our server. When you search for a place, or plan a trip from a place or your location, the search text and the position rounded to about 10 m are sent to free OpenStreetMap services (Photon place search, FOSSGIS walking routes) without your name or number. You can delete everything from this screen."
+    override val privacyBody = "We store your name, your email address or mobile number, and your demo wallet, tickets, passes and the messages you send us (passwords are never stored in plain text). No location is stored on our server. When you search for a place, or plan a trip from a place or your location, the search text and the position rounded to about 10 m are sent to free OpenStreetMap services (Photon place search, FOSSGIS walking routes) without your name or number. You can delete everything under Account → Delete account."
     override val noScreenshots = "Screenshots are blocked on tickets and passes."
     override val demoPass = "DEMO PASS — not valid for travel, no real money"; override val verifyPass = "Verify pass"
 }
@@ -366,20 +398,46 @@ object Hi : Strings {
     override val wakeHint = "या “हे राही” बोलें"
     override val alertSpokenSub = "हर अलर्ट शब्दों में भी सुनाया जाए (ईयरफ़ोन बेहतर रहेंगे)"
     override val alertsOffNote = "कुछ अलर्ट सेटिंग्स में बंद हैं, इसलिए वे सिर्फ़ यहाँ दिखेंगे"
-    override val help = "मदद और सुझाव"
+    override val help = "मदद और सहायता"
+    override val helpSub = "सवाल-जवाब, सहायता, शिकायत"
     override val faq = listOf(
         "क्या ये असली टिकट हैं?" to "नहीं। टिकट और पास डेमो हैं: यात्रा के लिए मान्य नहीं और कोई पैसा नहीं लिया जाता।",
         "भीड़ का अनुमान कहाँ से आता है?" to "अक्टूबर 2026 के ONDC ई-टिकट डेटा से, हर निर्धारित बस के हिसाब से। यह अनुमान है, गिनती नहीं।",
         "टिकट का स्क्रीनशॉट क्यों नहीं ले सकते?" to "टिकट और पास आपके अकाउंट के हैं। स्क्रीनशॉट बंद हैं और हर QR में धारक का छिपा हुआ नंबर होता है।",
         "क्या अकाउंट ज़रूरी है?" to "यात्रा प्लान करने, लाइव बसें और जानकारी देखने के लिए नहीं। टिकट बुक करने और पास खरीदने के लिए हाँ।",
+        "बस AC या नॉन-AC कैसे तय होती है?" to "अक्टूबर 2026 में हर रूट पर बिके AC ई-टिकटों के हिस्से से। “AC / नॉन-AC” का मतलब है कि उस रूट पर दोनों तरह की बसें चलती हैं। यह अंदाज़ा है, किसी एक बस की गारंटी नहीं।",
+        "लाइव बसें कितनी ताज़ा हैं?" to "बसों की जगह दिल्ली की खुली रियल-टाइम बस फ़ीड से आती है और लगभग हर 30 सेकंड में बदलती है।",
+        "वॉइस सहायक कैसे इस्तेमाल करें?" to "माइक बटन दबाएँ, या अगर अकाउंट → वॉइस सहायक में चालू है तो “हे राही” बोलें। फिर बताएँ कहाँ जाना है, जैसे “करोल बाग से अक्षरधाम”। सुनी बात पक्की न हो तो सहायक दोबारा पूछता है।",
+        "क्या मेरी आवाज़ रिकॉर्ड होती है?" to "नहीं। “हे राही” सिर्फ़ आपके फ़ोन पर सुना जाता है। फ़ोन की स्पीच सेवा बोली को शब्दों में बदलती है; अगर ऐप कोई वाक्य न समझ पाए, तो सिर्फ़ वह लिखा हुआ वाक्य (आवाज़ नहीं) समझने के लिए हमारे सर्वर पर जाता है, और रखा नहीं जाता।",
+        "SOS बटन क्या करता है?" to "यह 112 (आपातकाल), 1091 (महिला हेल्पलाइन) या 102 (एम्बुलेंस) पर कॉल करने, या आपकी चुनी ऐप से लोकेशन भेजने का विकल्प देता है। यह अपने-आप कोई कॉल या लोकेशन नहीं भेजता।",
+        "बस, ड्राइवर या कंडक्टर की शिकायत कैसे करें?" to "इसी स्क्रीन पर “शिकायत करें” चुनें। हो सके तो रूट नंबर, समय और स्टॉप लिखें। आपको एक संदर्भ संख्या मिलेगी, और ईमेल देने पर उसकी प्रति भी। शिकायत DelhiRaahi टीम को जाती है, बस ऑपरेटर को नहीं। आपातकाल में 112 पर कॉल करें।",
+        "अपना डेटा कैसे मिटाएँ?" to "अकाउंट → अकाउंट मिटाएँ से आपका अकाउंट, डेमो वॉलेट, टिकट, पास और हमें भेजे संदेश मिट जाते हैं।",
     )
-    override val feedback = "सुझाव भेजें"; override val feedbackHint = "बताइए क्या बेहतर करें"; override val send = "भेजें"
-    override val thanks = "धन्यवाद! आपका सुझाव भेज दिया गया।"
+    override val send = "भेजें"
+    override val faqTitle = "अक्सर पूछे जाने वाले सवाल"; override val supportTitle = "सहायता से संपर्क"
+    override val supportSub = "बताइए क्या हुआ। हर संदेश पढ़ा जाता है।"
+    override val quickFaq = "सवाल-जवाब"; override val quickSupport = "सहायता"; override val quickComplaint = "शिकायत करें"
+    override val kindComplaint = "शिकायत"; override val kindProblem = "ऐप में दिक्कत"; override val kindTicket = "टिकट या वॉलेट"; override val kindIdea = "सुझाव"
+    override fun messageHint(kind: String) = when (kind) {
+        "complaint" -> "क्या हुआ? जैसे बस नहीं रुकी, बुरा बर्ताव, बहुत भीड़, लापरवाही से चलाना"
+        "problem" -> "क्या गड़बड़ हुई, और किस स्क्रीन पर?"
+        "ticket" -> "कौन सा टिकट, पास या टॉप-अप, और उसमें क्या दिक्कत है?"
+        else -> "हम क्या जोड़ें या बेहतर करें?"
+    }
+    override val complaintRoute = "बस रूट (जैसे 534)"; override val complaintWhen = "कब (जैसे आज सुबह 9 बजे)"; override val complaintWhere = "स्टॉप या इलाका"
+    override val complaintDetails = "बस के बारे में (ज़रूरी नहीं)"
+    override val yourEmail = "आपका ईमेल (जवाब के लिए)"; override val emailCopyNote = "इस पते पर संदर्भ संख्या के साथ एक प्रति भेजी जाएगी।"
+    override val noEmailNote = "ईमेल के बिना आपको जवाब नहीं भेजा जा सकता।"
+    override val tooShort = "कम से कम 10 अक्षर लिखें।"; override val badEmail = "यह ईमेल पता सही नहीं लगता।"
+    override fun supportSent(ref: String, copyTo: String?) = "भेज दिया गया। आपकी संदर्भ संख्या $ref है।" + (copyTo?.let { " एक प्रति $it पर भेजी गई।" } ?: "")
+    override fun supportSaved(ref: String) = "संदर्भ संख्या $ref के साथ सहेजा गया। अभी ईमेल नहीं जा पा रहा, इसलिए टीम इसे ऐप के रिकॉर्ड में देखेगी।"
+    override val emailUs = "हमें ईमेल करें"; override val emailUsSub = "आपकी ईमेल ऐप खुलेगी"; override val noMailApp = "कोई ईमेल ऐप नहीं मिली। पता कॉपी कर लिया गया।"
+    override val emergencyNote = "बस में आपात स्थिति हो तो होम स्क्रीन पर SOS दबाएँ या 112 पर कॉल करें।"
     override val privacyTitle = "निजता"
     override val busStops = "बस स्टॉप"; override val placesHeader = "जगहें और पते"; override val osmCredit = "जगहें © OpenStreetMap योगदानकर्ता"
     override fun walkToM(min: Int, m: Int) = "$min मिनट पैदल · $m मी"; override val approx = "अनुमान"
     override fun noStopNear(m: Int) = "इस जगह से $m मीटर के अंदर कोई बस स्टॉप नहीं।"; override val widerSearch = "1.5 किमी तक खोजें"
-    override val privacyBody = "हम आपका नाम, मोबाइल नंबर, हैश किया हुआ पासवर्ड और आपका डेमो वॉलेट, टिकट और पास रखते हैं। आपकी लोकेशन हमारे सर्वर पर नहीं रखी जाती। जब आप कोई जगह खोजते हैं या किसी जगह/अपनी लोकेशन से यात्रा खोजते हैं, तो खोज का शब्द और लगभग 10 मीटर तक गोल की गई लोकेशन मुफ़्त OpenStreetMap सेवाओं (Photon, FOSSGIS) को भेजी जाती है, आपके नाम या नंबर के बिना। आप इसी स्क्रीन से सब कुछ मिटा सकते हैं।"
+    override val privacyBody = "हम आपका नाम, आपका ईमेल पता या मोबाइल नंबर, और आपका डेमो वॉलेट, टिकट, पास और हमें भेजे संदेश रखते हैं (पासवर्ड कभी सादे रूप में नहीं रखे जाते)। आपकी लोकेशन हमारे सर्वर पर नहीं रखी जाती। जब आप कोई जगह खोजते हैं या किसी जगह/अपनी लोकेशन से यात्रा खोजते हैं, तो खोज का शब्द और लगभग 10 मीटर तक गोल की गई लोकेशन मुफ़्त OpenStreetMap सेवाओं (Photon, FOSSGIS) को भेजी जाती है, आपके नाम या नंबर के बिना। अकाउंट → अकाउंट मिटाएँ से सब कुछ मिटाया जा सकता है।"
     override val noScreenshots = "टिकट और पास पर स्क्रीनशॉट बंद हैं।"
     override val demoPass = "डेमो पास — यात्रा के लिए मान्य नहीं, असली पैसे नहीं"; override val verifyPass = "पास जाँचें"
 }
