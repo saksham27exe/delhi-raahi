@@ -88,6 +88,8 @@ interface Strings {
     val emailUs: String; val emailUsSub: String; val noMailApp: String; val emergencyNote: String; val voidedTicket: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
+    val groupMoney: String; val groupMore: String; val alertsVoice: String; val langLook: String; val advanced: String
+    val security: String; val aboutPrivacy: String; fun onOf(on: Int, total: Int): String; val serverDefault: String
     val privacyTitle: String; val privacyBody: String; val noScreenshots: String; val demoPass: String; val verifyPass: String
 }
 
@@ -259,6 +261,9 @@ object En : Strings {
     override val emailUs = "Email us"; override val emailUsSub = "Opens your email app"; override val noMailApp = "No email app found. The address was copied."
     override val emergencyNote = "In an emergency on a bus, use SOS on the Home screen or call 112."
     override val voidedTicket = "Cancelled by DelhiRaahi support. This ticket is no longer valid."
+    override val groupMoney = "Wallet & passes"; override val groupMore = "Explore & help"; override val alertsVoice = "Alerts & voice"
+    override val langLook = "Language & appearance"; override val advanced = "Advanced"; override val security = "Account & security"
+    override val aboutPrivacy = "About & privacy"; override fun onOf(on: Int, total: Int) = "$on of $total on"; override val serverDefault = "Default server"
     override val privacyTitle = "Privacy"
     override val busStops = "Bus stops"; override val placesHeader = "Places and addresses"; override val osmCredit = "Places © OpenStreetMap contributors"
     override fun walkToM(min: Int, m: Int) = "Walk $min min · $m m"; override val approx = "approx."
@@ -435,6 +440,9 @@ object Hi : Strings {
     override val emailUs = "हमें ईमेल करें"; override val emailUsSub = "आपकी ईमेल ऐप खुलेगी"; override val noMailApp = "कोई ईमेल ऐप नहीं मिली। पता कॉपी कर लिया गया।"
     override val emergencyNote = "बस में आपात स्थिति हो तो होम स्क्रीन पर SOS दबाएँ या 112 पर कॉल करें।"
     override val voidedTicket = "DelhiRaahi सहायता ने इसे रद्द कर दिया है। यह टिकट अब मान्य नहीं है।"
+    override val groupMoney = "वॉलेट और पास"; override val groupMore = "जानकारी और मदद"; override val alertsVoice = "अलर्ट और आवाज़"
+    override val langLook = "भाषा और दिखावट"; override val advanced = "उन्नत"; override val security = "अकाउंट और सुरक्षा"
+    override val aboutPrivacy = "परिचय और निजता"; override fun onOf(on: Int, total: Int) = "$total में से $on चालू"; override val serverDefault = "डिफ़ॉल्ट सर्वर"
     override val privacyTitle = "निजता"
     override val busStops = "बस स्टॉप"; override val placesHeader = "जगहें और पते"; override val osmCredit = "जगहें © OpenStreetMap योगदानकर्ता"
     override fun walkToM(min: Int, m: Int) = "$min मिनट पैदल · $m मी"; override val approx = "अनुमान"
