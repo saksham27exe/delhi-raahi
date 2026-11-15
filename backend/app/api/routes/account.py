@@ -208,4 +208,11 @@ def feedback(req: FeedbackReq, st: AppState = Depends(get_state), u: User | None
         _acc(st).add_feedback(u.id if u else None, req.text)
     except AccountError as e:
         raise _err(e) from None
+    if st.desk is not None:          # shows on the admin website's support desk
+        from app.services.support import new_ref
+        try:
+            st.desk.add(new_ref(), "feedback", req.text.strip(), getattr(u, "email", None) if u else None,
+                        str(u.id) if u else None, None, None, None, None, "en")
+        except Exception:  # noqa: BLE001  (the feedback itself is already saved)
+            pass
     return {"ok": True}

@@ -413,6 +413,12 @@ class AccountStore:
                 "demo_spent": -one("SELECT COALESCE(SUM(amount_paise), 0) FROM wallet_tx WHERE kind IN ('ticket', 'pass')") / 100,
                 "per_day": sorted(per_day.values(), key=lambda d: d["day"])}
 
+    def all_feedback(self) -> list[dict]:
+        """Every feedback row (id, user_id, text, created_at), oldest first."""
+        rows = self._db.execute("SELECT id, user_id, text, created_at FROM feedback ORDER BY id").fetchall()
+        return [{"id": str(r["id"]), "user_id": None if r["user_id"] is None else str(r["user_id"]),
+                 "text": r["text"], "created_at": r["created_at"]} for r in rows]
+
     def add_feedback(self, uid: int | None, text: str) -> None:
         text = (text or "").strip()
         if not 3 <= len(text) <= 2000:

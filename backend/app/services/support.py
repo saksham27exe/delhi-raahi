@@ -21,6 +21,7 @@ KINDS = {
     "problem": ("App problem", "ऐप में दिक्कत"),
     "ticket": ("Ticket or wallet", "टिकट या वॉलेट"),
     "idea": ("Suggestion", "सुझाव"),
+    "feedback": ("Feedback", "प्रतिक्रिया"),
 }
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[A-Za-z]{2,}$")
 IST = ZoneInfo("Asia/Kolkata")

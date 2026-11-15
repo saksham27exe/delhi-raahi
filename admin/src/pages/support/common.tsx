@@ -10,7 +10,7 @@ export interface Event { id: number; at: string; admin_name: string | null; kind
 export interface ReqDetail extends Req { events: Event[]; other_requests: { id: number; ref: string; kind: string; status: string; created_at: string }[] }
 export interface Counts { new: number; in_progress: number; waiting: number; resolved: number; open: number; urgent_open: number; unassigned_open: number }
 
-export const KIND: Record<string, string> = { complaint: "Complaint", problem: "App problem", ticket: "Ticket / wallet", idea: "Suggestion" };
+export const KIND: Record<string, string> = { complaint: "Complaint", problem: "App problem", ticket: "Ticket / wallet", idea: "Suggestion", feedback: "Feedback" };
 export const STATUS: Record<string, string> = { new: "New", in_progress: "In progress", waiting: "Waiting on person", resolved: "Resolved" };
 export const PRIORITY: Record<string, string> = { urgent: "Urgent", high: "High", normal: "Normal", low: "Low" };
 

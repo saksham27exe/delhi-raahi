@@ -32,6 +32,13 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
             apply_fixes(st)          # stop aliases and bus type fixes made on the admin website
         except Exception as e:  # noqa: BLE001
             st.load_errors["admin_fixes"] = f"{type(e).__name__}: {e}"
+        if st.desk is not None and st.accounts is not None and hasattr(st.accounts, "all_feedback"):
+            try:
+                def email_of(uid):
+                    return st.accounts.admin_user(uid).get("email")
+                st.desk.import_feedback(st.accounts.all_feedback(), email_of)
+            except Exception as e:  # noqa: BLE001
+                st.load_errors["feedback_import"] = f"{type(e).__name__}: {e}"
         if live:
             start_live(st)
             voice.preload()          # local LLM for the voice assistant, if its file is present

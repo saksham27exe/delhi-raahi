@@ -94,6 +94,9 @@ class MemoryRepo:
     def add_feedback(self, data: dict) -> None:
         self.feedback.append(data)
 
+    def all_feedback(self) -> list[tuple[str, dict]]:
+        return [(str(i), f) for i, f in enumerate(self.feedback)]
+
     def list_users(self, limit: int, after: str | None = None, email_prefix: str | None = None) -> list[tuple[str, dict]]:
         rows = sorted(self.users.items(), key=lambda kv: (kv[1].get("created_at", ""), kv[0]), reverse=True)
         if email_prefix:
@@ -192,6 +195,9 @@ class FirestoreRepo:
 
     def add_feedback(self, data: dict) -> None:
         self.db.collection("feedback").add(data)
+
+    def all_feedback(self) -> list[tuple[str, dict]]:
+        return [(d.id, d.to_dict() or {}) for d in self.db.collection("feedback").stream()]
 
     def list_users(self, limit: int, after: str | None = None, email_prefix: str | None = None) -> list[tuple[str, dict]]:
         col = self.db.collection("users")
@@ -513,6 +519,12 @@ class FirebaseAccountStore:
 
     def item_on_record(self, item_id: str) -> bool:
         return self.repo.has_item(item_id)
+
+    def all_feedback(self) -> list[dict]:
+        """Every feedback document (id, user_id, text, created_at), oldest first."""
+        rows = [{"id": i, "user_id": f.get("user_id"), "text": f.get("text", ""), "created_at": f.get("created_at", "")}
+                for i, f in self.repo.all_feedback()]
+        return sorted(rows, key=lambda r: r["created_at"] or "")
 
     def add_feedback(self, uid: str | None, text: str) -> None:
         text = (text or "").strip()

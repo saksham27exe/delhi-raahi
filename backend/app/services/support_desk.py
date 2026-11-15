@@ -12,6 +12,7 @@ import re
 from datetime import datetime, timezone
 
 from app.services.admin_store import Admin, AdminError, AdminStore
+from app.services.support import KINDS
 
 STATUSES = ("new", "in_progress", "waiting", "resolved")
 PRIORITIES = ("low", "normal", "high", "urgent")
@@ -64,6 +65,9 @@ SAFETY = re.compile(
 )
 
 
+MIRRORED = re.compile(r"^\[(DR-\d{4}-[A-Z0-9]{4})\] (\w+)(?: \((.*?)\))?: (.*)$", re.S)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -75,15 +79,50 @@ class SupportDesk:
 
     # ---------- from the app ----------
     def add(self, ref: str, kind: str, message: str, email: str | None, user_id: str | None, route: str | None,
-            when_text: str | None, place: str | None, app_version: str | None, lang: str) -> int:
+            when_text: str | None, place: str | None, app_version: str | None, lang: str, created_at: str | None = None) -> int:
         safety = kind == "complaint" and bool(SAFETY.search(message))
         priority = "urgent" if safety else "high" if kind == "complaint" else "normal"
         now = _now()
+        created_at = created_at or now
         cur = self.s.x(
             "INSERT INTO support_requests (ref, kind, priority, safety, message, email, user_id, route, when_text, place, app_version, lang, "
             "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (ref, kind, priority, int(safety), message, email, user_id, route or None, when_text or None, place or None, app_version, lang, now, now))
+            (ref, kind, priority, int(safety), message, email, user_id, route or None, when_text or None, place or None, app_version, lang, created_at, now))
         return cur.lastrowid
+
+    def has_ref(self, ref: str) -> bool:
+        return bool(self.s.q("SELECT 1 FROM support_requests WHERE ref = ?", (ref,)))
+
+    def import_feedback(self, rows: list[dict], email_of=lambda uid: None) -> int:
+        """Copy feedback saved by the app into the desk. Safe to run on every start: each row gets a fixed
+        reference, so nothing is added twice. Messages from the support form ("[DR-…] kind: text") keep
+        their own reference and type."""
+        added = 0
+        for r in rows:
+            text = (r.get("text") or "").strip()
+            if not text:
+                continue
+            m = MIRRORED.match(text)
+            if m:
+                ref, kind, extra, message = m.group(1), m.group(2), m.group(3), m.group(4)
+                kind = kind if kind in KINDS else "feedback"
+                details = dict(p.split(": ", 1) for p in (extra or "").split("; ") if ": " in p)
+                route, when_text, place = details.get("Bus route"), details.get("When"), details.get("Stop or area")
+            else:
+                ref, kind, message, route, when_text, place = f"FB-{str(r['id'])[-8:].upper()}", "feedback", text, None, None, None
+            if self.has_ref(ref):
+                continue
+            uid = r.get("user_id")
+            email = None
+            if uid:
+                try:
+                    email = email_of(uid)
+                except Exception:  # noqa: BLE001  (account gone)
+                    email = None
+            self.add(ref, kind, message, email, str(uid) if uid else None, route, when_text, place, None, "en",
+                     created_at=r.get("created_at") or None)
+            added += 1
+        return added
 
     def mark_emailed(self, rid: int) -> None:
         self.s.x("UPDATE support_requests SET emailed = 1 WHERE id = ?", (rid,))

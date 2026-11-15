@@ -116,3 +116,27 @@ def test_deleting_account_deletes_requests(env):
     assert st.desk.list()["total"] == 1
     r = public.post("/api/v1/me/delete", json={"password": "pass1234word"}, headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 200 and st.desk.list()["total"] == 0 and acc is st.accounts
+
+
+def test_old_feedback_is_imported_once():
+    from app.services.firebase_accounts import FirebaseAccountStore, MemoryRepo  # noqa: F401
+    adm = AdminStore(":memory:")
+    desk = SupportDesk(adm)
+    acc = AccountStore(":memory:", "k")
+    _t, u = acc.register("9876500009", "pass1234word", "Old User")
+    acc.add_feedback(u.id, "[DR-1101-AB12] complaint (Bus route: 534; When: 9 am): Driver was driving rashly.")
+    acc.add_feedback(None, "Nice app, please add metro.")
+    assert desk.import_feedback(acc.all_feedback()) == 2
+    assert desk.import_feedback(acc.all_feedback()) == 0                  # running again adds nothing
+    rows = {r["ref"]: r for r in desk.list(status=None, size=50)["items"]}
+    c = rows["DR-1101-AB12"]
+    assert c["kind"] == "complaint" and c["route"] == "534" and c["priority"] == "urgent" and c["message"] == "Driver was driving rashly."
+    plain = next(r for ref, r in rows.items() if ref.startswith("FB-"))
+    assert plain["kind"] == "feedback" and plain["message"] == "Nice app, please add metro."
+
+
+def test_app_feedback_lands_in_desk(env):
+    app, public, m, ids, st = env
+    assert public.post("/api/v1/feedback", json={"text": "Bus 764 crowd numbers were spot on."}).status_code == 200
+    items = st.desk.list(status=None, size=50)["items"]
+    assert any(r["kind"] == "feedback" and "764" in r["message"] for r in items)
