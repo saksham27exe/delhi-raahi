@@ -75,6 +75,8 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
     private var awaitingChoice = false
     private var pendingTo: Candidate? = null      // destination known, waiting for an origin
     private var lastHeard: List<String> = emptyList()
+    /** The start the traveller named in this conversation ("from Saket"); kept when only the destination changes. */
+    private var saidFrom: PickedPlace? = null
 
     /** The big button: cut speech short, or finish listening early. Returns false when there is nothing to do. */
     fun tap(): Boolean = when (status) {
@@ -195,16 +197,25 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
             pendingTo != null && cmd == null && (u.to != null || u.from != null) -> {
                 val names = placeNames(heard) { it.to ?: it.from }
                 val from = resolveFirst(names) ?: return
+                saidFrom = from.place
                 val to = pendingTo!!
                 pendingTo = null
                 applyPrefs(u)
                 plan(from.place, to)
             }
             u.to != null -> {
+                // Mid-conversation, a short phrase with no "to"/"se" ("so more", "Sumo") only replaces the trip
+                // when it clearly names a place; otherwise it is a misheard command, so the trip is kept.
+                val bare = (options.isNotEmpty() || destination != null) && u.from == null && !u.fromHere &&
+                    heard.none { VoiceParser.looksLikeTrip(it) }
+                val to = resolveFirst(placeNames(heard) { it.to }, keepAlternatives = true,
+                    minScore = if (bare) PlaceMatch.SURE else PlaceMatch.ACCEPT,
+                    onMiss = if (bare) vs.notUnderstood else null) ?: return
                 applyPrefs(u)
-                val to = resolveFirst(placeNames(heard) { it.to }, keepAlternatives = true) ?: return
                 val from = when {
-                    u.from != null -> resolveFirst(placeNames(heard) { it.from })?.place ?: return
+                    u.from != null -> (resolveFirst(placeNames(heard) { it.from }) ?: return).place.also { saidFrom = it }
+                    u.fromHere -> { saidFrom = null; here() ?: run { pendingTo = to; say(vs.askFrom); return } }
+                    saidFrom != null -> saidFrom!!          // new destination, same start as before
                     else -> here() ?: run { pendingTo = to; say(vs.askFrom); return }
                 }
                 plan(from, to)
@@ -214,6 +225,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
             u.from != null && destination != null && u.from.split(" ").size <= 3 -> {
                 // "from Saket" after a trip: same destination, new start.
                 val from = resolveFirst(placeNames(heard) { it.from }) ?: return
+                saidFrom = from.place
                 applyPrefs(u)
                 plan(from.place, destination!!)
             }
@@ -328,7 +340,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         return loc?.let { PickedPlace.here(vs.currentLocation, it.latitude, it.longitude) }
     }
 
-    private suspend fun candidates(name: String): List<Candidate> = coroutineScope {
+    private suspend fun candidates(name: String, minScore: Float = PlaceMatch.ACCEPT): List<Candidate> = coroutineScope {
         val q = Translit.toLatin(name).trim()
         if (q.length < 2) return@coroutineScope emptyList()
         val placesR = async { runCatching { Api.searchPlaces(q).results } }
@@ -348,19 +360,20 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         // almost any text), best match first; ties keep the search's order.
         (if (stopsFirst) stopC + placeC else placeC + stopC)
             .map { it to PlaceMatch.score(q, it.spoken) }
-            .filter { it.second >= PlaceMatch.ACCEPT }
+            .filter { it.second >= minScore }
             .sortedByDescending { it.second }
             .map { it.first }
             .take(4)
     }
 
     /** First of the recogniser's readings that finds a place; the rest of its matches become "wrong place" alternatives. */
-    private suspend fun resolveFirst(names: List<String>, keepAlternatives: Boolean = false): Candidate? {
+    private suspend fun resolveFirst(names: List<String>, keepAlternatives: Boolean = false,
+                                     minScore: Float = PlaceMatch.ACCEPT, onMiss: String? = null): Candidate? {
         if (names.isEmpty()) { say(vs.notUnderstoodNoTrip); return null }
         status = VoiceStatus.THINKING
         for (n in names) {
             val s = step(vs.stepFinding(n))
-            val c = try { candidates(n) } catch (_: ServerUnreachable) {
+            val c = try { candidates(n, minScore) } catch (_: ServerUnreachable) {
                 done(s, vs.stepNotFound(n)); status = VoiceStatus.IDLE; say(vs.serverDown); return null
             }
             done(s, c.firstOrNull()?.let { vs.stepFound(n, it.spoken, it.isStop) } ?: vs.stepNotFound(n))
@@ -373,7 +386,7 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
         }
         status = VoiceStatus.IDLE
         // Nothing matched. A sentence that never sounded like a trip gets "I help with bus trips" instead.
-        say(if (lastHeard.none { VoiceParser.looksLikeTrip(it) } && names.first().split(" ").size >= 3) vs.offTopic
+        say(onMiss ?: if (lastHeard.none { VoiceParser.looksLikeTrip(it) } && names.first().split(" ").size >= 3) vs.offTopic
             else vs.notFound(names.first()))
         return null
     }

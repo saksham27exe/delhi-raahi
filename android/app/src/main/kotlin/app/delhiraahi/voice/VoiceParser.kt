@@ -47,7 +47,9 @@ object VoiceParser {
         Said.Fastest to listOf("fastest", "quickest", "quick", "fast", "jaldi", "sabse tez", "tez", "जल्दी", "सबसे तेज़", "तेज़", "तेज"),
         Said.Balanced to listOf("balanced", "best", "normal", "सामान्य", "संतुलित"),
         Said.NewTrip to listOf("new trip", "new search", "start over", "another place", "somewhere else", "naya", "नया", "नई यात्रा"),
-        Said.Next to listOf("next", "next one", "another", "other", "other option", "agla", "aage", "अगला", "आगे", "दूसरा विकल्प"),
+        Said.Next to listOf("next", "next one", "another", "other", "other option", "show more", "so more", "any more",
+            "more options", "more buses", "agla", "aage", "aur dikhao", "aur batao", "aur koi", "aur bus", "अगला", "आगे",
+            "दूसरा विकल्प", "और दिखाओ", "और बताओ", "और कोई"),
         Said.Previous to listOf("previous", "go back", "back", "last one", "before", "pichla", "पिछला", "पीछे"),
         Said.Repeat to listOf("repeat", "again", "say again", "say that again", "pardon", "what", "dobara", "phir se", "dubara",
             "दोबारा", "फिर से", "दुबारा", "क्या"),
@@ -83,6 +85,8 @@ object VoiceParser {
         val t = norm(text)
         if (t.isEmpty()) return null
         if (t in STOP) return Said.Stop
+        // "more" / "aur" only on their own: inside a sentence they are often part of a place ("Kakrola More").
+        if (t in setOf("more", "more please", "aur", "aur?", "और")) return Said.Next
         val words = t.split(" ").size
         if (numbers && words <= 3) {
             t.split(" ").firstNotNullOfOrNull { NUMBERS[it] }?.let { if (words == 1 || t.startsWith("number") || t.startsWith("option")) return Said.Number(it) }

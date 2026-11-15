@@ -11,6 +11,8 @@ package app.delhiraahi.voice
 object PlaceMatch {
     /** Below this, the place is not what was said: ask again rather than plan a trip there. */
     const val ACCEPT = 0.5f
+    /** Mid-conversation a lone phrase must match this well to count as a new place (else it's a misheard command). */
+    const val SURE = 0.8f
 
     private val FILLER = setOf(
         "a", "an", "the", "of", "to", "from", "me", "my", "please", "bus", "buses", "stop", "station", "near", "nearby",
