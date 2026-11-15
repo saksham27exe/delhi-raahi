@@ -204,7 +204,7 @@ roles: owner (everything incl. admins), agent (support + users), viewer (read on
   replies with the reference, CSV export); deleting an account deletes its requests.
 - **C — Users & bookings** ✅: search users; profile, demo wallet, tickets, passes, requests; disable/enable,
   resend verification, demo wallet adjustment, void ticket/pass (verify rejects it), delete account.
-- **D — Service alerts & data fixes** ⬜: notices for all / routes / stops with start–end time, shown in the
+- **D — Service alerts & data fixes** ✅: notices for all / routes / stops with start–end time, shown in the
   Android app (Home banner, trip results, live bus); stop name aliases for search; AC/non-AC overrides.
 - **E — Ops dashboard** ⬜: KPIs + charts (users, bookings, requests by type/route, crowd hotspots, model
   card), health of live feed / voice model / email / data loads, audit log viewer, CSV exports.

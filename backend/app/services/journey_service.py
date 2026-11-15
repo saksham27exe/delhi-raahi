@@ -60,10 +60,26 @@ class JourneyService:
                                               lat=("stop_lat", "mean"), lon=("stop_lon", "mean")).reset_index()
 
     # ---- places ---------------------------------------------------------------------
+    def set_aliases(self, aliases: dict[str, str]) -> None:
+        """Other names for stops, added by admins: {"AIIMS": "AIIMS (Ring Road)"} (normalised here)."""
+        idx = {n: i for i, n in enumerate(self._names["norm"])}
+        self._aliases = {normalize_stop_name(a): idx[normalize_stop_name(s)] for a, s in aliases.items()
+                         if normalize_stop_name(a) and normalize_stop_name(s) in idx}
+
+    def _alias_hits(self, qn: str) -> list[dict]:
+        out = []
+        for alias, i in getattr(self, "_aliases", {}).items():
+            if alias == qn or (len(qn) >= 3 and alias.startswith(qn)) or fuzz.ratio(alias, qn) >= 90:
+                r = self._names.iloc[i]
+                out.append({"name": r["name"], "stop_ids": r["stop_ids"], "lat": round(r["lat"], 6), "lon": round(r["lon"], 6),
+                            "score": 200.0 if alias == qn else 150.0, "routes_served": self._routes_at(r["stop_ids"]), "alias": alias})
+        return out
+
     def search_stops(self, q: str, limit: int = 10) -> list[dict]:
         qn = normalize_stop_name(q)
         if not qn:
             return []
+        alias_hits = self._alias_hits(qn)
         names = self._names["norm"].tolist()
         hits = process.extract(qn, names, scorer=fuzz.WRatio, limit=max(60, limit * 6))
         qtok = qn.split()
@@ -77,6 +93,8 @@ class JourneyService:
             score = 0.5 * sc + 50 * cover + (8 if name.startswith(qn) else 0) + min(6.0, np.log1p(routes))
             out.append({"name": r["name"], "stop_ids": r["stop_ids"], "lat": round(r["lat"], 6),
                         "lon": round(r["lon"], 6), "score": round(float(score), 1), "routes_served": routes})
+        seen = {h["name"] for h in alias_hits}
+        out = alias_hits + [o for o in out if o["name"] not in seen]
         out.sort(key=lambda x: -x["score"])
         return out[:limit]
 

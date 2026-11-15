@@ -85,7 +85,7 @@ interface Strings {
     val complaintRoute: String; val complaintWhen: String; val complaintWhere: String; val complaintDetails: String
     val yourEmail: String; val emailCopyNote: String; val noEmailNote: String; val tooShort: String; val badEmail: String
     fun supportSent(ref: String, copyTo: String?): String; fun supportSaved(ref: String): String
-    val emailUs: String; val emailUsSub: String; val noMailApp: String; val emergencyNote: String
+    val emailUs: String; val emailUsSub: String; val noMailApp: String; val emergencyNote: String; val voidedTicket: String
     val busStops: String; val placesHeader: String; val osmCredit: String; fun walkToM(min: Int, m: Int): String; val approx: String
     fun noStopNear(m: Int): String; val widerSearch: String
     val privacyTitle: String; val privacyBody: String; val noScreenshots: String; val demoPass: String; val verifyPass: String
@@ -158,7 +158,7 @@ object En : Strings {
     override val demoBanner = "DEMO TICKET — not valid for travel, no payment taken"; override val close = "Close"
     override val ticketTitle = "Ticket"; override val ticketActive = "Active · demo"; override val ticketExpired = "Expired"
     override fun validUntil(t: String) = "Valid until $t"; override fun passengersN(n: Int) = if (n == 1) "1 passenger" else "$n passengers"
-    override val verify = "Verify ticket"; override fun verified(status: String) = "Signature valid · " + when (status) { "active_demo" -> "active (demo)"; "expired" -> "expired"; "not_on_record" -> "not on record: do not accept"; else -> status }; override val notVerified = "Signature not valid"
+    override val verify = "Verify ticket"; override fun verified(status: String) = "Signature valid · " + when (status) { "active_demo" -> "active (demo)"; "expired" -> "expired"; "not_on_record" -> "not on record: do not accept"; "voided" -> "cancelled by support: do not accept"; else -> status }; override val notVerified = "Signature not valid"
     override val removeTicket = "Delete ticket"; override val storedOnDevice = "Tickets are stored only on this device."
     override val emptyHint = "Plan a trip and book a demo ticket."; override val planTrip = "Plan a trip"
     override val searchStop = "Search a stop"; override val nearbyStops = "Nearby stops"; override val allBuses = "All buses"
@@ -258,6 +258,7 @@ object En : Strings {
     override fun supportSaved(ref: String) = "Saved with reference $ref. Our email isn't working right now, so the team will see it in the app's records."
     override val emailUs = "Email us"; override val emailUsSub = "Opens your email app"; override val noMailApp = "No email app found. The address was copied."
     override val emergencyNote = "In an emergency on a bus, use SOS on the Home screen or call 112."
+    override val voidedTicket = "Cancelled by DelhiRaahi support. This ticket is no longer valid."
     override val privacyTitle = "Privacy"
     override val busStops = "Bus stops"; override val placesHeader = "Places and addresses"; override val osmCredit = "Places © OpenStreetMap contributors"
     override fun walkToM(min: Int, m: Int) = "Walk $min min · $m m"; override val approx = "approx."
@@ -334,7 +335,7 @@ object Hi : Strings {
     override val demoBanner = "डेमो टिकट — यात्रा के लिए मान्य नहीं, कोई भुगतान नहीं लिया गया"; override val close = "बंद करें"
     override val ticketTitle = "टिकट"; override val ticketActive = "सक्रिय · डेमो"; override val ticketExpired = "समाप्त"
     override fun validUntil(t: String) = "$t तक मान्य"; override fun passengersN(n: Int) = "$n यात्री"
-    override val verify = "टिकट जाँचें"; override fun verified(status: String) = "हस्ताक्षर सही · " + when (status) { "active_demo" -> "चालू (डेमो)"; "expired" -> "समय खत्म"; "not_on_record" -> "रिकॉर्ड में नहीं: स्वीकार न करें"; else -> status }; override val notVerified = "हस्ताक्षर सही नहीं"
+    override val verify = "टिकट जाँचें"; override fun verified(status: String) = "हस्ताक्षर सही · " + when (status) { "active_demo" -> "चालू (डेमो)"; "expired" -> "समय खत्म"; "not_on_record" -> "रिकॉर्ड में नहीं: स्वीकार न करें"; "voided" -> "सहायता ने रद्द किया: स्वीकार न करें"; else -> status }; override val notVerified = "हस्ताक्षर सही नहीं"
     override val removeTicket = "टिकट हटाएँ"; override val storedOnDevice = "टिकट सिर्फ़ इसी डिवाइस पर रखे जाते हैं।"
     override val emptyHint = "यात्रा खोजें और डेमो टिकट बुक करें।"; override val planTrip = "यात्रा खोजें"
     override val searchStop = "स्टॉप खोजें"; override val nearbyStops = "पास के स्टॉप"; override val allBuses = "सभी बसें"
@@ -433,6 +434,7 @@ object Hi : Strings {
     override fun supportSaved(ref: String) = "संदर्भ संख्या $ref के साथ सहेजा गया। अभी ईमेल नहीं जा पा रहा, इसलिए टीम इसे ऐप के रिकॉर्ड में देखेगी।"
     override val emailUs = "हमें ईमेल करें"; override val emailUsSub = "आपकी ईमेल ऐप खुलेगी"; override val noMailApp = "कोई ईमेल ऐप नहीं मिली। पता कॉपी कर लिया गया।"
     override val emergencyNote = "बस में आपात स्थिति हो तो होम स्क्रीन पर SOS दबाएँ या 112 पर कॉल करें।"
+    override val voidedTicket = "DelhiRaahi सहायता ने इसे रद्द कर दिया है। यह टिकट अब मान्य नहीं है।"
     override val privacyTitle = "निजता"
     override val busStops = "बस स्टॉप"; override val placesHeader = "जगहें और पते"; override val osmCredit = "जगहें © OpenStreetMap योगदानकर्ता"
     override fun walkToM(min: Int, m: Int) = "$min मिनट पैदल · $m मी"; override val approx = "अनुमान"

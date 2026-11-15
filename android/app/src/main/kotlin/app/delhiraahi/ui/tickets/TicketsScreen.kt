@@ -210,6 +210,9 @@ fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit,
             ) {
                 Text(banner, color = t.veryHigh.fg, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(t.veryHigh.bg).padding(Space.md))
+                if (tk.voided) Text(s.voidedTicket, color = t.onPrimary, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(t.danger).padding(Space.md))
                 Box(contentAlignment = Alignment.Center) {
                     if (qr != null) Image(
                         qr, contentDescription = "QR · ${tk.ticket_id} · $banner",

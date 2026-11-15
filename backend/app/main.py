@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import get_state
-from app.api.routes import account, admin, admin_support, admin_users, crowd, insights, journey, stops, support, tickets, voice
+from app.api.routes import account, admin, admin_data, admin_support, admin_users, crowd, insights, journey, stops, support, tickets, voice
 from app.api.routes import live as live_routes
 from app.core.config import REPO_ROOT, get_settings
 from app.services.state import AppState, _json, load_state, start_live
@@ -27,6 +27,11 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         st = state or load_state()
+        try:
+            from app.services.admin_data import apply_fixes
+            apply_fixes(st)          # stop aliases and bus type fixes made on the admin website
+        except Exception as e:  # noqa: BLE001
+            st.load_errors["admin_fixes"] = f"{type(e).__name__}: {e}"
         if live:
             start_live(st)
             voice.preload()          # local LLM for the voice assistant, if its file is present
@@ -40,7 +45,7 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
                               "fares and DEMO tickets. Crowding is a relative index from e-ticket data, not occupancy.")
     origins = [o.strip() for o in get_settings().crowdwise_cors_origins.split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
-    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support, admin, admin_support, admin_users):
+    for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support, admin, admin_support, admin_users, admin_data):
         app.include_router(r.router)
 
     @app.get("/api/v1/health", tags=["meta"])

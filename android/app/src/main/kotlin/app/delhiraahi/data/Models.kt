@@ -205,6 +205,7 @@ data class DemoTicket(
     val qr_payload: String,
     val watermark: Map<String, String> = emptyMap(),
     val holder: String? = null,
+    val voided: Boolean = false,          // cancelled by support on the admin website
 )
 
 @Serializable
@@ -345,6 +346,16 @@ data class TokenResponse(val token: String)
 @Serializable
 data class OkResponse(val ok: Boolean = true, val deleted: Boolean = false)
 
+/** A service alert posted on the admin website (diversion, stop closed, strike…). */
+@Serializable
+data class ServiceAlert(
+    val id: Int, val severity: String = "info", val title_en: String, val title_hi: String? = null,
+    val body_en: String? = null, val body_hi: String? = null, val routes: List<String> = emptyList(),
+)
+
+@Serializable
+data class AlertsResponse(val alerts: List<ServiceAlert> = emptyList())
+
 @Serializable
 data class SupportInfo(val email: String? = null, val form: Boolean = false)
 
@@ -372,6 +383,7 @@ data class DemoPass(
     val valid_until: String,
     val qr_payload: String,
     val watermark: Map<String, String> = emptyMap(),
+    val voided: Boolean = false,
 )
 
 @Serializable

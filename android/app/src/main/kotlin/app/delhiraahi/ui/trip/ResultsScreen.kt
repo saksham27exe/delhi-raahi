@@ -140,6 +140,8 @@ fun ResultsScreen(trip: TripViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit
             val prefs = listOf(Preference.FASTEST to s.fastest, Preference.BALANCED to s.balanced, Preference.LEAST_CROWDED to s.leastCrowded)
             val buses = listOf(BusFilter.ANY to s.busAny, BusFilter.AC to s.busAc, BusFilter.NON_AC to s.busNonAc)
             val ready = trip.result is Load.Ok
+            val legs = journeys.flatMap { it.legs }
+            app.delhiraahi.ui.common.ServiceAlerts(routes = legs.map { it.route }.distinct(), stops = legs.map { it.board_stop_id }.distinct(), everyone = false)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 FilterPill(Icons.Outlined.Schedule, s.filterWhen, leaveLabel(s, trip.leaveAt),
                     LeaveAt.options.map { it to leaveLabel(s, it) }, trip.leaveAt, Modifier.weight(1f)) { trip.leaveAt = it; trip.search() }

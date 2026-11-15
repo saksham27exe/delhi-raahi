@@ -51,8 +51,15 @@ class FareService:
             self._cum[k] = np.r_[0.0, np.cumsum(seg)]
         return self._cum[k]
 
+    def set_overrides(self, by_route_id: dict[str, str]) -> None:
+        """Bus types corrected by an admin (route_id -> ac | non_ac | mixed); they win over the estimate."""
+        self.overrides = dict(by_route_id)
+
     def bus_type(self, route_id: str) -> tuple[str, float | None]:
         p = self.profile.get(str(route_id))
+        o = getattr(self, "overrides", {}).get(str(route_id))
+        if o:
+            return o, float(p["ac_share"]) if p else None
         if not p:
             return "unknown", None
         share = float(p["ac_share"])

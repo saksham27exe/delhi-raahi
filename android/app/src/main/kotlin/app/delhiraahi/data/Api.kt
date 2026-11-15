@@ -156,6 +156,8 @@ object Api {
         post("/passes/buy", buildJsonObject { put("kind", kind); put("bus_type", busType) })
     suspend fun feedback(text: String): OkResponse = post("/feedback", buildJsonObject { put("text", text) })
     suspend fun supportInfo(): SupportInfo = get("/support")
+    suspend fun alerts(routes: List<String>, stops: List<String>, everyone: Boolean): AlertsResponse =
+        get("/alerts", mapOf("routes" to routes.joinToString(","), "stops" to stops.joinToString(","), "everyone" to everyone))
     suspend fun support(kind: String, message: String, email: String?, route: String?, whenText: String?, where: String?, lang: String): SupportResult =
         post("/support", buildJsonObject {
             put("kind", kind); put("message", message); put("lang", lang)

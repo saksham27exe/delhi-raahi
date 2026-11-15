@@ -152,6 +152,7 @@ fun HomeScreen(
                 }
             }
 
+            app.delhiraahi.ui.common.ServiceAlerts(modifier = Modifier.padding(top = Space.md))
             // Search box: From / To in one card, with "leaving" as a chip under it
             SearchCard(
                 from = s.currentLocation, fromLabel = "${s.from}: ${s.currentLocation}", onFrom = onWhereFrom,

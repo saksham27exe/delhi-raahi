@@ -323,6 +323,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.BusPanel(
         d.route_long_name?.takeIf { !it.startsWith(app.delhiraahi.ui.common.routeName(d.route)) }
             ?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = t.muted) }
         app.delhiraahi.ui.common.BusTypeTag(d.bus_type)
+        app.delhiraahi.ui.common.ServiceAlerts(routes = listOf(d.route), everyone = false)
         Text(listOfNotNull(v.speed_kmh?.let { lt.speed(it) }, lt.delay(v.delay_min), v.age_s?.let { lt.updated(it) }).joinToString(" · "),
             style = MaterialTheme.typography.bodyLarge, color = t.text)
         if (!d.matched) Text(lt.unmatched, style = MaterialTheme.typography.bodyMedium, color = t.muted)
