@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from app.services.accounts import AccountError
@@ -60,7 +62,12 @@ def test_delete_removes_data_and_sign_in(store):
     store.user_for_token("tok-a")
     store.topup("A", 50)
     store.add_feedback("A", "nice app")
-    store.delete("A")
+    with pytest.raises(AccountError):
+        store.delete("A")                                   # no fresh sign-in: refused
+    with pytest.raises(AccountError):
+        store.delete("A", auth_time=time.time() - 3600)     # signed in an hour ago: refused
+    assert store.deleted == []
+    store.delete("A", auth_time=time.time() - 10)
     assert store.deleted == ["A"] and store.repo.get_user("A") is None and store.repo.feedback == []
 
 

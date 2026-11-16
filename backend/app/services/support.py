@@ -47,7 +47,19 @@ class RateLimit:
             if ok:
                 hits.append(now)
             self._hits[key] = hits
+            if len(self._hits) > 10000:          # forget addresses that have gone quiet
+                self._hits = {k: v for k, v in self._hits.items() if v and now - v[-1] < self.window}
             return ok
+
+
+def csv_cell(v):
+    """Text that Excel or Sheets would run as a formula (= + - @, or a leading tab / carriage return) gets a
+    leading ' so it stays text. Empty stays empty."""
+    if v is None:
+        return ""
+    if isinstance(v, str) and v and v[0] in "=+-@\t\r":
+        return "'" + v
+    return v
 
 
 def new_ref() -> str:

@@ -372,7 +372,7 @@ private fun PasswordDialog(session: SessionViewModel, onClose: () -> Unit) {
         confirmButton = {
             TextButton(enabled = !done && old.isNotEmpty() && new.length >= 8, onClick = {
                 scope.launch {
-                    runCatching { session.changePassword(old, new) }
+                    runCatching { session.changePassword(old, new, s === app.delhiraahi.i18n.Hi) }
                         .onSuccess { done = true; msg = s.saved }
                         .onFailure { msg = s.errorText(it) }
                 }
@@ -402,7 +402,7 @@ private fun DeleteDialog(session: SessionViewModel, onClose: () -> Unit) {
         confirmButton = {
             TextButton(enabled = pw.isNotEmpty(), onClick = {
                 scope.launch {
-                    runCatching { session.deleteAccount(pw) }.onSuccess { onClose() }.onFailure { msg = s.errorText(it) }
+                    runCatching { session.deleteAccount(pw, s === app.delhiraahi.i18n.Hi) }.onSuccess { onClose() }.onFailure { msg = s.errorText(it) }
                 }
             }) { Text(s.deleteAccount, color = x.veryHigh.fg, fontWeight = FontWeight.Bold) }
         },

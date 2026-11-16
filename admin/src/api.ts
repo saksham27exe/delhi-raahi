@@ -48,8 +48,14 @@ export const api = {
   del: <T>(path: string) => call<T>("DELETE", path),
   /** Download a CSV (or any file) the server makes, keeping the session cookie. */
   download: async (path: string, q?: Query) => {
-    const r = await fetch(url(path, q), { credentials: "same-origin" });
-    if (!r.ok) throw new ApiError(r.status, `Download failed (${r.status})`);
+    let r: Response;
+    try {
+      r = await fetch(url(path, q), { credentials: "same-origin" });
+    } catch {
+      throw new ApiError(0, "Can't reach the server. Check that the backend is running.");
+    }
+    if (r.status === 401) onSignedOut();
+    if (!r.ok) throw new ApiError(r.status, r.status === 403 ? "Your role can't export this." : `Download failed (${r.status})`);
     const name = /filename="?([^"]+)"?/.exec(r.headers.get("content-disposition") ?? "")?.[1] ?? "export.csv";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(await r.blob());

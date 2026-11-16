@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, can } from "../../api";
 import { useAuth } from "../../auth";
@@ -28,9 +28,11 @@ export function SupportDetail() {
   const [reply, setReply] = useState("");
   const [then, setThen] = useState("waiting");
   const [note, setNote] = useState("");
+  useEffect(() => { setReply(""); setThen("waiting"); setNote(""); }, [id]);   // drafts belong to one request
 
-  if (loading && !r) return <Spinner />;
-  if (!r) return <ErrorNote error={error ?? "Not found"} />;
+  const current = r && String(r.id) === id ? r : null;      // never act on the previous request while the next loads
+  if (loading && !current) return <Spinner />;
+  if (!r || !current) return <ErrorNote error={error ?? "Not found"} />;
   const patch = (body: object) => run(async () => setData(await api.patch<ReqDetail>(`/support/${r.id}`, body)), "Saved");
   const sendReply = () => run(async () => { setData(await api.post<ReqDetail>(`/support/${r.id}/reply`, { body: reply, then })); setReply(""); }, "Reply emailed");
   const addNote = () => run(async () => { setData(await api.post<ReqDetail>(`/support/${r.id}/notes`, { body: note })); setNote(""); }, "Note added");

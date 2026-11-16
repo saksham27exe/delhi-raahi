@@ -37,6 +37,7 @@ class FbUser:
     woman_traveller: bool
     created_at: str
     verified: bool = False          # email verified (from the Firebase token)
+    auth_time: float | None = None  # when the user last typed their password (from the Firebase token)
 
     @property
     def holder(self) -> str:
@@ -91,8 +92,9 @@ class MemoryRepo:
     def has_item(self, item_id: str) -> bool:
         return item_id in self.items
 
-    def add_feedback(self, data: dict) -> None:
+    def add_feedback(self, data: dict) -> str:
         self.feedback.append(data)
+        return str(len(self.feedback) - 1)
 
     def all_feedback(self) -> list[tuple[str, dict]]:
         return [(str(i), f) for i, f in enumerate(self.feedback)]
@@ -193,8 +195,8 @@ class FirestoreRepo:
     def has_item(self, item_id: str) -> bool:
         return self.db.collection("items").document(item_id).get().exists
 
-    def add_feedback(self, data: dict) -> None:
-        self.db.collection("feedback").add(data)
+    def add_feedback(self, data: dict) -> str:
+        return self.db.collection("feedback").add(data)[1].id
 
     def all_feedback(self) -> list[tuple[str, dict]]:
         return [(d.id, d.to_dict() or {}) for d in self.db.collection("feedback").stream()]
@@ -310,6 +312,10 @@ class FirebaseAccountStore:
             return None
         u = self._user(uid, d)
         u.verified = bool(claims.get("email_verified"))
+        try:
+            u.auth_time = float(claims["auth_time"]) if claims.get("auth_time") is not None else None
+        except (TypeError, ValueError):
+            u.auth_time = None
         return u
 
     def update_profile(self, uid: str, name: str | None = None, woman_traveller: bool | None = None) -> FbUser:
@@ -325,8 +331,17 @@ class FirebaseAccountStore:
             self.repo.update_user(uid, f)
         return self._user(uid, self.repo.get_user(uid))
 
-    def delete(self, uid: str, _password: str = "") -> None:
-        """The app re-checks the password with Firebase first; here: delete data, then the sign-in."""
+    RECENT_LOGIN_S = 300
+
+    def delete(self, uid: str, _password: str = "", auth_time: float | None = None) -> None:
+        """The app re-checks the password with Firebase first, which gives a token with a fresh `auth_time`.
+        The password never comes here, so a recent sign-in is what proves it is really the owner: a stolen or
+        hour-old token is not enough to wipe an account. Then: delete data, then the sign-in."""
+        if auth_time is None or time.time() - auth_time > self.RECENT_LOGIN_S:
+            raise AccountError("For your safety, enter your password again to delete the account.", 401)
+        self._wipe(uid)
+
+    def _wipe(self, uid: str) -> None:
         self.repo.delete_user_data(uid)
         self._delete_auth(uid)
 
@@ -353,9 +368,18 @@ class FirebaseAccountStore:
         if u.verified:
             return False
         self._throttle("v:" + u.email.lower())
+        if not u.email:
+            raise AccountError("This account has no email address.", 422)
         subject, html, text = render("verify", lang, u.name, u.email, self._verify_link(u.email))
-        self.mailer.send(u.email, subject, html, text)
+        self._send(u.email, subject, html, text)
         return True
+
+    def _send(self, to: str, subject: str, html: str, text: str, quiet: bool = False) -> None:
+        try:
+            self.mailer.send(to, subject, html, text)
+        except Exception:  # noqa: BLE001  (SMTP down, quota reached, bad address)
+            if not quiet:
+                raise AccountError("Could not send the email right now. Try again later.", 503) from None
 
     def send_reset(self, email: str, lang: str = "en") -> None:
         """Send a reset link if an account exists. Never says whether it does (no account guessing)."""
@@ -370,7 +394,7 @@ class FirebaseAccountStore:
         except Exception:  # noqa: BLE001  (no such user): answer the same way
             return
         subject, html, text = render("reset", lang, self._user_name(email) or "", email, link)
-        self.mailer.send(email, subject, html, text)
+        self._send(email, subject, html, text, quiet=True)     # same answer whether or not the account exists
 
     # ---------- DEMO wallet ----------
     def wallet(self, uid: str, limit: int = 50) -> dict:
@@ -489,7 +513,7 @@ class FirebaseAccountStore:
     def admin_delete(self, uid: str) -> None:
         if self.repo.get_user(uid) is None:
             raise AccountError("No such user.", 404)
-        self.delete(uid)
+        self._wipe(uid)               # an owner on the admin website, checked there; no rider sign-in involved
 
     def admin_resend_verification(self, uid: str, lang: str = "en") -> bool:
         d = self.repo.get_user(uid)
@@ -526,11 +550,11 @@ class FirebaseAccountStore:
                 for i, f in self.repo.all_feedback()]
         return sorted(rows, key=lambda r: r["created_at"] or "")
 
-    def add_feedback(self, uid: str | None, text: str) -> None:
+    def add_feedback(self, uid: str | None, text: str) -> str:
         text = (text or "").strip()
         if not 3 <= len(text) <= 2000:
             raise AccountError("Write between 3 and 2000 characters.")
-        self.repo.add_feedback({"user_id": uid, "text": text, "created_at": self._now()})
+        return self.repo.add_feedback({"user_id": uid, "text": text, "created_at": self._now()})
 
 
 def connect(credentials_path: str, mailer=None) -> FirebaseAccountStore:

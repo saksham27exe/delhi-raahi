@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.trip
 
+import app.delhiraahi.ui.common.LeaveOnce
 import android.location.Location
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -85,10 +86,10 @@ fun LiveRideScreen(store: TicketStore, ticketId: String, lang: Lang, arriveOn: B
     val view = LocalView.current
     val tickets by store.tickets.collectAsState(initial = null)
     val tk = tickets?.firstOrNull { it.ticket_id == ticketId }
-    if (tickets != null && tk == null) { onBack(); return }
+    if (tickets != null && tk == null) { LeaveOnce(onBack); return }
     if (tk == null) return
     val legs = tk.legs.filter { it.route_id.isNotBlank() && it.board_stop_id.isNotBlank() && it.alight_stop_id.isNotBlank() }
-    if (legs.isEmpty()) { onBack(); return }
+    if (legs.isEmpty()) { LeaveOnce(onBack); return }
 
     val lt = remember(lang) { LiveText.of(lang == Lang.HI) }
     val rt = remember(lang) { RideText.of(lang == Lang.HI) }

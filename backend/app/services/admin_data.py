@@ -108,7 +108,8 @@ class AdminData:
 
     def update_alert(self, aid: int, a: dict) -> dict:
         cur = self.get_alert(aid)
-        merged = {**cur, **{k: v for k, v in a.items() if v is not None}}
+        # None means "not sent", except for ends_at, where an explicit null means "until ended by hand".
+        merged = {**cur, **{k: v for k, v in a.items() if v is not None or k == "ends_at"}}
         v = self._check(merged)
         self.s.x(f"UPDATE alerts SET {', '.join(f'{k} = ?' for k in v)}, updated_at = ? WHERE id = ?", (*v.values(), _iso(_now()), aid))
         return self.get_alert(aid)

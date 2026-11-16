@@ -165,7 +165,7 @@ fun SearchScreen(trip: TripViewModel, onBack: () -> Unit, onDone: () -> Unit) {
                 val shownStops = if (stopsFirst) hits else hits.take(4)
                 val stopSection: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
                     if (shownStops.isNotEmpty() && places.isNotEmpty()) item(key = "h:stops") { SectionLabel(s.busStops) }
-                    items(shownStops, key = { "s:" + it.name }) { h ->
+                    items(shownStops.distinctBy { it.name }, key = { "s:" + it.name }) { h ->
                         ListRow(app.delhiraahi.ui.common.StopSignIcon, h.name, subtitle = s.routesServed(h.routes_served), onClick = { choose(PickedPlace.stop(h)) })
                     }
                 }
@@ -219,7 +219,7 @@ private fun PlaceField(
             )
         }
         if (value.isNotEmpty() && active) IconButton(onClick = onClear, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Outlined.Close, contentDescription = null, tint = t.muted, modifier = Modifier.size(20.dp))
+            Icon(Icons.Outlined.Close, contentDescription = LocalStrings.current.clearRecent, tint = t.muted, modifier = Modifier.size(20.dp))
         }
     }
     Box(Modifier.fillMaxWidth().height(if (active) 2.5.dp else 1.5.dp).background(if (active) t.primary else t.border))

@@ -74,7 +74,7 @@ object Understand {
                 val min = when {
                     g.startsWith("half") -> 30
                     g == "an" || g == "a" -> if (hours) 60 else 1
-                    else -> g.toInt() * (if (hours) 60 else 1)
+                    else -> (g.toIntOrNull() ?: 10_000).coerceAtMost(10_000) * (if (hours) 60 else 1)
                 }
                 if (m.value.contains(" ") && (m.value.startsWith("in ") || m.value.startsWith("after ") || m.value.endsWith("later") ||
                         m.value.endsWith("baad") || m.value.endsWith("mein") || m.value.endsWith("बाद") || m.value.endsWith("में")))
@@ -86,8 +86,8 @@ object Understand {
         val period = Regex("\\b(morning|evening|night|afternoon|subah|shaam|sham|raat|dopahar|सुबह|शाम|रात|दोपहर)\\b").find(t)?.value
             ?: listOf("सुबह", "शाम", "रात", "दोपहर").firstOrNull { t.contains(it) }
         Regex("(?:at |around |by )?(\\d{1,2})(?::(\\d{2}))? ?(am|pm|baje|बजे|o'clock|oclock)?").findAll(t).forEach { m ->
-            val h = m.groupValues[1].toInt()
-            val mm = m.groupValues[2].ifEmpty { "0" }.toInt()
+            val h = m.groupValues[1].toIntOrNull() ?: -1
+            val mm = m.groupValues[2].ifEmpty { "0" }.toIntOrNull() ?: -1
             val unit = m.groupValues[3].ifEmpty { null }
             val explicit = unit != null || m.groupValues[2].isNotEmpty() || m.value.startsWith("at ") || period != null
             if (explicit && h in 0..23 && mm in 0..59) {
@@ -128,7 +128,7 @@ object Understand {
         }
         val wrong = WRONG.any { has(t, it) }
         if (wrong) WRONG.forEach { t = cut(t, it) }
-        for (w in listOf("route", "way", "bus", "wali", "wala", "वाली", "वाला")) if (pref != null) t = cut(t, w)
+        for (w in listOf("route", "way", "bus", "wali", "wala", "वाली", "वाला", "बस", "रूट")) if (pref != null) t = cut(t, w)
 
         // After a preference or time was taken out, leftover filler ("please", "make it the", "leave") is not a command.
         if (pref != null || leave != null) t = t.split(" ").filterNot { it in LEFTOVER }.joinToString(" ")

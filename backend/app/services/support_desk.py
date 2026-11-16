@@ -12,7 +12,7 @@ import re
 from datetime import datetime, timezone
 
 from app.services.admin_store import Admin, AdminError, AdminStore
-from app.services.support import KINDS
+from app.services.support import KINDS, csv_cell
 
 STATUSES = ("new", "in_progress", "waiting", "resolved")
 PRIORITIES = ("low", "normal", "high", "urgent")
@@ -144,7 +144,10 @@ class SupportDesk:
         if assignee == "none":
             sql += " AND r.assignee_id IS NULL"
         elif assignee:
-            sql += " AND r.assignee_id = ?"; args.append(int(assignee))
+            try:
+                sql += " AND r.assignee_id = ?"; args.append(int(assignee))
+            except ValueError:
+                raise AdminError("assignee must be an admin id or 'none'.", 422) from None
         if route:
             sql += " AND lower(r.route) = lower(?)"; args.append(route.strip())
         if user_id:
@@ -233,21 +236,23 @@ class SupportDesk:
         return changes
 
     def stats(self, days: int = 30) -> dict:
+        # created_at is stored with its offset (UTC, or IST for imported feedback); julianday() reads both as
+        # instants, and days are counted in Delhi time so a complaint at 02:00 IST lands on the right day.
         since = f"-{int(days)} days"
         by_kind = {r["kind"]: r["n"] for r in self.s.q(
-            "SELECT kind, COUNT(*) n FROM support_requests WHERE created_at >= datetime('now', ?) GROUP BY kind", (since,))}
+            "SELECT kind, COUNT(*) n FROM support_requests WHERE julianday(created_at) >= julianday('now', ?) GROUP BY kind", (since,))}
         by_route = [dict(r) for r in self.s.q(
-            "SELECT route, COUNT(*) n FROM support_requests WHERE route IS NOT NULL AND kind = 'complaint' AND created_at >= datetime('now', ?) "
+            "SELECT route, COUNT(*) n FROM support_requests WHERE route IS NOT NULL AND kind = 'complaint' AND julianday(created_at) >= julianday('now', ?) "
             "GROUP BY lower(route) ORDER BY n DESC LIMIT 10", (since,))]
         per_day = [dict(r) for r in self.s.q(
-            "SELECT substr(created_at, 1, 10) day, COUNT(*) n FROM support_requests WHERE created_at >= datetime('now', ?) GROUP BY day ORDER BY day", (since,))]
+            "SELECT date(created_at, '+330 minutes') day, COUNT(*) n FROM support_requests WHERE julianday(created_at) >= julianday('now', ?) GROUP BY day ORDER BY day", (since,))]
         first = self.s.q(
             "SELECT AVG((julianday(e.at) - julianday(r.created_at)) * 24) h FROM support_requests r JOIN "
             "(SELECT request_id, MIN(at) at FROM support_events WHERE kind = 'reply' GROUP BY request_id) e ON e.request_id = r.id "
-            "WHERE r.created_at >= datetime('now', ?)", (since,))[0]["h"]
+            "WHERE julianday(r.created_at) >= julianday('now', ?)", (since,))[0]["h"]
         resolve = self.s.q(
             "SELECT AVG((julianday(resolved_at) - julianday(created_at)) * 24) h FROM support_requests "
-            "WHERE resolved_at IS NOT NULL AND created_at >= datetime('now', ?)", (since,))[0]["h"]
+            "WHERE resolved_at IS NOT NULL AND julianday(created_at) >= julianday('now', ?)", (since,))[0]["h"]
         return {"days": days, "by_kind": by_kind, "complaints_by_route": by_route, "per_day": per_day,
                 "avg_first_reply_hours": round(first, 1) if first is not None else None,
                 "avg_resolve_hours": round(resolve, 1) if resolve is not None else None, **self.counts()}
@@ -262,6 +267,5 @@ class SupportDesk:
         w = csv.writer(out)
         w.writerow(cols)
         for r in rows:
-            # A leading = + - @ would run as a formula in Excel: prefix with ' to keep it text.
-            w.writerow([("'" + str(v)) if isinstance(v, str) and v[:1] in "=+-@" else ("" if v is None else v) for v in (r[c] for c in cols)])
+            w.writerow([csv_cell(r[c]) for c in cols])
         return out.getvalue()

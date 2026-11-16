@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.trip
 
+import app.delhiraahi.ui.common.LeaveOnce
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -129,7 +130,7 @@ fun JourneyScreen(
 ) {
     val s = LocalStrings.current
     val t = LocalExtra.current
-    val j = trip.journeys.getOrNull(index) ?: run { onBack(); return }
+    val j = remember(index) { trip.journeys.getOrNull(index) } ?: run { LeaveOnce(onBack); return }
     val map = remember { MapController() }
     val (lines, pins) = remember(j, t) {
         journeyMap(j, t, trip.from?.let { f -> f.lat?.let { it to f.lon!! } }, trip.to?.let { d -> d.lat?.let { it to d.lon!! } })

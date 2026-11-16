@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import sqlite3
 import threading
@@ -163,9 +164,9 @@ class AdminStore:
         if role is not None and role not in ROLES:
             raise AdminError("Unknown role.", 422)
         losing_owner = r["role"] == "owner" and not r["disabled"] and ((role and role != "owner") or disabled)
-        if losing_owner and self.owners() <= 1:
-            raise AdminError("Keep at least one active owner.", 409)
         with self._lock:
+            if losing_owner and self.owners() <= 1:
+                raise AdminError("Keep at least one active owner.", 409)
             if role is not None:
                 self.x("UPDATE admins SET role = ? WHERE id = ?", (role, admin_id))
             if name is not None:
@@ -190,7 +191,7 @@ class AdminStore:
     def change_password(self, admin_id: int, old: str, new: str, keep_token_hash: str | None = None) -> None:
         r = self._admin_row(admin_id)
         if r is None or not hmac.compare_digest(_hash(old or "", r["pw_salt"]), r["pw_hash"]):
-            raise AdminError("Current password is wrong.", 401)
+            raise AdminError("Current password is wrong.", 400)
         if old == new:
             raise AdminError("Choose a password different from the current one.", 422)
         check_password_strength(new)
@@ -258,7 +259,7 @@ class AdminStore:
             self._db.execute("INSERT INTO audit (at, admin_id, admin_email, action, target, detail, ip) VALUES (?,?,?,?,?,?,?)",
                              (_iso(_now()), a.id if a else None, a.email if a else email, action, target,
                               json.dumps(detail, ensure_ascii=False) if detail else None, ip))
-            self._seal()
+            self._seal_row(self._db.execute("SELECT last_insert_rowid()").fetchone()[0])
 
     # ---------- audit ledger (hash chain) ----------
     GENESIS = "0" * 64
@@ -279,30 +280,49 @@ class AdminStore:
             self._ledger_key = bytes.fromhex(key_file.read_text(encoding="utf-8").strip())
             self._head_path, self._head_mem = Path(path).parent / "ledger_head.json", None
         with self._lock:
-            self._seal()          # older entries (from before the ledger) are sealed once, in order
+            self._seal_legacy()   # entries from before the ledger existed are sealed once, in order
 
     def _block_hash(self, prev: str, r) -> str:
         body = json.dumps([prev, r["id"], r["at"], r["admin_id"], r["admin_email"], r["action"], r["target"], r["detail"], r["ip"]],
                           ensure_ascii=False, separators=(",", ":"))
         return hmac.new(self._ledger_key, body.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def _seal(self) -> None:
-        """Hash every entry that has no hash yet, chaining from the last sealed one. Call with the lock held."""
-        last = self._db.execute("SELECT hash FROM audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
-        prev = last["hash"] if last else self.GENESIS
-        rows = self._db.execute("SELECT * FROM audit WHERE hash IS NULL ORDER BY id").fetchall()
-        for r in rows:
+    def _seal_legacy(self) -> None:
+        """One-time migration: only when NO entry has a hash yet (a log from before the ledger), seal them all.
+        Unsealed rows that appear later are never sealed automatically, so a row whose hash was wiped, or a row
+        slipped into the database by hand, stays unsealed and fails verification. Call with the lock held."""
+        if self._db.execute("SELECT 1 FROM audit WHERE hash IS NOT NULL LIMIT 1").fetchone():
+            return
+        prev = self.GENESIS
+        for r in self._db.execute("SELECT * FROM audit ORDER BY id").fetchall():
             h = self._block_hash(prev, r)
             self._db.execute("UPDATE audit SET prev_hash = ?, hash = ? WHERE id = ?", (prev, h, r["id"]))
             prev = h
             self._write_head(r["id"], h)
+
+    def _seal_row(self, row_id: int) -> None:
+        """Seal the entry just written, chaining from the saved head (or the newest sealed entry when there is
+        no head yet). If the chain was cut or edited, the new block will not link and verification says so."""
+        head = self._read_head()
+        if head and head.get("hash"):
+            prev = head["hash"]
+        else:
+            last = self._db.execute("SELECT hash FROM audit WHERE hash IS NOT NULL AND id < ? ORDER BY id DESC LIMIT 1",
+                                    (row_id,)).fetchone()
+            prev = last["hash"] if last else self.GENESIS
+        r = self._db.execute("SELECT * FROM audit WHERE id = ?", (row_id,)).fetchone()
+        h = self._block_hash(prev, r)
+        self._db.execute("UPDATE audit SET prev_hash = ?, hash = ? WHERE id = ?", (prev, h, row_id))
+        self._write_head(row_id, h)
 
     def _write_head(self, block: int, h: str) -> None:
         head = {"block": block, "hash": h, "at": _iso(_now())}
         if self._head_path is None:
             self._head_mem = head
         else:
-            self._head_path.write_text(json.dumps(head), encoding="utf-8")
+            tmp = self._head_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(head), encoding="utf-8")
+            os.replace(tmp, self._head_path)          # atomic: never a half-written head
 
     def _read_head(self) -> dict | None:
         if self._head_path is None:
@@ -320,6 +340,7 @@ class AdminStore:
         """Recompute the whole chain. Returns ok, how many blocks, the head, and the first broken block if any."""
         with self._lock:
             rows = self._db.execute("SELECT * FROM audit ORDER BY id").fetchall()
+            head = self._read_head()          # read with the rows, so an entry written meanwhile is no false alarm
         prev, count = self.GENESIS, 0
         for r in rows:
             if r["prev_hash"] != prev:
@@ -327,8 +348,10 @@ class AdminStore:
             if r["hash"] != self._block_hash(prev, r):
                 return {"ok": False, "blocks": count, "broken_at": r["id"], "reason": "This block's contents were changed."}
             prev, count = r["hash"], count + 1
-        head = self._read_head()
         last_id = rows[-1]["id"] if rows else None
+        if rows and not head:
+            return {"ok": False, "blocks": count, "broken_at": None,
+                    "reason": "The saved head of the chain is missing, so removed newest blocks cannot be ruled out."}
         if head and (head.get("block") != last_id or head.get("hash") != prev):
             return {"ok": False, "blocks": count, "broken_at": head.get("block"),
                     "reason": "The newest blocks were removed (the chain is shorter than the saved head)."}

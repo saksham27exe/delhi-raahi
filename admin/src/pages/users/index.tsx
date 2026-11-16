@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../../api";
+import { api, can } from "../../api";
+import { useAuth } from "../../auth";
 import { Badge, Button, Card, Empty, ErrorNote, Field, fmtDate, fmtRs, Modal, PageHead, Spinner, useLoad } from "../../ui";
 import { UserDetail } from "./UserDetail";
 
@@ -18,6 +19,8 @@ export function Users() {
 function UserList() {
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
+  const { user } = useAuth();
+  const agent = can(user, "agent");
   const q = sp.get("q") ?? "";
   const [extra, setExtra] = useState<UserRow[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -27,10 +30,14 @@ function UserList() {
     setNext(r.next);
     return r;
   }, [q]);
+  const [moreError, setMoreError] = useState<string | null>(null);
   const more = async () => {
-    const r = await api.get<{ users: UserRow[]; next: string | null }>("/users", { q, cursor: next });
-    setExtra((x) => [...x, ...r.users]);
-    setNext(r.next);
+    try {
+      const r = await api.get<{ users: UserRow[]; next: string | null }>("/users", { q, cursor: next });
+      setExtra((x) => [...x, ...r.users]);
+      setNext(r.next);
+      setMoreError(null);
+    } catch (e) { setMoreError((e as Error).message); }
   };
   const rows = [...(data?.users ?? []), ...extra];
   const [lookup, setLookup] = useState(false);
@@ -39,10 +46,10 @@ function UserList() {
       <PageHead title="Users & bookings" sub={data?.store === "firebase" ? "App accounts (Firebase). Search by email prefix or user id." : "App accounts. Search by phone, name or id."}
         actions={<Button onClick={() => setLookup(true)}>Find ticket / check QR</Button>} />
       <Card>
-        <div className="filters" style={{ marginBottom: 12 }}>
+        {agent ? <div className="filters" style={{ marginBottom: 12 }}>
           <Field label="Search" className="search"><input placeholder={data?.store === "firebase" ? "e.g. riya@ or a user id" : "phone, name or id"} defaultValue={q}
             onKeyDown={(e) => { if (e.key === "Enter") setSp((e.target as HTMLInputElement).value.trim() ? { q: (e.target as HTMLInputElement).value.trim() } : {}); }} /></Field>
-        </div>
+        </div> : <p className="muted small" style={{ marginTop: 0 }}>Contact details are masked for viewers, and search needs the agent role.</p>}
         <ErrorNote error={error} />
         {loading && !data ? <Spinner /> : rows.length === 0 ? <Empty>No users found.</Empty> : (
           <div className="table-wrap"><table>
@@ -59,6 +66,7 @@ function UserList() {
             ))}</tbody>
           </table></div>
         )}
+        <ErrorNote error={moreError} />
         {next && <div className="pager"><Button small onClick={() => void more()}>Load more</Button></div>}
       </Card>
       <TicketLookup open={lookup} onClose={() => setLookup(false)} />

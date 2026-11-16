@@ -66,8 +66,15 @@ function Shell() {
 }
 
 function Gate() {
-  const { user, loading } = useAuth();
+  const { user, loading, unreachable, refresh } = useAuth();
   if (loading) return <div className="login"><Spinner /></div>;
+  if (!user && unreachable) return (
+    <div className="login"><div className="card stack" role="alert">
+      <h1 style={{ margin: 0, fontSize: 20 }}>Can't reach the server</h1>
+      <p className="muted">{unreachable}</p>
+      <button type="button" className="btn btn-primary" onClick={() => void refresh()}>Try again</button>
+    </div></div>
+  );
   if (!user) return <Login />;
   if (user.must_change) return <ChangePassword forced />;
   return <Shell />;

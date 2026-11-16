@@ -101,6 +101,7 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
     var selected by remember { mutableStateOf<String?>(null) }        // tapped bus
     var picked by remember { mutableStateOf<MapPin?>(null) }          // tapped stop: its arrivals, on this page
     var board by remember { mutableStateOf<app.delhiraahi.data.ArrivalsBoard?>(null) }
+    var boardFailed by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<app.delhiraahi.data.VehicleDetail?>(null) }
     val lt = app.delhiraahi.voice.LiveText.of(LocalStrings.current === app.delhiraahi.i18n.Hi)
 
@@ -135,11 +136,13 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
 
     // The tapped stop: next buses, refreshed every 30 s, without leaving this page.
     LaunchedEffect(picked) {
-        board = null
+        board = null; boardFailed = false
         val p = picked ?: return@LaunchedEffect
         while (true) {
-            runCatching { Api.arrivals(p.id.removePrefix("s")) }.onSuccess { board = it }
-            delay(30_000)
+            runCatching { Api.arrivals(p.id.removePrefix("s")) }
+                .onSuccess { board = it; boardFailed = false }
+                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; boardFailed = board == null }
+            delay(if (board == null) 10_000 else 30_000)
         }
     }
     fun pickStop(id: String, name: String, lat: Double, lon: Double) {
@@ -261,7 +264,7 @@ fun LiveScreen(onOpenStop: (String) -> Unit) {
             return@Column
         }
         picked?.let { p ->
-            StopPanel(p.title, board, onClose = { picked = null }, onBus = { id -> picked = null; selected = id })
+            StopPanel(p.title, board, boardFailed, onClose = { picked = null }, onBus = { id -> picked = null; selected = id })
             return@Column
         }
         // Stop search, underlined like the trip sentence
@@ -350,7 +353,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.BusPanel(
 /** The tapped stop, on the Live page: next buses with live or timetable times. Tap a live bus to follow it on the map. */
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.StopPanel(
-    name: String, b: app.delhiraahi.data.ArrivalsBoard?, onClose: () -> Unit, onBus: (String) -> Unit,
+    name: String, b: app.delhiraahi.data.ArrivalsBoard?, failed: Boolean, onClose: () -> Unit, onBus: (String) -> Unit,
 ) {
     val s = LocalStrings.current
     val t = LocalExtra.current
@@ -362,6 +365,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.StopPanel(
                 contentAlignment = Alignment.Center,
             ) { Icon(androidx.compose.material.icons.Icons.Outlined.Close, contentDescription = null, tint = t.text) }
         }
+        if (b == null && failed) { Text(s.errNetwork, color = t.veryHigh.fg, modifier = Modifier.padding(vertical = Space.lg)); return@Column }
         if (b == null) { androidx.compose.material3.CircularProgressIndicator(Modifier.padding(Space.lg).size(22.dp), strokeWidth = 2.dp, color = t.primary); return@Column }
         Text(if (b.live_feed) s.liveOn else s.liveOff, style = MaterialTheme.typography.labelMedium, color = if (b.live_feed) t.low.fg else t.moderate.fg)
         if (b.arrivals.isEmpty()) Text(s.noArrivals, color = t.muted, modifier = Modifier.padding(vertical = Space.lg))

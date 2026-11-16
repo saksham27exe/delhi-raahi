@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -16,6 +16,7 @@ from app.services.admin_store import Admin, AdminError
 from app.services.state import AppState
 from app.services.support_desk import SupportDesk
 
+IST = timezone(timedelta(hours=5, minutes=30))
 router = APIRouter(prefix="/api/v1/admin/support", tags=["admin: support desk"])
 log = logging.getLogger(__name__)
 
@@ -26,14 +27,27 @@ def desk(st: AppState = Depends(get_state)) -> SupportDesk:
     return st.desk
 
 
+def _for(a: Admin, r: dict) -> dict:
+    """Viewers (read-only role) see the desk without riders' contact details, like on the Users page."""
+    if a.can("agent") or not r.get("email"):
+        return r
+    from app.services.firebase_accounts import mask_email
+    return {**r, "email": mask_email(r["email"])}
+
+
 @router.get("")
 def list_requests(status: str | None = None, kind: str | None = None, priority: str | None = None,
                   assignee: str | None = None, q: str | None = None, route: str | None = None, user_id: str | None = None,
                   safety: bool = False, sort: str = "priority", page: int = 1, size: int = 25,
                   a: Admin = Depends(require("viewer")), d: SupportDesk = Depends(desk)) -> dict:
-    res = d.list(page=page, size=size, sort=sort, status=status, kind=kind, priority=priority, assignee=assignee,
-                 q=q, route=route, user_id=user_id, safety=safety)
-    return {**res, "counts": d.counts()}
+    if q and not a.can("agent"):
+        q = None if "@" in q else q          # no probing for a masked email one letter at a time
+    try:
+        res = d.list(page=page, size=size, sort=sort, status=status, kind=kind, priority=priority, assignee=assignee,
+                     q=q, route=route, user_id=user_id, safety=safety)
+    except AdminError as e:
+        raise err(e) from None
+    return {**res, "items": [_for(a, r) for r in res["items"]], "counts": d.counts()}
 
 
 @router.get("/stats")
@@ -43,17 +57,23 @@ def stats(days: int = 30, a: Admin = Depends(require("viewer")), d: SupportDesk 
 
 @router.get("/export.csv")
 def export(request: Request, status: str | None = None, kind: str | None = None, route: str | None = None,
+           priority: str | None = None, assignee: str | None = None, q: str | None = None, safety: bool = False,
            a: Admin = Depends(require("agent")), d: SupportDesk = Depends(desk)) -> Response:
-    audit(request, a, "support_exported", None, {"status": status, "kind": kind, "route": route})
-    name = f"delhiraahi-support-{datetime.now():%Y%m%d-%H%M}.csv"
-    return Response("﻿" + d.csv(status=status, kind=kind, route=route), media_type="text/csv; charset=utf-8",
+    filters = {"status": status, "kind": kind, "route": route, "priority": priority, "assignee": assignee, "q": q, "safety": safety}
+    try:
+        body = d.csv(**filters)
+    except AdminError as e:
+        raise err(e) from None
+    audit(request, a, "support_exported", None, {k: v for k, v in filters.items() if v})
+    name = f"delhiraahi-support-{datetime.now(IST):%Y%m%d-%H%M}.csv"
+    return Response("\ufeff" + body, media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/{rid}")
 def get_request(rid: int, a: Admin = Depends(require("viewer")), d: SupportDesk = Depends(desk)) -> dict:
     try:
-        return d.get(rid)
+        return _for(a, d.get(rid))
     except AdminError as e:
         raise err(e) from None
 

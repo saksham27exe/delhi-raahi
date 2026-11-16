@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, can } from "../api";
 import { useAuth } from "../auth";
 import { Badge, Button, Card, Empty, ErrorNote, Field, fmtTime, Modal, PageHead, Spinner, useAction, useConfirm, useLoad } from "../ui";
@@ -25,7 +26,8 @@ const empty = (): Form => ({ severity: "warning", title_en: "", title_hi: "", bo
 export function Alerts() {
   const { user } = useAuth();
   const agent = can(user, "agent");
-  const [state, setState] = useState("");
+  const [sp] = useSearchParams();
+  const [state, setState] = useState(sp.get("state") ?? "");
   const { data, error, loading, reload } = useLoad(() => api.get<{ alerts: Alert[] }>("/alerts", { state }), [state]);
   const { run, busy } = useAction();
   const confirm = useConfirm();

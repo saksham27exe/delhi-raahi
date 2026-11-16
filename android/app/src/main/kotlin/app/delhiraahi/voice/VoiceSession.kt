@@ -147,6 +147,11 @@ class VoiceSession(private val ctx: Context, private val trip: TripViewModel, pr
                 }
             }
         } catch (_: EndConversation) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // A bug in one turn must never take the whole app down: close the assistant instead.
+            android.util.Log.w("VoiceSession", "conversation ended by an error", e)
         } finally {
             status = VoiceStatus.IDLE
         }

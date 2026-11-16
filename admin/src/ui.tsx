@@ -173,7 +173,13 @@ export function Secret({ value }: { value: string }) {
   return (
     <div className="secret">
       <code>{value}</code>
-      <Button small onClick={async () => { await navigator.clipboard.writeText(value); setCopied(true); }}>{copied ? "Copied" : "Copy"}</Button>
+      <Button small onClick={async () => {
+        try { await navigator.clipboard.writeText(value); setCopied(true); }
+        catch {   // no clipboard API on plain http: select the text so Ctrl+C works
+          const el = document.querySelector(".secret code");
+          if (el) { const range = document.createRange(); range.selectNodeContents(el); const s = getSelection(); s?.removeAllRanges(); s?.addRange(range); }
+        }
+      }}>{copied ? "Copied" : "Copy"}</Button>
     </div>
   );
 }

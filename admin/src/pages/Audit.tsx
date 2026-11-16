@@ -17,10 +17,16 @@ export function Audit() {
     return r.entries;
   }, [action, admin]);
   const all = [...(data ?? []), ...pages.flat()];
+  const lastBatch = pages.length ? pages[pages.length - 1].length : (data?.length ?? 0);
+  const [moreError, setMoreError] = useState<string | null>(null);
   const more = async () => {
     const last = all[all.length - 1];
-    const r = await api.get<{ entries: Entry[] }>("/audit", { limit: 100, before: last?.id, action, admin });
-    setPages((p) => [...p, r.entries]);
+    const key = `${action}|${admin}`;
+    try {
+      const r = await api.get<{ entries: Entry[] }>("/audit", { limit: 100, before: last?.id, action, admin });
+      if (key === `${action}|${admin}`) setPages((p) => [...p, r.entries]);
+      setMoreError(null);
+    } catch (e) { setMoreError((e as Error).message); }
   };
   return (
     <>
@@ -46,7 +52,8 @@ export function Audit() {
             ))}</tbody>
           </table></div>
         )}
-        {all.length > 0 && all.length % 100 === 0 && <div className="pager"><Button small onClick={() => void more()}>Load older</Button></div>}
+        <ErrorNote error={moreError} />
+        {all.length > 0 && lastBatch === 100 && <div className="pager"><Button small onClick={() => void more()}>Load older</Button></div>}
       </Card>
     </>
   );

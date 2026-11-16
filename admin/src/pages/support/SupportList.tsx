@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, can } from "../../api";
 import { useAuth } from "../../auth";
-import { ago, Button, Card, Empty, ErrorNote, Field, PageHead, Pager, Spinner, useLoad } from "../../ui";
+import { ago, Button, Card, Empty, ErrorNote, Field, PageHead, Pager, Spinner, useAction, useLoad } from "../../ui";
 import { KIND, KindBadge, PriorityBadge, SafetyBadge, StatusBadge, type Counts, type Req } from "./common";
 
 const TABS: [string, string][] = [["open", "Open"], ["new", "New"], ["in_progress", "In progress"], ["waiting", "Waiting"], ["resolved", "Resolved"], ["all", "All"]];
@@ -26,12 +26,15 @@ export function SupportList() {
     [sp.toString()],
   );
   const c = data?.counts;
+  const { run, busy } = useAction();
   return (
     <>
       <PageHead title="Support desk" sub={c ? `${c.open} open · ${c.urgent_open} urgent · ${c.unassigned_open} unassigned` : "Complaints and questions from the app."}
         actions={<>
           <Button onClick={() => void reload()}>Refresh</Button>
-          {can(user, "agent") && <Button onClick={() => void api.download("/support/export.csv", { status: f.status === "open" || f.status === "all" ? undefined : f.status, kind: f.kind, route: f.route })}>Export CSV</Button>}
+          {can(user, "agent") && <Button disabled={busy} onClick={() => void run(() => api.download("/support/export.csv", {
+            status: f.status === "all" ? undefined : f.status, kind: f.kind, route: f.route, priority: f.priority, assignee: f.assignee,
+            q: f.q, safety: f.safety || undefined }))}>Export CSV</Button>}
         </>} />
       <Card>
         <div className="row gap wrap" role="tablist" aria-label="Status" style={{ marginBottom: 12 }}>

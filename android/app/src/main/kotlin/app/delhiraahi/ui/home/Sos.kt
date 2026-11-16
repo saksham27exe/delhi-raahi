@@ -68,7 +68,7 @@ private class SosText(val hi: Boolean) {
     val noLoc = if (hi) "लोकेशन नहीं मिली। लोकेशन चालू करें, या सीधे 112 पर कॉल करें।" else "Couldn't get your location. Turn location on, or call 112 directly."
     fun message(lat: Double, lon: Double, acc: Int?) =
         (if (hi) "मुझे मदद चाहिए। मेरी लोकेशन: " else "I need help. My location: ") +
-            "https://maps.google.com/?q=%.6f,%.6f".format(lat, lon) +
+            String.format(java.util.Locale.US, "https://maps.google.com/?q=%.6f,%.6f", lat, lon) +
             (acc?.let { if (hi) " (लगभग $it मी.)" else " (within about $it m)" } ?: "") + " — DelhiRaahi"
     val close = if (hi) "बंद करें" else "Close"
 }

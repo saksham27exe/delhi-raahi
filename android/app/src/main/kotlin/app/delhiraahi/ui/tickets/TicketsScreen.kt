@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.tickets
 
+import app.delhiraahi.ui.common.LeaveOnce
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -196,7 +197,7 @@ fun TicketScreen(store: TicketStore, id: String, lang: Lang, onBack: () -> Unit,
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = s.back, tint = t.text) }
             Text(s.ticketTitle, style = MaterialTheme.typography.titleMedium, color = t.text)
         }
-        if (tickets != null && tk == null) { onBack(); return }
+        if (tickets != null && tk == null) { LeaveOnce(onBack); return }
         if (tk == null) return
         val expired = tk.isExpired()
         val banner = tk.watermark[if (lang == Lang.HI) "hi" else "en"] ?: s.demoBanner

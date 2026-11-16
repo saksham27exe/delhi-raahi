@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.trip
 
+import app.delhiraahi.ui.common.LeaveOnce
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.delhiraahi.data.DELHI_ZONE
 import app.delhiraahi.data.DeviceLocation
 import app.delhiraahi.data.Lang
 import app.delhiraahi.data.TripViewModel
@@ -87,8 +89,8 @@ fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffO
     val t = LocalExtra.current
     val ctx = LocalContext.current
     val view = LocalView.current
-    val j = trip.journeys.getOrNull(index)
-    val leg = j?.legs?.getOrNull(legIdx) ?: run { onBack(); return }
+    val j = remember(index) { trip.journeys.getOrNull(index) }
+    val leg = j?.legs?.getOrNull(legIdx) ?: run { LeaveOnce(onBack); return }
     val rt = remember(lang) { RideText.of(lang == Lang.HI) }
     val locale = remember(lang) { if (lang == Lang.HI) Locale("hi", "IN") else Locale("en", "IN") }
     val speaker = remember { Speaker(ctx) }
@@ -154,7 +156,7 @@ fun RideScreen(trip: TripViewModel, index: Int, legIdx: Int, lang: Lang, getOffO
         while (!arrived) {
             delay(15_000)
             if (System.currentTimeMillis() - lastGood > CLOCK_AFTER_MS) {
-                val n = LocalTime.now()
+                val n = LocalTime.now(DELHI_ZONE)
                 var m = n.hour * 60 + n.minute + n.second / 60f
                 if (m < ref - 360) m += 1440
                 handle(tracker.byClock(m))

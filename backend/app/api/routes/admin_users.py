@@ -37,7 +37,12 @@ def _mask(u: dict, a: Admin) -> dict:
 
 @router.get("/users")
 def users(q: str = "", cursor: str | None = None, limit: int = 25, a: Admin = Depends(require("viewer")), acc=Depends(accounts)) -> dict:
-    res = acc.admin_users(q.strip(), min(max(limit, 1), 100), cursor)
+    if q.strip() and not a.can("agent"):
+        raise HTTPException(403, detail="Searching riders needs the agent role (viewers see masked contact details).")
+    try:
+        res = acc.admin_users(q.strip(), min(max(limit, 1), 100), cursor)
+    except AccountError as e:
+        raise _e(e) from None
     return {**res, "users": [_mask(u, a) for u in res["users"]], "store": getattr(acc, "kind", "local")}
 
 

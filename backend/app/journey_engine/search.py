@@ -75,6 +75,8 @@ class JourneySearch:
     def _mask(self, k: int, d: date) -> np.ndarray:
         key = (k, d)
         if key not in self._svc_mask:
+            if len(self._svc_mask) > 100_000:      # many different dates asked: start again rather than grow forever
+                self._svc_mask.clear()
             active = self.net.active_services(d)
             p = self.net.patterns[k]
             self._svc_mask[key] = np.ones(len(p.trip_ids), bool) if active is None else np.isin(p.service_ids, list(active))

@@ -115,7 +115,11 @@ class VoiceLLM:
                 response_format={"type": "json_object", "schema": SCHEMA},
             )
         raw = r["choices"][0]["message"]["content"]
-        out = {**EMPTY, **json.loads(raw)}
+        try:
+            parsed = json.loads(raw)
+        except ValueError:            # the token limit cut the JSON short: treat it as not understood
+            parsed = {}
+        out = {**EMPTY, **(parsed if isinstance(parsed, dict) else {})}
         out = _clean(out)
         out["ms"] = int((time.time() - t0) * 1000)
         return out

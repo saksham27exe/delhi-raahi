@@ -41,6 +41,9 @@ def ci_category(ci: float | None) -> str:
     return CATEGORIES[int(np.searchsorted([0.5, 0.8, 0.95], ci, side="right"))]
 
 
+EARLY_MORNING_S = 4 * 3600     # before 04:00 also look at the previous service day's late trips
+
+
 def hhmm(sec: float) -> str:
     sec = int(round(sec))
     return f"{(sec // 3600) % 24:02d}:{(sec % 3600) // 60:02d}"
@@ -161,6 +164,13 @@ class JourneyService:
         t0 = when.hour * 3600 + when.minute * 60 + when.second
         cands = prune_candidates(self.search_engine.search(o, dd, d, t0, max_transfers))
         scored = [self._score(c, d) for c in cands]
+        if t0 < EARLY_MORNING_S:
+            # Just after midnight the buses still running belong to the previous service day, whose timetable
+            # writes them as 24:xx, 25:xx...; search that day too, with the clock moved on by 24 h.
+            prev = d - timedelta(days=1)
+            late = prune_candidates(self.search_engine.search(o, dd, prev, t0 + 86400, max_transfers))
+            cands = cands + late
+            scored += [self._score(c, prev) for c in late]
         ranked = rank(scored, preference)
         notes = []
         if self.crowd is None:
@@ -302,7 +312,9 @@ class JourneyService:
                 minutes = max(float(t_to - t_from) / 60, 0.0) if not (np.isnan(t_from) or np.isnan(t_to)) else 0.0
                 sid = f"{p.route_id}:{a}>{b}"
                 bucket = int((t_from % 86400) // 60 // (self.crowd.bucket_minutes if self.crowd else 30)) if not np.isnan(t_from) else 0
-                pred = self.crowd.predict(sid, d, bucket) if self.crowd else None
+                # A trip written as 24:15 on Saturday's timetable runs on Sunday: use Sunday's crowd pattern.
+                day = d + timedelta(days=int(t_from // 86400)) if not np.isnan(t_from) else d
+                pred = self.crowd.predict(sid, day, bucket) if self.crowd else None
                 ci = pred.crowd_index if pred else None
                 exposure += (ci if ci is not None else imput) * minutes
                 ivt += minutes

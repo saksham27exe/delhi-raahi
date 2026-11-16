@@ -141,9 +141,9 @@ export function Dashboard() {
             <Stat label="Spent on tickets & passes" value={fmtRs(u?.demo_spent)} />
           </div>
           {can(user, "agent") && <div className="row gap" style={{ marginTop: 12 }}>
-            <Button small onClick={() => void api.download("/users/export.csv")}>Export users CSV</Button>
-            <Button small onClick={() => void api.download("/support/export.csv")}>Export support CSV</Button>
-            {can(user, "owner") && <Button small onClick={() => void api.download("/audit/export.csv")}>Export audit CSV</Button>}
+            <Button small onClick={() => void api.download("/users/export.csv").catch((e: Error) => window.alert(e.message))}>Export users CSV</Button>
+            <Button small onClick={() => void api.download("/support/export.csv").catch((e: Error) => window.alert(e.message))}>Export support CSV</Button>
+            {can(user, "owner") && <Button small onClick={() => void api.download("/audit/export.csv").catch((e: Error) => window.alert(e.message))}>Export audit CSV</Button>}
           </div>}
         </Card>
       </div>

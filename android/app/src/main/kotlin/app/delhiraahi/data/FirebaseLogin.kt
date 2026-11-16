@@ -32,6 +32,8 @@ object FirebaseLogin {
 
     private suspend fun <T> guard(hindi: Boolean, block: suspend () -> T): T = try {
         block()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
     } catch (e: Exception) {
         val en = !hindi
         throw LoginError(when (e) {
@@ -72,7 +74,8 @@ object FirebaseLogin {
     /** Checks the current password again (needed before changing it or deleting the account). */
     suspend fun reauth(password: String, hindi: Boolean) = guard(hindi) {
         val u = auth.currentUser ?: throw FirebaseAuthInvalidUserException("none", "signed out")
-        u.reauthenticate(EmailAuthProvider.getCredential(u.email.orEmpty(), password)).await(); Unit
+        u.reauthenticate(EmailAuthProvider.getCredential(u.email.orEmpty(), password)).await()
+        u.getIdToken(true).await(); Unit           // a token whose auth_time is now: the server needs it to delete
     }
 
     suspend fun changePassword(old: String, new: String, hindi: Boolean) {

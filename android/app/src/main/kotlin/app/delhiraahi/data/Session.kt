@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val android.content.Context.sessionData by preferencesDataStore(name = "session")
@@ -38,14 +39,24 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            if (firebase) {
+            // Use the server saved in Account settings for this first call too (the screen applies it only after
+            // its first frame, which is too late: /me would go to the built-in address and the user look signed out).
+            runCatching { Api.setBase(SettingsStore(ctx).settings.first().apiBase) }
+            val signedIn = if (firebase) {
                 Api.tokenProvider = { FirebaseLogin.idToken() }
-                if (FirebaseLogin.signedIn) refreshMe()
+                FirebaseLogin.signedIn
             } else {
                 Api.token = runCatching { ctx.sessionData.data.first()[kToken] }.getOrNull()
-                if (Api.token != null) refreshMe()
+                Api.token != null
             }
             ready = true
+            if (signedIn) {
+                // Offline or server asleep at launch: try again a few times instead of showing a guest for good.
+                for (wait in listOf(0L, 5_000L, 15_000L, 45_000L)) {
+                    delay(wait)
+                    if (refreshMe()) break
+                }
+            }
         }
     }
 
@@ -83,10 +94,13 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Check the token; a 401 means it expired or was signed out elsewhere. */
-    suspend fun refreshMe() {
-        runCatching { Api.me() }
+    /** True when the server answered (signed in, or told us the sign-in is no longer valid). */
+    suspend fun refreshMe(): Boolean {
+        val r = runCatching { Api.me() }
             .onSuccess { user = it.user; wallet = (wallet ?: Wallet()).copy(balance = it.wallet_balance) }
             .onFailure { if (it is ApiException && it.status == 401) clearLocal() }
+        r.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+        return r.isSuccess || (r.exceptionOrNull() as? ApiException)?.status == 401
     }
 
     private suspend fun start(r: AuthResponse) {
@@ -152,8 +166,8 @@ class SessionViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun deleteAccount(password: String, hindi: Boolean = false) {
-        if (firebase) FirebaseLogin.reauth(password, hindi)      // confirm it's really you
-        Api.deleteAccount(password)                               // server deletes the data and the sign-in
+        if (firebase) FirebaseLogin.reauth(password, hindi)      // confirm it's really you (fresh sign-in time)
+        Api.deleteAccount(if (firebase) "" else password)         // server deletes the data and the sign-in
         clearLocal()
     }
 

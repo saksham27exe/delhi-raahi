@@ -279,9 +279,13 @@ class AccountStore:
             if bal > MAX_BALANCE_PAISE:
                 raise AccountError(f"Demo wallet limit is ₹{MAX_BALANCE_PAISE // 100}.")
             self._db.execute("BEGIN")
-            self._db.execute("UPDATE users SET balance_paise = ? WHERE id = ?", (bal, uid))
-            self._db.execute("INSERT INTO wallet_tx (user_id, kind, amount_paise, balance_after_paise, ref, created_at) "
-                             "VALUES (?, 'topup', ?, ?, 'demo top-up, no payment', ?)", (uid, paise, bal, self._now()))
+            try:
+                self._db.execute("UPDATE users SET balance_paise = ? WHERE id = ?", (bal, uid))
+                self._db.execute("INSERT INTO wallet_tx (user_id, kind, amount_paise, balance_after_paise, ref, created_at) "
+                                 "VALUES (?, 'topup', ?, ?, 'demo top-up, no payment', ?)", (uid, paise, bal, self._now()))
+            except Exception:
+                self._db.execute("ROLLBACK")      # never leave the shared connection inside a transaction
+                raise
             self._db.execute("COMMIT")
         return self.wallet(uid)
 
@@ -330,6 +334,8 @@ class AccountStore:
             sql += " AND (phone LIKE ? OR name LIKE ? OR CAST(id AS TEXT) = ?)"
             args += [f"%{q}%", f"%{q}%", q]
         if cursor:
+            if not str(cursor).isdigit() or len(str(cursor)) > 18:
+                raise AccountError("Bad page cursor.", 422)
             sql += " AND id < ?"; args.append(int(cursor))
         rows = self._db.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit + 1)).fetchall()
         return {"users": [self._admin_user_row(r) for r in rows[:limit]],
@@ -367,9 +373,13 @@ class AccountStore:
             if not 0 <= bal <= MAX_BALANCE_PAISE:
                 raise AccountError(f"The demo balance must stay between ₹0 and ₹{MAX_BALANCE_PAISE // 100}.")
             self._db.execute("BEGIN")
-            self._db.execute("UPDATE users SET balance_paise = ? WHERE id = ?", (bal, u))
-            self._db.execute("INSERT INTO wallet_tx (user_id, kind, amount_paise, balance_after_paise, ref, created_at) VALUES (?, 'adjust', ?, ?, ?, ?)",
-                             (u, paise, bal, f"support: {reason}"[:200], self._now()))
+            try:
+                self._db.execute("UPDATE users SET balance_paise = ? WHERE id = ?", (bal, u))
+                self._db.execute("INSERT INTO wallet_tx (user_id, kind, amount_paise, balance_after_paise, ref, created_at) VALUES (?, 'adjust', ?, ?, ?, ?)",
+                                 (u, paise, bal, f"support: {reason}"[:200], self._now()))
+            except Exception:
+                self._db.execute("ROLLBACK")
+                raise
             self._db.execute("COMMIT")
         return self.wallet(u)
 
@@ -419,9 +429,10 @@ class AccountStore:
         return [{"id": str(r["id"]), "user_id": None if r["user_id"] is None else str(r["user_id"]),
                  "text": r["text"], "created_at": r["created_at"]} for r in rows]
 
-    def add_feedback(self, uid: int | None, text: str) -> None:
+    def add_feedback(self, uid: int | None, text: str) -> str:
         text = (text or "").strip()
         if not 3 <= len(text) <= 2000:
             raise AccountError("Write between 3 and 2000 characters.")
         with self._lock:
-            self._db.execute("INSERT INTO feedback (user_id, text, created_at) VALUES (?, ?, ?)", (uid, text, self._now()))
+            cur = self._db.execute("INSERT INTO feedback (user_id, text, created_at) VALUES (?, ?, ?)", (uid, text, self._now()))
+        return str(cur.lastrowid)

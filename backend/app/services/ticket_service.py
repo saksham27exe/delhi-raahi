@@ -68,7 +68,8 @@ class TicketService:
         for i, leg in enumerate(legs):
             k, a, b = self._locate(leg["route_id"], leg["board_stop_id"], leg["alight_stop_id"])
             f = self.fares.leg_fare(k, a, b)
-            chosen = (bus_types[i] if bus_types and i < len(bus_types) else None) or f["bus_type"]
+            asked = bus_types[i] if bus_types and i < len(bus_types) else None
+            chosen = f["bus_type"] if f["bus_type"] in ("ac", "non_ac") else (asked or f["bus_type"])
             if chosen not in ("ac", "non_ac"):
                 chosen = "ac"           # mixed/unknown fleet: price the higher (AC) fare so nobody is undercharged
             unit = f["fare_ac"] if chosen == "ac" else f["fare_non_ac"]

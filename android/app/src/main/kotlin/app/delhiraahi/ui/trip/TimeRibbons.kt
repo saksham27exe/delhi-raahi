@@ -43,6 +43,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import app.delhiraahi.data.DELHI_ZONE
 import app.delhiraahi.data.Journey
 import app.delhiraahi.data.WalkOption
 import app.delhiraahi.i18n.LocalStrings
@@ -155,7 +156,7 @@ internal fun axisFor(ribbons: List<Ribbon>, now: Float?): ClockAxis? {
 
 /** The current time on the same unwrapped scale as the trips. */
 internal fun nowOnScale(ref: Int): Float {
-    val n = LocalTime.now()
+    val n = LocalTime.now(DELHI_ZONE)
     return unwrap(n.hour * 60 + n.minute, ref) + n.second / 60f
 }
 
@@ -276,7 +277,7 @@ private fun a11y(s: Strings, j: Journey, r: Ribbon): String = listOfNotNull(
 /** Minutes from now until a "HH:MM" time today (wrapping round midnight), or null if unreadable. */
 internal fun minsFromNow(hhmm: String): Int? {
     val m = clockMin(hhmm) ?: return null
-    val n = LocalTime.now().let { it.hour * 60 + it.minute }
+    val n = LocalTime.now(DELHI_ZONE).let { it.hour * 60 + it.minute }
     var d = m - n
     if (d < -720) d += 1440 else if (d > 720) d -= 1440
     return d
@@ -405,7 +406,7 @@ fun TimeRibbons(
             runCatching { Api.track(l.route_id, l.board_stop_id, l.alight_stop_id, null, emptySet()) }.onSuccess { live[j.journey_id] = it }
         }
     }
-    val ref = journeys.firstNotNullOfOrNull { clockMin(it.departure) } ?: LocalTime.now().let { it.hour * 60 + it.minute }
+    val ref = journeys.firstNotNullOfOrNull { clockMin(it.departure) } ?: LocalTime.now(DELHI_ZONE).let { it.hour * 60 + it.minute }
     val ribbons = remember(journeys, t) { journeys.map { ribbonOf(it, t, ref) } }
     val now = remember(ref) { nowOnScale(ref) }
     val visible = shown.mapNotNull { i -> ribbons[i]?.let { i to it } }

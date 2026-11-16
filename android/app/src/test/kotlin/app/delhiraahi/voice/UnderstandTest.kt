@@ -68,4 +68,12 @@ class UnderstandTest {
         assertEquals(Said.WalkOnly, p("पैदल").command)
         assertEquals("india gate", p("walk to India Gate").to)
     }
+
+    // QA 16 Nov: the demo-video sentence, and numbers too big for an Int never crash the assistant.
+    @Test fun demoSentenceAndHugeNumbers() {
+        val d = p("कश्मीरी गेट से आनंद विहार कम भीड़ वाली बस")
+        assertEquals("कश्मीरी गेट", d.from); assertEquals("आनंद विहार", d.to); assertEquals("least_crowded", d.preference)
+        assertEquals(LeaveSpec.InMinutes(600), p("to Saket in 99999999999 minutes").leave)
+        p("at 99999999999 to Saket")
+    }
 }

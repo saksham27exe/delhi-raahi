@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.deps import current_user, get_state, require_user, require_verified
@@ -41,7 +41,7 @@ class PasswordReq(BaseModel):
 
 
 class DeleteReq(BaseModel):
-    password: str = Field(..., max_length=128)
+    password: str = Field("", max_length=128)
 
 
 class LangReq(BaseModel):
@@ -76,8 +76,22 @@ def _err(e: AccountError):
     return HTTPException(e.status, detail=str(e))
 
 
+from app.services.support import RateLimit  # noqa: E402
+
+# Per client address. Each password check costs real CPU and memory (scrypt), reset mails use the sending quota,
+# and feedback lands on the support desk, so a script must not be able to hammer any of them.
+_LIMITS = {"auth": RateLimit(30, 600), "reset": RateLimit(5, 600), "feedback": RateLimit(10, 600)}
+
+
+def _limit(kind: str, request: Request, st: AppState) -> None:
+    ip = request.client.host if request.client else "?"
+    if not _LIMITS[kind].allow(f"{id(st)}:{ip}"):
+        raise HTTPException(429, detail="Too many requests. Please wait a few minutes and try again.")
+
+
 @router.post("/auth/register")
-def register(req: RegisterReq, st: AppState = Depends(get_state)) -> dict:
+def register(req: RegisterReq, request: Request, st: AppState = Depends(get_state)) -> dict:
+    _limit("auth", request, st)
     try:
         token, u = _acc(st).register(req.phone, req.password, req.name)
     except AccountError as e:
@@ -86,7 +100,8 @@ def register(req: RegisterReq, st: AppState = Depends(get_state)) -> dict:
 
 
 @router.post("/auth/login")
-def login(req: LoginReq, st: AppState = Depends(get_state)) -> dict:
+def login(req: LoginReq, request: Request, st: AppState = Depends(get_state)) -> dict:
+    _limit("auth", request, st)
     try:
         token, u = _acc(st).login(req.phone, req.password)
     except AccountError as e:
@@ -114,8 +129,9 @@ def send_verification(req: LangReq, u: User = Depends(require_user), st: AppStat
 
 
 @router.post("/auth/send-reset")
-def send_reset(req: ResetReq, st: AppState = Depends(get_state)) -> dict:
+def send_reset(req: ResetReq, request: Request, st: AppState = Depends(get_state)) -> dict:
     """Email a password-reset link if the account exists; the answer is the same either way."""
+    _limit("reset", request, st)
     acc = _acc(st)
     if not hasattr(acc, "send_reset"):
         raise HTTPException(404, detail="Not used for these accounts.")
@@ -151,7 +167,10 @@ def change_password(req: PasswordReq, u: User = Depends(require_user), st: AppSt
 def delete_me(req: DeleteReq, u: User = Depends(require_user), st: AppState = Depends(get_state)) -> dict:
     """Permanently deletes the account, wallet history, tickets, passes and feedback."""
     try:
-        _acc(st).delete(u.id, req.password)
+        if hasattr(u, "auth_time"):          # Firebase: proven by a fresh sign-in, the password is not sent here
+            _acc(st).delete(u.id, req.password, auth_time=u.auth_time)
+        else:
+            _acc(st).delete(u.id, req.password)
     except AccountError as e:
         raise _err(e) from None
     if st.desk is not None:
@@ -203,15 +222,19 @@ def buy_pass(req: PassReq, u: User = Depends(require_verified), st: AppState = D
 
 
 @router.post("/feedback")
-def feedback(req: FeedbackReq, st: AppState = Depends(get_state), u: User | None = Depends(current_user)) -> dict:
+def feedback(req: FeedbackReq, request: Request, st: AppState = Depends(get_state),
+             u: User | None = Depends(current_user)) -> dict:
+    _limit("feedback", request, st)
     try:
-        _acc(st).add_feedback(u.id if u else None, req.text)
+        fid = _acc(st).add_feedback(u.id if u else None, req.text)
     except AccountError as e:
         raise _err(e) from None
     if st.desk is not None:          # shows on the admin website's support desk
-        from app.services.support import new_ref
+        # Same reference the start-up import gives this row, so it is never added twice.
+        ref = f"FB-{str(fid)[-8:].upper()}"
         try:
-            st.desk.add(new_ref(), "feedback", req.text.strip(), getattr(u, "email", None) if u else None,
+            if not st.desk.has_ref(ref):
+                st.desk.add(ref, "feedback", req.text.strip(), getattr(u, "email", None) if u else None,
                         str(u.id) if u else None, None, None, None, None, "en")
         except Exception:  # noqa: BLE001  (the feedback itself is already saved)
             pass

@@ -39,8 +39,14 @@ object DeviceLocation {
         return suspendCancellableCoroutine { cont ->
             val signal = CancellationSignal()
             cont.invokeOnCancellation { signal.cancel() }
-            LocationManagerCompat.getCurrentLocation(lm, provider, signal, ContextCompat.getMainExecutor(ctx)) { loc ->
-                if (cont.isActive) cont.resume(loc)
+            try {
+                LocationManagerCompat.getCurrentLocation(lm, provider, signal, ContextCompat.getMainExecutor(ctx)) { loc ->
+                    if (cont.isActive) cont.resume(loc)
+                }
+            } catch (_: SecurityException) {          // permission withdrawn, or only coarse for this provider
+                if (cont.isActive) cont.resume(null)
+            } catch (_: IllegalArgumentException) {   // provider disappeared
+                if (cont.isActive) cont.resume(null)
             }
         }
     }

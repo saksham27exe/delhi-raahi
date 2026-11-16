@@ -1,5 +1,6 @@
 package app.delhiraahi.ui.tickets
 
+import app.delhiraahi.ui.common.LeaveOnce
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -73,7 +74,7 @@ fun BookScreen(trip: TripViewModel, index: Int, session: SessionViewModel, onClo
     val s = LocalStrings.current
     val t = LocalExtra.current
     val scope = rememberCoroutineScope()
-    val j = trip.journeys.getOrNull(index) ?: run { onClose(); return }
+    val j = remember(index) { trip.journeys.getOrNull(index) } ?: run { LeaveOnce(onClose); return }
     val legs = remember(j) { j.legs.map { LegRef(it.route_id, it.board_stop_id, it.alight_stop_id) } }
     // Legs whose bus type the data can't tell (mixed fleet) get a choice; default AC (the common case).
     val needsType = remember(j) { j.legs.map { (it.fare?.bus_type ?: "unknown") !in listOf("ac", "non_ac") } }
@@ -89,15 +90,17 @@ fun BookScreen(trip: TripViewModel, index: Int, session: SessionViewModel, onClo
 
     LaunchedEffect(Unit) { session.refreshWallet() }
     LaunchedEffect(passengers, women, chosenType) {
+        quote = null          // never show (or confirm) the total for the previous choices
         delay(150)
         runCatching { Api.quote(legs, passengers, women, busTypes) }
             .onSuccess { quote = it; error = null }
-            .onFailure { error = if (it is ApiException && it.status == 0) s.errNetwork else it.message }
+            .onFailure { quote = null; error = if (it is ApiException && it.status == 0) s.errNetwork else it.message }
     }
+    val close = { if (!booking) onClose() }     // not while the wallet is being charged: the ticket would be lost
 
     Box(
         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = close)
             .windowInsetsPadding(WindowInsets.safeDrawing).padding(Space.lg),
         contentAlignment = Alignment.Center,
     ) {
@@ -109,7 +112,7 @@ fun BookScreen(trip: TripViewModel, index: Int, session: SessionViewModel, onClo
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(s.bookTitle, style = MaterialTheme.typography.headlineSmall, color = t.text, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = s.close, tint = t.text) }
+                IconButton(onClick = close, enabled = !booking) { Icon(Icons.Outlined.Close, contentDescription = s.close, tint = t.text) }
             }
             // The demo status is always visible as text.
             Text(

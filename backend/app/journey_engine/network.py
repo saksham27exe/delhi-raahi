@@ -62,6 +62,8 @@ class Network:
             return self._active_cache[d]
         if self.calendar is None and self.calendar_dates is None:
             return None
+        if len(self._active_cache) > 400:
+            self._active_cache.clear()
         active: set[str] = set()
         ymd = int(d.strftime("%Y%m%d"))
         if self.calendar is not None:

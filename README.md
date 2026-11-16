@@ -32,7 +32,7 @@ backend/     FastAPI service: data pipeline, crowd model, journey planner, fares
   app/ml_engine/       LightGBM route forecast, conformal intervals, stretch calibration + evaluation
   app/journey_engine/  own bus router on static GTFS + crowd-aware ranking (ranking_config.json)
   app/fare_engine/     DTC slab fares (fare_rules.json), validated against e-ticket amounts
-  tests/               143 tests
+  tests/               154 tests
 scripts/     run_pipeline.py · train_model.py · check_patterns.py · validate_fares.py · fetch_gtfs.py
 android/     the rider app (Kotlin, Jetpack Compose): plan, live buses, demo tickets, insights, voice, en + hi
 admin/       admin website for operators (React): dashboard, crowd hotspots, support, users, alerts, audit
@@ -131,7 +131,7 @@ The server address can also be changed inside the app under **Account → Settin
 ## Tests
 
 ```bash
-cd backend && ../.venv/Scripts/python -m pytest -q          # 143 tests: pipeline, model, planner, fares, API, admin
+cd backend && ../.venv/Scripts/python -m pytest -q          # 154 tests: pipeline, model, planner, fares, API, admin
 cd android && ./gradlew testDebugUnitTest                   # app unit tests
 ```
 

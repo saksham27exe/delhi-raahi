@@ -6,6 +6,7 @@ import io
 import json
 from datetime import datetime
 
+from app.services.support import csv_cell
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
@@ -71,7 +72,7 @@ def _csv(rows: list[list], name: str) -> Response:
     out = io.StringIO()
     w = csv.writer(out)
     for r in rows:
-        w.writerow([("'" + v) if isinstance(v, str) and v[:1] in "=+-@" else ("" if v is None else v) for v in r])
+        w.writerow([csv_cell(v) for v in r])
     return Response("﻿" + out.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}-{datetime.now():%Y%m%d-%H%M}.csv"'})
 

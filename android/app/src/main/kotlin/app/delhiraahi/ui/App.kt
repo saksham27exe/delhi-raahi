@@ -254,7 +254,7 @@ fun App(settings: Settings, store: SettingsStore) {
 
 
 
-    var voiceOpen by remember { mutableStateOf(false) }
+    var voiceOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }   // survives rotation
 
     // "Hey Raahi": hands-free start. Listens only while the app is on screen and the panel is closed.
     val wakeOn = settings.wakeWord ?: app.delhiraahi.voice.screenReaderOn(ctx)
@@ -272,7 +272,11 @@ fun App(settings: Settings, store: SettingsStore) {
         onDispose { lifecycle.lifecycle.removeObserver(obs); wake.release() }
     }
     val askMicWake = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> micOk = ok }
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+        micOk = ok
+        // Said no: remember it (wake word off) instead of asking again at every start; it can be switched on in Account.
+        if (!ok) scope.launch { store.setWakeWord(false) }
+    }
     // Wake word on (e.g. TalkBack user) but no microphone permission yet: ask once.
     LaunchedEffect(wakeOn) { if (wakeOn && !micOk) askMicWake.launch(android.Manifest.permission.RECORD_AUDIO) }
     LaunchedEffect(wakeOn, voiceOpen, onScreen, micOk) {

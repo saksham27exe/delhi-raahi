@@ -55,6 +55,11 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
     for r in (journey, stops, live_routes, tickets, account, crowd, insights, voice, support, admin, admin_support, admin_ops, admin_users, admin_data):
         app.include_router(r.router)
 
+    @app.exception_handler(OverflowError)
+    async def _too_big(_request, _exc):      # e.g. an id or date far outside any real range
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "A number or date in the request is out of range."}, status_code=422)
+
     @app.get("/api/v1/health", tags=["meta"])
     def health(st: AppState = Depends(get_state)) -> dict:
         comps = {"gtfs_network": st.network is not None, "crowd_model": st.crowd is not None,
@@ -63,7 +68,9 @@ def create_app(state: AppState | None = None, live: bool = True) -> FastAPI:
                  "live_feed": bool(st.live is not None and st.live.status()["live"])}
         meta = _json(st.settings.artifacts_dir / "route_model_meta.json") or {}
         core = comps["gtfs_network"] and comps["crowd_model"]
-        return {"status": "ok" if core else "degraded", "components": comps, "load_errors": st.load_errors,
+        return {"status": "ok" if core else "degraded", "components": comps,
+                # only which part failed and the kind of error: messages can hold local file paths
+                "load_errors": {k: str(v).split(":")[0] for k, v in st.load_errors.items()},
                 "accounts_store": getattr(st.accounts, "kind", "local") if st.accounts is not None else None,
                 "load_seconds": st.load_seconds, "model_version": meta.get("model_version"),
                 "data_window": meta.get("training_period")}
