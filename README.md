@@ -4,6 +4,14 @@
 
 Transport Stack Hackathon 2026 · Problem 2: crowdedness-aware journey planner
 
+## 🎬 Watch the explanation video
+
+<a href="https://drive.google.com/file/d/1fvUcp8A9kTxPghx6nEwVsL3aLf0I6ci3/view?usp=drive_link">
+  <img src="docs/screenshots/video-thumbnail.jpg" alt="DelhiRaahi explanation video — click to watch" width="640">
+</a>
+
+▶️ [Watch on Google Drive](https://drive.google.com/file/d/1fvUcp8A9kTxPghx6nEwVsL3aLf0I6ci3/view?usp=drive_link)
+
 ---
 
 ## The idea in 30 seconds
