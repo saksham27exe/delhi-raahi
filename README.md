@@ -43,6 +43,33 @@ Older prototypes (`frontend/` web version, `mobile/` Expo version) are kept for 
 
 ---
 
+## Screenshots
+
+### 🖥️ Admin website
+
+**Dashboard** — users, bookings, complaints and system health at a glance.
+
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><b>Crowd hotspots</b> — the most crowded bus stretches right now, from the crowd model.<br><br>
+      <img src="docs/screenshots/admin-hotspots.png" alt="Busiest stretches now"></td>
+    <td width="50%"><b>Support desk</b> — rider complaints sorted by urgency; safety issues are flagged first.<br><br>
+      <img src="docs/screenshots/admin-support.png" alt="Support desk"></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Service alerts</b> — notices in English and Hindi, shown inside the app.<br><br>
+      <img src="docs/screenshots/admin-alerts.png" alt="Service alerts"></td>
+    <td width="50%"><b>Users &amp; bookings</b> — rider accounts, demo wallets and tickets.<br><br>
+      <img src="docs/screenshots/admin-users.png" alt="Users and bookings"></td>
+  </tr>
+</table>
+
+<sub>Screenshots use made-up demo riders and requests, not real user data.</sub>
+
+---
+
 ## How it works
 
 ```
