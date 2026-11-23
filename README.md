@@ -45,28 +45,51 @@ Older prototypes (`frontend/` web version, `mobile/` Expo version) are kept for 
 
 ## Screenshots
 
-### 🖥️ Admin website
-
-**Dashboard** — users, bookings, complaints and system health at a glance.
-
-![Admin dashboard](docs/screenshots/admin-dashboard.png)
+### 📱 Android app
 
 <table>
   <tr>
-    <td width="50%"><b>Crowd hotspots</b> — the most crowded bus stretches right now, from the crowd model.<br><br>
-      <img src="docs/screenshots/admin-hotspots.png" alt="Busiest stretches now"></td>
-    <td width="50%"><b>Support desk</b> — rider complaints sorted by urgency; safety issues are flagged first.<br><br>
-      <img src="docs/screenshots/admin-support.png" alt="Support desk"></td>
+    <td width="33%" valign="top"><b>Same time, different crowd</b><br>Two buses leave Badarpur Border at 08:30 and take
+      39 min — 440A is <b>Low</b>, 874E is <b>High</b>. The coloured bar shows crowding stretch by stretch.<br><br>
+      <img src="docs/screenshots/app-journeys.png" alt="Journey options with crowd levels"></td>
+    <td width="33%" valign="top"><b>When is my bus quiet?</b><br>Route 433 through the day (busiest ≈ 09:30) and a
+      city map of the busiest stretches.<br><br>
+      <img src="docs/screenshots/app-insights.png" alt="Insights: crowding through the day"></td>
+    <td width="33%" valign="top"><b>हिंदी में भी</b><br>The whole app works in English and Hindi.<br><br><br>
+      <img src="docs/screenshots/app-journeys-hindi.png" alt="Journey options in Hindi"></td>
   </tr>
   <tr>
-    <td width="50%"><b>Service alerts</b> — notices in English and Hindi, shown inside the app.<br><br>
+    <td width="33%" valign="top"><b>Live buses</b><br>Real-time bus positions from the Delhi GTFS-realtime feed.<br><br>
+      <img src="docs/screenshots/app-live.png" alt="Live bus map"></td>
+    <td width="33%" valign="top"><b>Live arrivals at a stop</b><br>Next buses, and whether each one is late or early.<br><br>
+      <img src="docs/screenshots/app-stop.png" alt="Live arrivals at a stop"></td>
+    <td width="33%"></td>
+  </tr>
+</table>
+
+### 🖥️ Admin website
+
+**Dashboard** — users, demo bookings, support requests and ~3,800 live buses at a glance.
+
+![Admin dashboard](docs/screenshots/admin-dashboard.jpg)
+
+**Crowd hotspots + system health** — the most crowded bus stretches right now (from the crowd model), and the
+status of every part of the system.
+
+![Busiest stretches and system health](docs/screenshots/admin-hotspots.jpg)
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><b>Support desk</b> — complaints sorted by urgency; safety issues are flagged first.<br><br>
+      <img src="docs/screenshots/admin-support.png" alt="Support desk"></td>
+    <td width="33%" valign="top"><b>Service alerts</b> — notices in English and Hindi, shown inside the app.<br><br>
       <img src="docs/screenshots/admin-alerts.png" alt="Service alerts"></td>
-    <td width="50%"><b>Users &amp; bookings</b> — rider accounts, demo wallets and tickets.<br><br>
+    <td width="33%" valign="top"><b>Users &amp; bookings</b> — rider accounts, demo wallets and tickets.<br><br>
       <img src="docs/screenshots/admin-users.png" alt="Users and bookings"></td>
   </tr>
 </table>
 
-<sub>Screenshots use made-up demo riders and requests, not real user data.</sub>
+<sub>Support desk, service alerts and users use made-up sample data, so no real rider's details are published.</sub>
 
 ---
 
